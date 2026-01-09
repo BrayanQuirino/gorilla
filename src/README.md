@@ -1,1 +1,15 @@
 # gorilla
+
+## Revisión jueves 15 de enero.
+
+## Banti organiza modulo de carpetas
+
+## Tipo de movimiento humano NORMAL,  Variables brave, speed, agilidad, fatigue
+
+## Tipo de movimiento humano STRONG,  Variables brave, speed, agilidad, fatigue
+
+## Tipo de movimiento humano ELITE,  Variables brave, speed, agilidad, fatigue
+
+## Tipo de movimiento Gorila speed, agilidad, fatigue
+
+## Brayan agregar variable humanKillRange.
