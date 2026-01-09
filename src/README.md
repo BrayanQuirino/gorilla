@@ -13,3 +13,5 @@
 ## Tipo de movimiento Gorila speed, agilidad, fatigue
 
 ## Brayan agregar variable humanKillRange.
+
+OK
