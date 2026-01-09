@@ -10,7 +10,7 @@ const pixelesSize = 10;
 
 export class EliteHuman extends Human {
     constructor(x, y, isAlive) {
-        super(x, y);
+        super(x, y,isAlive);
         this.size = eliteHumanSize * pixelesSize;
         this.speed = eliteHumanSpeed;
         this.force = randomNumber(minEliteHumanForce, maxEliteHumanForce);
