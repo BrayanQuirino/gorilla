@@ -1,4 +1,5 @@
-import { randomNumber } from "../utils/random.js";
+import { randomNumber } from "../utils/randomFunctions.js";
+//import * as randomFunctions from "../utils/randomFunctions"
 
 
 const minGorillaSize = 2.5;
@@ -27,5 +28,17 @@ export class Gorilla {
         stroke(this.mainColor);
         fill(this.mainColor);
         circle(this.position.x, this.position.y, this.size)
+    }
+
+    applyDamageIfClose(human) {
+        const distance = p5.Vector.dist(human.position, this.position);
+
+        if (distance <= this.killRange) {
+            const damage = this.force
+            human.damage = Math.max(0, human.damage - damage);
+            if (human.damage <= 0) {
+                human.isAlive = false;
+            }
+        }
     }
 }

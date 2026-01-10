@@ -1,5 +1,5 @@
+import { randomNumber } from "../utils/randomFunctions.js";
 import { Human } from "./Human.js";
-import { randomNumber } from "../utils/random.js";
 
 const strongHumanSize = 1.25;
 const strongHumanSpeed = 1.8;

@@ -1,5 +1,5 @@
 import { Human } from "./Human.js";
-import { randomNumber } from "../utils/random.js";
+import { randomNumber } from "../utils/randomFunctions.js";
 
 const eliteHumanDamage = 2.5;
 const eliteHumanSize = 1.5;
