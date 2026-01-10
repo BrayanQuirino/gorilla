@@ -2,7 +2,8 @@ import { Human } from "./Human.js";
 import { randomNumber } from "../utils/randomFunctions.js";
 import { pixelesSize, eliteHumanDamage, 
     eliteHumanSize, eliteHumanSpeed, 
-    maxEliteHumanForce, minEliteHumanForce } from "../config/constants.js";
+    maxEliteHumanForce, minEliteHumanForce,
+    eliteHumanKillRange } from "../config/constants.js";
 
 export class EliteHuman extends Human {
     constructor(x, y, isAlive) {

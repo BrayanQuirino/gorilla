@@ -1,6 +1,7 @@
 import { graveSize, normalHumanDamage,
     normalHumanForce, normalHumanSize,
-    normalHumanSpeed, pixelesSize } from "../config/constants.js";
+    normalHumanSpeed, pixelesSize, 
+    normalHumanKillRange} from "../config/constants.js";
 
 export class Human {
     constructor(x, y, isAlive) {
@@ -16,6 +17,7 @@ export class Human {
         this.damage = normalHumanDamage;
         this.type = "NORMAL"
         this.name = 'JUAN'
+        this.direction = createVector(1,1);
     }
 
     show() {
@@ -23,17 +25,19 @@ export class Human {
             stroke('black');
             fill(this.mainColor);
             circle(this.position.x, this.position.y, this.size);
+           
         }
     }
 
-    moveToObjective(gorillaPosition) {
-        // 1. Calcular el vector dirección (hacia dónde debe ir)
-        let direccion = p5.Vector.sub(gorillaPosition, this.position);
-        // 2. Comprobar si ya llegó (para evitar que "tiemble" al estar encima)
-        if (direccion.mag() > 1) {
-            direccion.normalize();
-            direccion.mult(0.3 * this.speed);
-            this.position.add(direccion);
+    moveToObjective(gorilla) {
+        this.direction = p5.Vector.sub(gorilla.position, this.position);
+        const killRange = this.size/2 +  gorilla.size/2;
+        const distance = p5.Vector.dist(gorilla.position, this.position);
+        //line(this.position.x, this.position.y, this.position.x + this.direction.x -30, this.position.y + this.direction.y -30);
+        if (distance >= killRange) {
+            this.direction.normalize();
+            this.direction.mult(0.3 * this.speed);
+            this.position.add(this.direction);
         }
     }
 

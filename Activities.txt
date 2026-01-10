@@ -10,8 +10,66 @@
 
 ## Tipo de movimiento humano ELITE,  Variables brave, speed, agilidad, fatigue
 
+
+
+
 ## Tipo de movimiento Gorila speed, agilidad, fatigue
 
-## Brayan agregar variable humanKillRange.
+Se agrega un tipo de movimiento. Este es el de carga. Va con tiempo y descanso. Se agregan variables. Primera version
+Problemas encontrados...
+
+1. Los huamnos terminarán con una misma inclinación, es decir se unifican. Hay que darles más movimiento. No lineal.
+2. Hay mas tipos de movimiento.
+
+
+## Brayan agregar variable humanKillRange. Resolved
 
 ## Error Human Elite dead Resolved.
+
+
+El gorila no elige conscientemente. Ataca:
+
+Al humano más cercano
+
+O al que invade más su espacio
+
+O al que se mueve o grita
+
+No distingue fuerza, tamaño ni número.
+
+Tipo de acciones
+
+Empujones violentos
+
+Golpes descendentes
+
+Agarre y sacudida
+
+Mordida solo si hay contacto cercano prolongado
+
+Incluso en ataques documentados:
+
+El gorila golpea
+
+Genera espacio
+
+Se retira inmediatamente
+
+Cargas en diagonal de 3 - 8 metros. Extremos 10 - 12 metros. cambios bruscos de direccion al final.
+
+
+| Acción del gorila                   | Descripción biomecánica       | Valor relativo de fuerza |
+| ----------------------------------- | ----------------------------- | ------------------------ |
+| Empujón con ambos brazos            | Uso de masa corporal completa | **10 – 15**              |
+| Golpe descendente con brazo         | Movimiento tipo martillo      | **12 – 18**              |
+| Golpe lateral (barrido)             | Rotación de torso + brazo     | **15 – 20**              |
+| Agarre + sacudida                   | Fuerza de prensión + tracción | **18 – 25**              |
+| Lanzamiento corto (empujar/arrojar) | Palanca + peso corporal       | **20 – 30**              |
+| Mordida defensiva                   | Mandíbula + cuello            | **8 – 12**               |
+| Golpe al suelo/pecho (intimidación) | No dirigido a dañar           | **5 – 8**                |
+| Carga corporal (sin golpe directo)  | Inercia + masa                | **15 – 22**              |
+
+
+Humano entrenado (boxeador): 2 – 3
+
+Humano muy fuerte (levantador): 3 – 4

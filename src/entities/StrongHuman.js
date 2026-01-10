@@ -1,6 +1,7 @@
 import { pixelesSize, strongHumanDamage, 
     maxStrongHumanForce, strongHumanSize, 
-    strongHumanSpeed, minStrongHumanForce } from "../config/constants.js";
+    strongHumanSpeed, minStrongHumanForce,
+    strongHumanKillRange } from "../config/constants.js";
 import { randomNumber } from "../utils/randomFunctions.js";
 import { Human } from "./Human.js";
 

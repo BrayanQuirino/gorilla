@@ -11,6 +11,8 @@ window.setup = function () {
     gorilla = new Gorilla(width / 2, height / 2);
     humans = createHumans();
 
+    console.log(gorilla.maxDist, gorilla.maxDist/3*2)
+
 }
 
 window.draw = function () {
@@ -20,11 +22,14 @@ window.draw = function () {
         gorilla.applyDamageIfClose(human);
         if (human.isAlive) {
             human.show();
-            human.moveToObjective(gorilla.position);
+            human.moveToObjective(gorilla);
         } else {
             human.drawGrave();
         }
     });
+
+    gorilla.charge();
+   
     //gorilla.position.set(mouseX, mouseY);
 
 }
