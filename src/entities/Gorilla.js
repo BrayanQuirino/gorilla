@@ -1,15 +1,9 @@
+import { minGorillaSize, maxGorillaSize, 
+    gorillaDamage, gorillaKillRange, 
+    gorillaSpeed, maxGorillaForce, 
+    minGorillaForce, pixelesSize } from "../config/constants.js";
 import { randomNumber } from "../utils/randomFunctions.js";
 //import * as randomFunctions from "../utils/randomFunctions"
-
-
-const minGorillaSize = 2.5;
-const maxGorillaSize = 3;
-const minGorillaForce = 6;
-const maxGorillaForce = 10;
-const pixelesSize = 10;
-const gorillaSpeed = 1.5;
-const gorillaDamage = 100;
-const gorillaKillRange = 1.5;
 
 export class Gorilla {
     constructor(x, y) {

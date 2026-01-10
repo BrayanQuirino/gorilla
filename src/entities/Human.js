@@ -1,10 +1,6 @@
-import { graveSize } from "../config/constants.js";
-
-const normalHumanSize = 1;
-const normalHumanForce = 1;
-const normalHumanSpeed = 1;
-const normalHumanDamage = 1;
-const pixelesSize = 10;
+import { graveSize, normalHumanDamage,
+    normalHumanForce, normalHumanSize,
+    normalHumanSpeed, pixelesSize } from "../config/constants.js";
 
 export class Human {
     constructor(x, y, isAlive) {

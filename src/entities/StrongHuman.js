@@ -1,12 +1,9 @@
+import { pixelesSize, strongHumanDamage, 
+    maxStrongHumanForce, strongHumanSize, 
+    strongHumanSpeed, minStrongHumanForce } from "../config/constants.js";
 import { randomNumber } from "../utils/randomFunctions.js";
 import { Human } from "./Human.js";
 
-const strongHumanSize = 1.25;
-const strongHumanSpeed = 1.8;
-const strongHumanDamage = 1.5;
-const minStrongHumanForce = 1.5;
-const maxStrongHumanForce = 2;
-const pixelesSize = 10;
 
 export class StrongHuman extends Human {
     constructor(x, y, isAlive) {
