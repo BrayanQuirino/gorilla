@@ -8,20 +8,19 @@ let humans = [];
 
 window.setup = function () {
     createCanvas(canvasW, canvasH);
-    gorilla = new Gorilla(width / 2, height / 2);
+    gorilla = new Gorilla(width / 2, height / 2, "DonkyKong");
     humans = createHumans();
-
-    console.log(gorilla.maxDist, gorilla.maxDist/3*2)
-
 }
 
 window.draw = function () {
     background(220);
     gorilla.show();
+    gorilla.showLife();
     humans.forEach((human, index) => {
         gorilla.applyDamageIfClose(human);
         if (human.isAlive) {
             human.show();
+            human.showLife();
             human.moveToObjective(gorilla);
         } else {
             human.drawGrave();

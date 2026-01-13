@@ -2,22 +2,31 @@ import { graveSize, normalHumanDamage,
     normalHumanForce, normalHumanSize,
     normalHumanSpeed, pixelesSize, 
     normalHumanKillRange} from "../config/constants.js";
+import { Animal } from "./Animal.js";
 
-export class Human {
-    constructor(x, y, isAlive) {
-        // This code runs once when an instance is created.
-        this.x = x;
-        this.y = y;
-        this.isAlive = isAlive;
+export class Human extends Animal{
+    constructor(x, y, name) {
+        // VARIABLES DE POSICION
+        super(x,y,name);
+
+        //VARIABLES DE ESTADO
+        
+        //VARIABLES DE CARACTERISTICAS FISICAS
         this.size = normalHumanSize * pixelesSize;
-        this.mainColor = 'pink';
         this.force = normalHumanForce;
-        this.position = createVector(this.x, this.y);
         this.speed = normalHumanSpeed;
+        //this.aceleration = normalHumanAceleration.
+        //this.angleOfVision?
+        this.mainColor = 'pink';
+
+        //VARIABLES DE ATRIBUTOS
         this.damage = normalHumanDamage;
-        this.type = "NORMAL"
-        this.name = 'JUAN'
-        this.direction = createVector(1,1);
+        this.maxDamageSupported = this.damage;
+        //this.killRange = 
+
+        //VARIABLES IDENTIFICADORAS
+        this.type = "NORMAL"        
+
     }
 
     show() {

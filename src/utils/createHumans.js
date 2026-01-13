@@ -12,11 +12,11 @@ export function createHumans() {
         const { x, y } = randomPosition(width / 2, height / 2, 50, height / 2);
 
         if (r < 1) {
-            humans.push(new EliteHuman(x, y, true));
+            humans.push(new EliteHuman(x, y, 'JUAN'));
         } else if (r < random(40, 90)) {
-            humans.push(new StrongHuman(x, y, true));
+            humans.push(new StrongHuman(x, y, 'JUAN'));
         } else {
-            humans.push(new Human(x, y, true));
+            humans.push(new Human(x, y, 'JUAN'));
         }
     }
     return humans;

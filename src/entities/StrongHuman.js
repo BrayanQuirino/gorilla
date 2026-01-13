@@ -7,13 +7,27 @@ import { Human } from "./Human.js";
 
 
 export class StrongHuman extends Human {
-    constructor(x, y, isAlive) {
-        super(x, y, isAlive);
+    constructor(x, y,name) {
+        // VARIABLES DE POSICION
+        super(x, y,name);
+
+        //VARIABLES DE ESTADO
+
+        //VARIABLES DE CARACTERISTICAS FISICAS
         this.size = strongHumanSize * pixelesSize;
-        this.speed = strongHumanSpeed;
         this.force = randomNumber(minStrongHumanForce, maxStrongHumanForce);
+        this.speed = strongHumanSpeed;
+        //this.aceleration = normalHumanAceleration.
+        //this.angleOfVision?
         this.mainColor = 'purple';
+
+        //VARIABLES DE ATRIBUTOS
         this.damage = strongHumanDamage;
+        this.maxDamageSupported = this.damage;
+
+        //this.killRange = 
+
+        //VARIABLES IDENTIFICADORAS
         this.type = "FUERTE"
     }
 

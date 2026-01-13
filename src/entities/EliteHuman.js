@@ -6,13 +6,26 @@ import { pixelesSize, eliteHumanDamage,
     eliteHumanKillRange } from "../config/constants.js";
 
 export class EliteHuman extends Human {
-    constructor(x, y, isAlive) {
-        super(x, y,isAlive);
+    constructor(x, y,name) {
+        // VARIABLES DE POSICION
+        super(x, y,name);
+
+        //VARIABLES DE ESTADO
+
+        //VARIABLES DE CARACTERISTICAS FISICAS
         this.size = eliteHumanSize * pixelesSize;
-        this.speed = eliteHumanSpeed;
         this.force = randomNumber(minEliteHumanForce, maxEliteHumanForce);
+        this.speed = eliteHumanSpeed;
+        //this.aceleration = normalHumanAceleration.
+        //this.angleOfVision?
         this.mainColor = 'blue';
+
+        //VARIABLES DE ATRIBUTOS
         this.damage = eliteHumanDamage;
+        this.maxDamageSupported = this.damage;
+        //this.killRange = 
+
+        //VARIABLES IDENTIFICADORAS
         this.type = "ELITE"
     }
 

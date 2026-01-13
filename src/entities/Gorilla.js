@@ -3,32 +3,40 @@ import { minGorillaSize, maxGorillaSize,
     gorillaSpeed, maxGorillaForce, 
     minGorillaForce, pixelesSize,
     gorrilaAceleration, angleOfVision } from "../config/constants.js";
-import { randomNumber } from "../utils/randomFunctions.js";
+import { randomDecimalNumber, randomNumber } from "../utils/randomFunctions.js";
+import { Animal } from "./Animal.js";
 //import * as randomFunctions from "../utils/randomFunctions"
 
-export class Gorilla {
+export class Gorilla extends Animal {
     constructor(x, y) {
-        // This code runs once when an instance is created.
-        this.x = x;
-        this.y = y;
+        // VARIABLES DE POSICION
+        super(x, y);
+        this.chargeDirection = p5.Vector.random2D().setMag(1);
+
+
+        //VARIABLES DE ESTADO
+        this.isCharging = true;
+        this.isResting = false;
+        this.counterTime =  millis();
+
+        //VARIABLES DE CARACTERISTICAS FISICAS
+
         this.size = randomNumber(minGorillaSize, maxGorillaSize) * pixelesSize;
-        this.mainColor = 'black';
         this.force = randomNumber(minGorillaForce, maxGorillaForce);
-        this.position = createVector(this.x, this.y);
-        this.damage = this.force * gorillaDamage;
-        this.killRange = this.size + gorillaKillRange;
-
-
         this.speed = gorillaSpeed;
         this.aceleration = gorrilaAceleration;
         this.angleOfVision =  angleOfVision;
+        this.mainColor = 'black';
 
-        this.isCharging = true;
-        this.isResting = false;
-        this.startPosition = this.position.copy();
+        //VARIABLES DE ATRIBUTOS
+        this.damage = this.force * gorillaDamage;
+        this.maxDamageSupported = this.damage;
+        this.killRange = this.size + gorillaKillRange;
         this.maxDistanceToCharge = randomNumber(80,120);
-        this.chargeDirection = p5.Vector.random2D().setMag(1);
-        this.counterTime =  millis();
+
+        //VARIABLES IDENTIFICADORAS
+        //this.type = "NORMAL"
+        this.name = 'DonkyKong'
     }
 
     show() {
@@ -38,22 +46,81 @@ export class Gorilla {
         line(this.position.x, this.position.y, this.position.x + this.chargeDirection.x * 30, this.position.y + this.chargeDirection.y * 30);
     }
 
+
     applyDamageIfClose(human) {
+
+        //SI EL GORILLA ESTÁ EN MODO CARGA
         if(this.isCharging){
+            //SI EL HUMANO ESTÁ VIVO
             if(human.isAlive){
+                /**
+                 * Se calcula el vector de direccion del humano, si está en contra del gorilla lo atropella
+                 * El gorilla tiene vision de 180 grados
+                 * Los primeros 60 grados (30 izquierda, 30 derecha) Es un golpe total
+                 * Los siguientes 60 grados (de 60 a 30 en izquierda y de 60 a 30 en derecha) es un golpe fuerte (La mitad de vida)
+                 * Los ultimos 60 grados (de 90 a 60) Golpe menor, pero muy fuerte.
+                 */
                 let directionToHuman = p5.Vector.sub(human.position, this.position).normalize();
                 let angle = degrees(this.chargeDirection.angleBetween(directionToHuman));
                 angle = abs(angle);
                 if (angle <= this.angleOfVision){
-                    const chargeKillRage = this.size/2 +  human.size/2;
+
+                    const chargeKillRange = this.size/2 +  human.size/2;
                     const distance = p5.Vector.dist(human.position, this.position);
-                    if (distance <= chargeKillRage) {
-                        const damage = this.force
-                        human.damage = Math.max(0, human.damage - damage);
-                        if (human.damage <= 0) {
-                            human.isAlive = false;
+                    let  damage = this.force
+
+                    if(angle <= 30){
+                        if (distance <= chargeKillRange) {
+
+                            //Daño calculado con toda la fuerza del gorilla
+                            human.damage = Math.max(0, human.damage - damage);
+                            if (human.damage <= 0) {
+                                human.isAlive = false;
+                            }else{
+                                human.isInmobilized = true;
+                                human.speed = randomDecimalNumber(0.1, 0.3).toFixed(2); 
+                                //human.position = p5.Vector.add(this.position,p5.Vector.fromAngle(random(TWO_PI)).mult(this.size*2));
+                            }
+                        }
+                    }else if(angle >30 && angle <= 60){
+                        if (distance <= chargeKillRange) {
+                            /*
+                            
+                            Código con la mitad de fuerza del gorilla
+                            damage /=2;
+                            human.damage = Math.max(0, human.damage - damage);
+                            
+                            */
+
+                            // No aguantan el vergazo. Por eso se quita la mitad de vida y se reduce la velocidad del humano 
+                            // lo deja con su velocidad al (10-50%)
+                           human.damage -= human.damage/2;
+                           human.isInmobilized = true;
+                           human.speed = randomDecimalNumber(0.1, 0.5).toFixed(2);
+                           //human.position = p5.Vector.add(this.position,p5.Vector.fromAngle(random(TWO_PI)).mult(this.size*2));
+
+                        }
+                    }else if(angle >60){
+                        if (distance <= chargeKillRange) {
+                            /*
+                            
+                            Código con un tercio de fuerza del gorilla
+                            damage /=3;
+                            human.damage = Math.max(0, human.damage - damage); 
+                            
+                            */
+
+                            // No aguantan el vergazo. Por eso se quita un tercio de vida y se reduce la velocidad del humano 
+                            // lo deja con su velocidad al (20-100%)
+                           human.damage -= human.damage/3;
+                           human.isInmobilized = true;
+                           human.speed = randomDecimalNumber(0.2, 1).toFixed(2);
+                           //human.position = p5.Vector.add(this.position,p5.Vector.fromAngle(random(TWO_PI)).mult(this.size*1.5));
+                           //console.log(angle, human.mainColor, human.damage, human.speed);
                         }
                     }
+
+                    if (human.damage <= 0) human.isAlive = false;
                 }  
             }
         }

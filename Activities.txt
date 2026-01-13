@@ -19,12 +19,26 @@ Se agrega un tipo de movimiento. Este es el de carga. Va con tiempo y descanso. 
 Problemas encontrados...
 
 1. Los huamnos terminarán con una misma inclinación, es decir se unifican. Hay que darles más movimiento. No lineal.
-2. Hay mas tipos de movimiento.
+2. Hay mas tipos de movimiento del Gorrilla
+3. El gorrilla no sale de los bordes pero si la mitad
+4. Si el gorilla embiste hasy que programar efecto de ser lanzado
+5. Revalorar fuerza del gorilla y humanos. 
+6. Barra de vida en las cabeceras (¿como virus?)
 
 
 ## Brayan agregar variable humanKillRange. Resolved
 
 ## Error Human Elite dead Resolved.
+
+##Barra de vida Resolved
+
+
+
+
+
+
+
+
 
 
 El gorila no elige conscientemente. Ataca:
