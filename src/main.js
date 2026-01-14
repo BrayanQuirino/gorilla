@@ -15,19 +15,14 @@ window.setup = function () {
 window.draw = function () {
     background(220);
     gorilla.show();
-    gorilla.showLife();
     humans.forEach((human, index) => {
         gorilla.applyDamageIfClose(human);
-        if (human.isAlive) {
-            human.show();
-            human.showLife();
-            human.moveToObjective(gorilla);
-        } else {
-            human.drawGrave();
-        }
+        human.show();
+        human.moveToObjective(gorilla);
     });
 
     gorilla.charge();
+
    
     //gorilla.position.set(mouseX, mouseY);
 

@@ -10,6 +10,7 @@ export class Human extends Animal{
         super(x,y,name);
 
         //VARIABLES DE ESTADO
+       
         
         //VARIABLES DE CARACTERISTICAS FISICAS
         this.size = normalHumanSize * pixelesSize;
@@ -35,18 +36,40 @@ export class Human extends Animal{
             fill(this.mainColor);
             circle(this.position.x, this.position.y, this.size);
            
+            this.showLife();
         }
     }
 
     moveToObjective(gorilla) {
-        this.direction = p5.Vector.sub(gorilla.position, this.position);
-        const killRange = this.size/2 +  gorilla.size/2;
-        const distance = p5.Vector.dist(gorilla.position, this.position);
-        //line(this.position.x, this.position.y, this.position.x + this.direction.x -30, this.position.y + this.direction.y -30);
-        if (distance >= killRange) {
-            this.direction.normalize();
-            this.direction.mult(0.3 * this.speed);
-            this.position.add(this.direction);
+        if(this.isLaunched == false){
+            if(this.isAlive){
+                this.direction = p5.Vector.sub(gorilla.position, this.position);
+                const killRange = this.size/2 +  gorilla.size/2;
+                const distance = p5.Vector.dist(gorilla.position, this.position);
+                //line(this.position.x, this.position.y, this.position.x + this.direction.x -30, this.position.y + this.direction.y -30);
+                if (distance >= killRange) {
+                    this.direction.normalize();
+                    this.direction.mult(0.3 * this.speed);
+                    this.position.add(this.direction);
+                }
+            }else{
+                this.drawGrave();
+            }
+        }else{
+            this.moveToLaunch(gorilla.size*gorilla.forceToLaunch);
+        }
+    }
+
+    moveToLaunch(size) {
+        if(this.isLaunched){
+            const distance = p5.Vector.dist(this.positionLaunched, this.position);
+            if (distance < size) {
+                this.direction.normalize();
+                this.direction.mult(3);
+                this.position.add(this.direction);
+            }else{
+                this.isLaunched = false;
+            }
         }
     }
 

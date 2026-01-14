@@ -8,10 +8,12 @@ export class Animal {
         this.position = createVector(this.x, this.y);
         this.startPosition = this.position.copy();
         this.direction = createVector(1,1);
+        this.positionLaunched = createVector(1,1);
 
         //VARIABLES DE ESTADO
         this.isAlive = true;
         this.isInmobilized = false;
+        this.isLaunched = false;
 
         //VARIABLES DE CARACTERISTICAS FISICAS
 

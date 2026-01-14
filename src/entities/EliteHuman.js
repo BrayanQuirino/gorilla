@@ -34,6 +34,8 @@ export class EliteHuman extends Human {
             stroke('black');
             fill(this.mainColor);
             circle(this.position.x, this.position.y, this.size);
+
+            this.showLife();
         }
     }
 }

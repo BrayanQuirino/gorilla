@@ -36,3 +36,5 @@ export const gorrilaAceleration = 1;
 export const gorillaDamage = 100;
 export const gorillaKillRange = 1.5;
 export const angleOfVision = 90; //REMEMBER THAT ITS MEANS 180 degrees
+export const minGorillaforceToLaunch = 1.5;
+export const maxGorillaforceToLaunch = 2.0;

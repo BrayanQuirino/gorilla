@@ -3,7 +3,7 @@ export function randomNumber(min, max) {
 }
 
 export function randomDecimalNumber(min, max) {
-    return Math.random(min,max+Number.EPSILON);
+    return random(min,max).toFixed(2);
 }
 
 export function randomPosition(x, y, minDist, maxDist) {
