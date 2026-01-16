@@ -1,44 +1,83 @@
 # gorilla
 
-## Revisión jueves 15 de enero.
+TERMINADO:
 
-## Banti organiza modulo de carpetas - OK
+## Revisión jueves 15 de enero.
+## Banti organiza modulo de carpetas
+## Movimiento Craga Gorilla
+## Brayan agregar variable humanKillRange. Resolved
+## Error Human Elite dead Resolved.
+## Barra de vida Resolved
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+PENDIENTE:
+
+## RESTRUCTURAR CREACION DE humanos - BANTI
+## IDENTIFICAR ACCIONES DE LOS humanos - BANTI
+
 
 ## Tipo de movimiento humano NORMAL,  Variables brave, speed, agilidad, fatigue
-
 ## Tipo de movimiento humano STRONG,  Variables brave, speed, agilidad, fatigue
-
 ## Tipo de movimiento humano ELITE,  Variables brave, speed, agilidad, fatigue
 
 
 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-## Tipo de movimiento Gorila speed, agilidad, fatigue
+PROBLEMAS:
 
-Se agrega un tipo de movimiento. Este es el de carga. Va con tiempo y descanso. Se agregan variables. Primera version
-Problemas encontrados...
 
 1. Los huamnos terminarán con una misma inclinación, es decir se unifican. Hay que darles más movimiento. No lineal.
 2. Hay mas tipos de movimiento del Gorrilla
-3. El gorrilla no sale de los bordes pero si la mitad
-4. Si el gorilla embiste hasy que programar efecto de ser lanzado
+3. El gorrilla no sale de los bordes pero si la mitad BRAYAN
+4. Los humanos se aplastan entre si. - BRAYAN
 5. Revalorar fuerza del gorilla y humanos. 
-6. Barra de vida en las cabeceras (¿como virus?)
-
-
-## Brayan agregar variable humanKillRange. Resolved
-
-## Error Human Elite dead Resolved.
-
-##Barra de vida Resolved
+6. Barra de vida en las cabeceras (¿como virus?) -BRAYAN
+7. Botón. de pausa - BRAYAN
 
 
 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+FISICAS DEL JUEGO:
+
+
+1) Valentía
+
+Normales: 15–30 de 100 tienen valentía = 1, el resto 0.1–0.5
+
+Si < 0.2 → se raja.
+
+Fuertes: valentía mínima >= 0.2
+
+Elite: valentía > 0.5
+
+2) Inteligencia + Agresividad
+
+Normales y Fuertes: probabilidad 1/100 de tener inteligencia = 1
+
+Si no: inteligencia 0.1–0.6
+
+agresividad 0.6–1
+
+Elite: inteligencia 0.5–0.8
+
+agresividad 0.1–0.6
+
+3) Agilidad
+
+Normales y Fuertes: 30–50 de 100 tienen agilidad = 0.7, el resto 0.1–0.5
+
+Elite: agilidad = 1
 
 
 
 
+NOTAS:
 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 El gorila no elige conscientemente. Ataca:
