@@ -131,10 +131,9 @@ export class Gorilla extends Animal {
     }
 
     charge(){
-
+        this.elapsedTime =  millis() - this.counterTime;
         if(this.isCharging){
-            let elapsedTime =  millis() - this.counterTime;
-            if(elapsedTime>=3000){
+            if(this.elapsedTime>=3000){
                 this.isCharging = false;
                 this.isResting =  true;
                 this.counterTime = millis ();
@@ -165,15 +164,13 @@ export class Gorilla extends Animal {
                 }
             }
         }else if(this.isResting){
-            let elapsedTime =  millis() - this.counterTime;
-            if(elapsedTime>=2000){
+            if(this.elapsedTime>=2000){
                 //console.log("encendido", elapsedTime);
                 this.isCharging = true;
                 this.isResting =  false;
                 this.counterTime = millis ();
             }
         }
-
+    
     }
-
 }

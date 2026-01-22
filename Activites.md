@@ -1,83 +1,85 @@
 # gorilla
 
-TERMINADO:
+Listado de actividades y features programadas.
+**Brandon B - Brayan Q**.
 
-## Revisión jueves 15 de enero.
-## Banti organiza modulo de carpetas
-## Movimiento Craga Gorilla
-## Brayan agregar variable humanKillRange. Resolved
-## Error Human Elite dead Resolved.
-## Barra de vida Resolved
+## TERMINADO:
 
-
-----------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-PENDIENTE:
-
-## RESTRUCTURAR CREACION DE humanos - BANTI
-## IDENTIFICAR ACCIONES DE LOS humanos - BANTI
+1. Revisión jueves 15 de enero.
+2. Banti organiza modulo de carpetas
+3. Movimiento Craga Gorilla
+4. Brayan agregar variable humanKillRange. Resolved
+5. Error Human Elite dead Resolved.
+6. Barra de vida Resolved
 
 
-## Tipo de movimiento humano NORMAL,  Variables brave, speed, agilidad, fatigue
-## Tipo de movimiento humano STRONG,  Variables brave, speed, agilidad, fatigue
-## Tipo de movimiento humano ELITE,  Variables brave, speed, agilidad, fatigue
+---
 
+## PENDIENTE:
 
+1. RESTRUCTURAR CREACION DE humanos - **BANTI**
+2. IDENTIFICAR ACCIONES DE LOS humanos - **BANTI**
+3. Tipo de movimiento humano NORMAL,  Variables brave, speed, agilidad, fatigue
+4. Tipo de movimiento humano STRONG,  Variables brave, speed, agilidad, fatigue
+5. Tipo de movimiento humano ELITE,  Variables brave, speed, agilidad, fatigue
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
-PROBLEMAS:
+## PROBLEMAS:
 
 
 1. Los huamnos terminarán con una misma inclinación, es decir se unifican. Hay que darles más movimiento. No lineal.
 2. Hay mas tipos de movimiento del Gorrilla
-3. El gorrilla no sale de los bordes pero si la mitad BRAYAN
-4. Los humanos se aplastan entre si. - BRAYAN
+3. El gorrilla no sale de los bordes pero si la mitad **BRAYAN**
+4. Los humanos se aplastan entre si. - **BRAYAN**
 5. Revalorar fuerza del gorilla y humanos. 
-6. Barra de vida en las cabeceras (¿como virus?) -BRAYAN
-7. Botón. de pausa - BRAYAN
+6. Barra de vida en las cabeceras (¿como virus?) **BRAYAN**
+7. Botón. de pausa - **BRAYAN** <i>**WORKING**</i>
+7.1. Animacion despausa
+7.2. Letras que palpiten para despausar ("Presiona P para continuar")
+8. Activities.**txt** -> Activities.**md - BRAYAN** <i>**SOLVED**</i>
 
 
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
-FISICAS DEL JUEGO:
+## FISICAS DEL JUEGO:
 
 
 1) Valentía
 
-Normales: 15–30 de 100 tienen valentía = 1, el resto 0.1–0.5
+    Normales: 15–30 de 100 tienen valentía = 1, el resto 0.1–0.5
 
-Si < 0.2 → se raja.
+    Si < 0.2 → se raja.
 
-Fuertes: valentía mínima >= 0.2
+    Fuertes: valentía mínima >= 0.2
 
-Elite: valentía > 0.5
+    Elite: valentía > 0.5
 
 2) Inteligencia + Agresividad
 
-Normales y Fuertes: probabilidad 1/100 de tener inteligencia = 1
+    Normales y Fuertes: probabilidad 1/100 de tener inteligencia = 1
 
-Si no: inteligencia 0.1–0.6
+    Si no: inteligencia 0.1–0.6
 
-agresividad 0.6–1
+    agresividad 0.6–1
 
-Elite: inteligencia 0.5–0.8
+    Elite: inteligencia 0.5–0.8
 
-agresividad 0.1–0.6
+    agresividad 0.1–0.6
 
 3) Agilidad
 
-Normales y Fuertes: 30–50 de 100 tienen agilidad = 0.7, el resto 0.1–0.5
+    Normales y Fuertes: 30–50 de 100 tienen agilidad = 0.7, el resto 0.1–0.5
 
-Elite: agilidad = 1
-
-
+    Elite: agilidad = 1
 
 
-NOTAS:
 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+## NOTAS:
+
+---
 
 
 El gorila no elige conscientemente. Ataca:

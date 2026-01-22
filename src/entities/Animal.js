@@ -14,6 +14,8 @@ export class Animal {
         this.isAlive = true;
         this.isInmobilized = false;
         this.isLaunched = false;
+        this.isPaused = false;
+        this.elapsedTime = 0;
 
         //VARIABLES DE CARACTERISTICAS FISICAS
 
@@ -41,6 +43,13 @@ export class Animal {
         let newPercentageLifeX = (this.position.x + (this.size/2)) - newLifeSize;
 
         rect(newPercentageLifeX, this.position.y + this.size*0.6, newLifeSize, this.size*0.3, 4);
+    }
+
+    counterTimeIsPaused(){
+        if(this.isPaused){
+            this.counterTime = millis() - this.elapsedTime;
+            this.elapsedTime = millis() - this.counterTime;
+        }
     }
 
 }

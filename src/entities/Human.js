@@ -37,6 +37,8 @@ export class Human extends Animal{
             circle(this.position.x, this.position.y, this.size);
            
             this.showLife();
+        }else{
+            this.drawGrave();
         }
     }
 
@@ -52,8 +54,6 @@ export class Human extends Animal{
                     this.direction.mult(0.3 * this.speed);
                     this.position.add(this.direction);
                 }
-            }else{
-                this.drawGrave();
             }
         }else{
             this.moveToLaunch(gorilla.size*gorilla.forceToLaunch);
