@@ -35,9 +35,7 @@ Listado de actividades y features programadas.
 5. Revalorar fuerza del gorilla y humanos. 
 6. Barra de vida en las cabeceras (¿como virus?) **BRAYAN**
 7. Botón. de pausa - **BRAYAN** <i>**WORKING**</i>  
-7.1 Animacion despausa  **BRAYAN** **DONE**
-7.2. Letras que palpiten para despausar ("Presiona P para continuar") **BRAYAN** <i>**WORKING**</i> 
-7.3. Despausa con clic en la imagen **BRAYAN** <i>**WORKING**</i>
+7.1 Animacion despausa  **BRAYAN** **DONE**</br>7.2. Letras que palpiten para despausar ("Presiona P para continuar") **BRAYAN** <i>**DONE**</i></br>7.3. Despausa con clic en la imagen **BRAYAN** <i>**WORKING**</i>
 8. Activities.**txt** -> Activities.**md - BRAYAN** <i>**DONE**</i>
 
 
