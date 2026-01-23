@@ -6,49 +6,60 @@ import { PausedWindow } from "./entities/PausedWindow.js";
 
 let gorilla;
 let humans = [];
-let isPaused = false;
 let pausedWindow;
+let retroFont;
+
+window.preload = function (){
+  retroFont = loadFont('utils/resources/fonts/PressStart2P-Regular.ttf');
+}
 
 window.setup = function () {
     createCanvas(canvasW, canvasH);
-    //pausedWindow = new PausedWindow(canvasW, canvasH, 'SLIDE');
-    //pausedWindow = new PausedWindow(canvasW, canvasH, 'BOUNCE');
-    pausedWindow = new PausedWindow(canvasW, canvasH, 'FILLUP');
 
+    /** MODO DE PAUSA 3 POSIBLES: DE ARRIBA ABAJO, REBOTE Y DESVANECIDO: SLIDE, BOUNCE, FILLUP */
+    pausedWindow = new PausedWindow(canvasW, canvasH, 'BOUNCE', retroFont);
 
-
+    /**
+     * SE CREA EL GORILLA Y HUMANOS
+     */
     gorilla = new Gorilla(width / 2, height / 2, "DonkyKong");
     humans = createHumans();
 }
 
 window.draw = function () {
     background(220);
-    gorilla.show();
 
+    /**
+     * MOSTRAR GORILLA Y HUMANOS
+     */
+    gorilla.show();
     humans.forEach((human, index) => {
-        if(!isPaused){
+        if(!pausedWindow.isPaused){
             gorilla.applyDamageIfClose(human);
             human.moveToObjective(gorilla);
         }
         human.show();
     });
 
-    if(!isPaused){
+    /**
+     * SI EL JUEGO SE PAUSA, PAUSAR CONTEOS Y MOVIMIENTOS
+     */
+    if(!pausedWindow.isPaused){
         gorilla.charge();
-        pausedWindow.restart();
     }else{
-
-        pausedWindow.show();
-        gorilla.isPaused = isPaused;
+        gorilla.isPaused = true;
         gorilla.counterTimeIsPaused();
     }
-    
-    //gorilla.position.set(mouseX, mouseY);
+
+    /**
+     * LA PAUSA SIEMPRE SE REVISA, QUEDA AFUERA PARA AYUDAR CON LA LOGICA DE ANIMACIÓN 
+     */
+
+    pausedWindow.show();
 }
 
 window.keyPressed = function (){
-  // Check if the 'p' key (case-insensitive) was pressed
   if (key === 'p' || key === 'P') {
-    isPaused = !isPaused; // Toggle the pause state
+    pausedWindow.isPaused = !pausedWindow.isPaused; 
   }
 }
