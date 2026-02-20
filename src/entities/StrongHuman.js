@@ -17,6 +17,8 @@ export class StrongHuman extends Human {
         this.size = strongHumanSize * pixelesSize;
         this.force = randomNumber(minStrongHumanForce, maxStrongHumanForce);
         this.speed = strongHumanSpeed;
+        this.radius = this.size/2;
+
         //this.aceleration = normalHumanAceleration.
         //this.angleOfVision?
         this.mainColor = 'purple';

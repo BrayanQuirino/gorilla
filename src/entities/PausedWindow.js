@@ -40,10 +40,11 @@ export class PausedWindow{
           fill(this.color);
           switch(this.mode){
               case 'SLIDE':
+                  this.y = this.slideY
                   this.slideUpToDown();
                   break;
               case 'BOUNCE':
-                  
+                  this.y = this.bounceY;
                   this.bounce();
                   break;
               case 'FILLUP':

@@ -17,7 +17,7 @@ window.setup = function () {
     createCanvas(canvasW, canvasH);
 
     /** MODO DE PAUSA 3 POSIBLES: DE ARRIBA ABAJO, REBOTE Y DESVANECIDO: SLIDE, BOUNCE, FILLUP */
-    pausedWindow = new PausedWindow(canvasW, canvasH, 'BOUNCE', retroFont);
+    pausedWindow = new PausedWindow(canvasW, canvasH, 'SLIDE', retroFont);
 
     /**
      * SE CREA EL GORILLA Y HUMANOS
@@ -34,6 +34,11 @@ window.draw = function () {
      */
     gorilla.show();
     humans.forEach((human, index) => {
+        for(let i=0; i<humans.length;i++){
+            if(human.isAlive){
+                human.collide(humans[i]);
+            }
+        }
         if(!pausedWindow.isPaused){
             gorilla.applyDamageIfClose(human);
             human.moveToObjective(gorilla);
@@ -60,6 +65,18 @@ window.draw = function () {
 
 window.keyPressed = function (){
   if (key === 'p' || key === 'P') {
+    pausedWindow.isPaused = !pausedWindow.isPaused; 
+  }
+}
+
+window.mousePressed = function() {
+  // Detectar si el clic está dentro del área de la imagen
+  if (
+    mouseX > pausedWindow.x &&
+    mouseX < pausedWindow.x + pausedWindow.width &&
+    mouseY > pausedWindow.y &&
+    mouseY < pausedWindow.y + pausedWindow.height
+  ) {
     pausedWindow.isPaused = !pausedWindow.isPaused; 
   }
 }

@@ -16,6 +16,8 @@ export class EliteHuman extends Human {
         this.size = eliteHumanSize * pixelesSize;
         this.force = randomNumber(minEliteHumanForce, maxEliteHumanForce);
         this.speed = eliteHumanSpeed;
+        this.radius = this.size/2;
+
         //this.aceleration = normalHumanAceleration.
         //this.angleOfVision?
         this.mainColor = 'blue';

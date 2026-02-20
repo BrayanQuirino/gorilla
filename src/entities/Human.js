@@ -16,6 +16,8 @@ export class Human extends Animal{
         this.size = normalHumanSize * pixelesSize;
         this.force = normalHumanForce;
         this.speed = normalHumanSpeed;
+        this.radius = this.size/2;
+
         //this.aceleration = normalHumanAceleration.
         //this.angleOfVision?
         this.mainColor = 'pink';

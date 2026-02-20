@@ -30,6 +30,7 @@ export class Gorilla extends Animal {
         this.aceleration = gorrilaAceleration;
         this.angleOfVision =  angleOfVision;
         this.mainColor = 'black';
+        this.radius = this.size/2;
 
         //VARIABLES DE ATRIBUTOS
         this.damage = this.force * gorillaDamage;
@@ -54,7 +55,7 @@ export class Gorilla extends Animal {
 
     applyDamageIfClose(human) {
 
-        const chargeKillRange = this.size/2 +  human.size/2;
+        const chargeKillRange = this.radius +  human.radius;
         const distance = p5.Vector.dist(human.position, this.position);
 
         //SI EL HUMANO ESTÁ PEGADO AL GORILLA
@@ -140,8 +141,8 @@ export class Gorilla extends Animal {
             }else{
                 this.position.add(this.chargeDirection);
 
-                if (this.position.x < 0 || this.position.x > width) this.chargeDirection.x *= -1;
-                if (this.position.y < 0 || this.position.y > height) this.chargeDirection.y *= -1;
+                if (this.position.x - this.radius < 0 || this.position.x + this.radius > width) this.chargeDirection.x *= -1;
+                if (this.position.y - this.radius < 0 || this.position.y + this.radius > height) this.chargeDirection.y *= -1;
 
 
                 let distance = p5.Vector.dist(this.startPosition, this.position);

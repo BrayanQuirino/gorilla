@@ -11,7 +11,10 @@ Listado de actividades y features programadas.
 4. Brayan agregar variable humanKillRange. Resolved
 5. Error Human Elite dead Resolved.
 6. Barra de vida Resolved
-
+3. El gorrilla no sale de los bordes pero si la mitad **BRAYAN** <i>**DONE**</i></br>
+7. Botón. de pausa - **BRAYAN** <i>**DONE**</i>  
+7.1 Animacion despausa  **BRAYAN** **DONE**</br>7.2. Letras que palpiten para despausar ("Presiona P para continuar") **BRAYAN** <i>**DONE**</i></br>7.3. Despausa con clic en la imagen **BRAYAN** <i>**DONE**</i>
+8. Activities.**txt** -> Activities.**md - BRAYAN** <i>**DONE**</i>
 
 ---
 
@@ -28,15 +31,14 @@ Listado de actividades y features programadas.
 ## PROBLEMAS:
 
 
-1. Los huamnos terminarán con una misma inclinación, es decir se unifican. Hay que darles más movimiento. No lineal.
+1. Los huamnos terminarán con una misma inclinación, es decir se unifican. Hay que darles más movimiento. No lineal. **BRAYAN** <i>**WORKING**</i></br>1.1 Los humanos se atoran en las lapidas
+1.2 los humanos se suben en el gorilla.
 2. Hay mas tipos de movimiento del Gorrilla
-3. El gorrilla no sale de los bordes pero si la mitad **BRAYAN**
+
 4. Los humanos se aplastan entre si. - **BRAYAN**
 5. Revalorar fuerza del gorilla y humanos. 
 6. Barra de vida en las cabeceras (¿como virus?) **BRAYAN**
-7. Botón. de pausa - **BRAYAN** <i>**WORKING**</i>  
-7.1 Animacion despausa  **BRAYAN** **DONE**</br>7.2. Letras que palpiten para despausar ("Presiona P para continuar") **BRAYAN** <i>**DONE**</i></br>7.3. Despausa con clic en la imagen **BRAYAN** <i>**WORKING**</i>
-8. Activities.**txt** -> Activities.**md - BRAYAN** <i>**DONE**</i>
+
 
 
 
@@ -127,3 +129,90 @@ Cargas en diagonal de 3 - 8 metros. Extremos 10 - 12 metros. cambios bruscos de 
 Humano entrenado (boxeador): 2 – 3
 
 Humano muy fuerte (levantador): 3 – 4
+
+
+
+
+
+
+
+
+class Ball {
+  constructor(pos, vel, radius, color) {
+    this.pos = pos;
+    this.vel = vel;
+    this.radius = radius;
+    this.color = color;
+  }
+  collide(other) {
+    if (other == this) {
+      return;
+    }
+    let relative = p5.Vector.sub(other.pos, this.pos);
+    let dist = relative.mag() - (this.radius + other.radius);
+    if (dist < 0) {
+      let movement = relative.copy().setMag(abs(dist/2));
+      this.pos.sub(movement);
+      other.pos.add(movement);
+      
+      let thisToOtherNormal = relative.copy().normalize();
+      let approachSpeed = this.vel.dot(thisToOtherNormal) + -other.vel.dot(thisToOtherNormal);
+      let approachVector = thisToOtherNormal.copy().setMag(approachSpeed);
+      this.vel.sub(approachVector);
+      other.vel.add(approachVector);
+    }
+  }
+  move() {
+    this.vel.y += 0.1;
+    this.pos.add(this.vel);
+    if (this.pos.x < this.radius) {
+      this.pos.x = this.radius;
+      this.vel.x = -this.vel.x;
+    }
+    if (this.pos.x > width-this.radius) {
+      this.pos.x = width-this.radius;
+      this.vel.x = -this.vel.x;
+    }
+    if (this.pos.y < this.radius) {
+      this.pos.y = this.radius;
+      this.vel.y = -this.vel.y;
+    }
+    if (this.pos.y > height-this.radius) {
+      this.pos.y = height-this.radius;
+      this.vel.y = -this.vel.y;
+    }
+  }
+  render() {
+    fill(this.color);
+    ellipse(this.pos.x, this.pos.y, this.radius*2);
+  }
+}
+
+let balls = [];
+
+function setup() {
+  createCanvas(400, 400);
+  for (i = 0; i < 5; i++) {
+    balls.push(new Ball(
+      createVector(random(width),random(height)),
+      p5.Vector.random2D().mult(random(10)),
+      30,
+      color(random(255),random(255),random(255))
+    ));
+  }
+}
+
+function draw() {
+  background(255);
+  
+  for(let i = 0; i < balls.length; i++) {
+    for(let j = 0; j < i; j++) {
+      balls[i].collide(balls[j]);
+    }
+  }
+  
+  for(let i = 0; i < balls.length; i++) {
+    balls[i].move();
+    balls[i].render();
+  }
+}

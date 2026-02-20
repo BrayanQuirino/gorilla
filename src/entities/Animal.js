@@ -52,5 +52,27 @@ export class Animal {
         }
     }
 
+
+    collide(other) {
+        if (other == this) {
+            return;
+        }
+        let relative = p5.Vector.sub(other.position, this.position);
+        let dist = relative.mag() - (this.radius + other.radius);
+        if (dist < 0) {
+            let movement = relative.copy().setMag(abs(dist/2));
+            this.position.sub(movement);
+            if(other.isAlive){
+                other.position.add(movement);
+            }
+            
+            /*let thisToOtherNormal = relative.copy().normalize();
+            let approachSpeed = this.vel.dot(thisToOtherNormal) + -other.vel.dot(thisToOtherNormal);
+            let approachVector = thisToOtherNormal.copy().setMag(approachSpeed);
+            this.vel.sub(approachVector);
+            other.vel.add(approachVector);*/
+        }
+   }
+
 }
 
