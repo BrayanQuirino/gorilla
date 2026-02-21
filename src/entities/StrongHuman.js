@@ -1,7 +1,8 @@
-import { pixelesSize, strongHumanDamage, 
+import { pixelesSize, 
     maxStrongHumanForce, strongHumanSize, 
     strongHumanSpeed, minStrongHumanForce,
-    strongHumanKillRange } from "../config/constants.js";
+    strongHumanKillRange, 
+    strongHumanDamageSupport} from "../config/constants.js";
 import { randomNumber } from "../utils/randomFunctions.js";
 import { Human } from "./Human.js";
 
@@ -24,13 +25,13 @@ export class StrongHuman extends Human {
         this.mainColor = 'purple';
 
         //VARIABLES DE ATRIBUTOS
-        this.damage = strongHumanDamage;
-        this.maxDamageSupported = this.damage;
+        this.damage = 0;
+        this.maxDamageSupported = strongHumanDamageSupport;
 
         //this.killRange = 
 
         //VARIABLES IDENTIFICADORAS
-        this.type = "FUERTE"
+        this.type = "STRONG"
     }
 
     show() {

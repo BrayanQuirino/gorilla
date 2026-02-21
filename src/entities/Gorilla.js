@@ -33,22 +33,46 @@ export class Gorilla extends Animal {
         this.radius = this.size/2;
 
         //VARIABLES DE ATRIBUTOS
-        this.damage = this.force * gorillaDamage;
-        this.maxDamageSupported = this.damage;
+        this.damage = 0;
+        this.maxDamageSupported = this.force * gorillaDamage;
         this.killRange = this.size + gorillaKillRange;
         this.maxDistanceToCharge = randomNumber(80,120);
 
         //VARIABLES IDENTIFICADORAS
-        //this.type = "NORMAL"
+        this.type = "GORILLA"
         this.name = 'DonkyKong'
+        this.img = loadImage(`./utils/resources/images/gorilla.svg`); 
+
     }
 
     show() {
-        stroke(this.mainColor);
         fill(this.mainColor);
-        circle(this.position.x, this.position.y, this.size);
-        line(this.position.x, this.position.y, this.position.x + this.chargeDirection.x * 30, this.position.y + this.chargeDirection.y * 30);
+        stroke(this.mainColor);
+        //circle(this.position.x, this.position.y, this.size);
 
+        push();
+
+            let xChargeDirection = this.chargeDirection.x;
+            let yChargeDirection  = this.chargeDirection.y;
+ 
+            let v1 = createVector(1, 0).setMag(this.radius*2);
+            let v2 = createVector(xChargeDirection,yChargeDirection).setMag((this.radius*2));
+
+            angleMode(DEGREES);
+            let angle = round(v1.angleBetween(v2),2);
+            translate(this.position.x, this.position.y)
+            line(0,0, v2.x, v2.y);
+            //line(0,0, v1.x, v1.y);
+
+            
+            rotate(angle-90)
+            
+            imageMode(CENTER);
+            image(this.img, 0, 0, this.size*2, this.size*2)
+
+        pop();
+
+        this.collideWalls();
         this.showLife();
     }
 
@@ -59,7 +83,7 @@ export class Gorilla extends Animal {
         const distance = p5.Vector.dist(human.position, this.position);
 
         //SI EL HUMANO ESTÁ PEGADO AL GORILLA
-         if (distance <= chargeKillRange) {
+        if (distance <= chargeKillRange) {
              //SI EL GORILLA ESTÁ EN MODO CARGA
              if(this.isCharging){
                  //SI EL HUMANO ESTÁ VIVO
@@ -88,8 +112,8 @@ export class Gorilla extends Animal {
                         
                         if(angle <= 30){
                             //Daño calculado con toda la fuerza del gorilla
-                            human.damage = Math.max(0, human.damage - damage);
-                            if (human.damage <= 0) {
+                            human.damage = Math.max(0, human.damage + damage);
+                            if (human.damage > human.maxDamageSupported) {
                                 human.isAlive = false;
                             }else{
                                 human.speed = randomDecimalNumber(0.1, 0.3); 
@@ -105,7 +129,7 @@ export class Gorilla extends Animal {
 
                             // No aguantan el vergazo. Por eso se quita la mitad de vida y se reduce la velocidad del humano 
                             // lo deja con su velocidad al (10-50%)
-                            human.damage -= human.damage/2;
+                            human.damage += human.maxDamageSupported/2;
                             human.speed = randomDecimalNumber(0.1, 0.5);
 
                         }else if(angle >60){
@@ -119,12 +143,12 @@ export class Gorilla extends Animal {
 
                             // No aguantan el vergazo. Por eso se quita un tercio de vida y se reduce la velocidad del humano 
                             // lo deja con su velocidad al (20-100%)
-                            human.damage -= human.damage/3;
+                            human.damage += human.maxDamageSupported/3;
                             human.speed = randomDecimalNumber(0.2, 1);
                             //human.position = p5.Vector.add(this.position,p5.Vector.fromAngle(random(TWO_PI)).mult(this.size*1.5));
                             //console.log(angle, human.mainColor, human.damage, human.speed);
                         }
-                        if (human.damage <= 0) human.isAlive = false;
+                        if (human.damage > human.maxDamageSupported) human.isAlive = false;
                     }  
                 }
             }
@@ -140,10 +164,6 @@ export class Gorilla extends Animal {
                 this.counterTime = millis ();
             }else{
                 this.position.add(this.chargeDirection);
-
-                if (this.position.x - this.radius < 0 || this.position.x + this.radius > width) this.chargeDirection.x *= -1;
-                if (this.position.y - this.radius < 0 || this.position.y + this.radius > height) this.chargeDirection.y *= -1;
-
 
                 let distance = p5.Vector.dist(this.startPosition, this.position);
 

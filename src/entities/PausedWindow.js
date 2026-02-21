@@ -1,10 +1,11 @@
 
 
 export class PausedWindow{
-    constructor(width, height, mode, font){
-        this.img = loadImage('./utils/resources/images/paused.png'); 
+    constructor(width, height, mode, font,imageName, text){
+        this.img = loadImage(`./utils/resources/images/${imageName}.png`); 
         this.isPaused = false;
         this.firstAnimationComplete = false;
+        this.text = text
         this.textSize = 10;
         this.textColor = 255;
         this.font = font;
@@ -154,7 +155,7 @@ export class PausedWindow{
         textSize(size);
         stroke(this.textColor);
         fill(this.textColor);
-        text('Presiona [P] para continuar', this.width/2, y + this.height/4);
+        text(this.text, this.width/2, y + this.height/4);
       pop();
     }
     

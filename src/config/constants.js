@@ -10,17 +10,17 @@ export const pixelesSize = 10;
 export const normalHumanSize = 1;
 export const normalHumanForce = 1;
 export const normalHumanSpeed = 1;
-export const normalHumanDamage = 1;
+export const normalHumanDamageSupport = 1;
 export const normalHumanKillRange = 1;
 
 export const strongHumanSize = 1.25;
 export const strongHumanSpeed = 1.8;
-export const strongHumanDamage = 1.5;
+export const strongHumanDamageSupport = 1.5;
 export const minStrongHumanForce = 1.5;
 export const maxStrongHumanForce = 2;
 export const strongHumanKillRange = 1.5;
 
-export const eliteHumanDamage = 2.5;
+export const eliteHumanDamageSupport = 2.5;
 export const eliteHumanSize = 1.5;
 export const eliteHumanSpeed = 3;
 export const minEliteHumanForce = 2.5;

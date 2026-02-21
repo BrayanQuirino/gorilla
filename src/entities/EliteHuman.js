@@ -1,9 +1,10 @@
 import { Human } from "./Human.js";
 import { randomNumber } from "../utils/randomFunctions.js";
-import { pixelesSize, eliteHumanDamage, 
+import { pixelesSize, 
     eliteHumanSize, eliteHumanSpeed, 
     maxEliteHumanForce, minEliteHumanForce,
-    eliteHumanKillRange } from "../config/constants.js";
+    eliteHumanKillRange, 
+    eliteHumanDamageSupport} from "../config/constants.js";
 
 export class EliteHuman extends Human {
     constructor(x, y,name) {
@@ -23,8 +24,8 @@ export class EliteHuman extends Human {
         this.mainColor = 'blue';
 
         //VARIABLES DE ATRIBUTOS
-        this.damage = eliteHumanDamage;
-        this.maxDamageSupported = this.damage;
+        this.damage = 0;
+        this.maxDamageSupported = eliteHumanDamageSupport;
         //this.killRange = 
 
         //VARIABLES IDENTIFICADORAS
