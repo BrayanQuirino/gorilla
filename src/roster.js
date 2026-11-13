@@ -1,28 +1,27 @@
-export const habilidades = [
-  'fuerza', 'velocidad', 'reflejos', 'resistencia', 'precision',
-  'inteligencia', 'agilidad', 'valentia', 'manejo',
-];
+import { ARENAS, sortear_inventario, resumir_equipo } from './rules.js';
+export const habilidades = ['fuerza','velocidad','inteligencia','temple','precision','agilidad','estrategia','tecnica'];
 
+// Se conservan los 19 arquetipos del repositorio original, sin inventar otros.
 const perfiles = [
-  ['Entrenador', { fuerza: 85, resistencia: 82, valentia: 82, inteligencia: 28 }],
-  ['Campista', { velocidad: 22, agilidad: 30 }],
-  ['Estudiante', { agilidad: 22, manejo: 25 }],
-  ['Boxeador', { fuerza: 88, manejo: 82, resistencia: 32 }],
-  ['Científico', { inteligencia: 88, precision: 78, valentia: 35 }],
-  ['Acróbata', { valentia: 90, velocidad: 80, inteligencia: 30 }],
-  ['Oficinista', { valentia: 20, reflejos: 30 }],
-  ['Aficionado', { precision: 22, manejo: 30 }],
-  ['Turista', { inteligencia: 25, reflejos: 35 }],
-  ['Repartidor', { resistencia: 22, valentia: 30 }],
-  ['Musculoso', { fuerza: 88, resistencia: 80, valentia: 22 }],
-  ['Adolescente', { fuerza: 34, resistencia: 36 }, 18, 19],
-  ['Paramédico', { inteligencia: 85, resistencia: 78, precision: 35 }],
-  ['Velocista', { velocidad: 90, agilidad: 27, inteligencia: 31, precision: 33 }],
-  ['Atleta', { inteligencia: 78, agilidad: 88, reflejos: 35 }],
-  ['Beisbolista', { fuerza: 85, precision: 82, velocidad: 30, manejo: 33 }],
-  ['Malabarista', { manejo: 90, precision: 82, fuerza: 32 }],
-  ['Corredor', { velocidad: 30, inteligencia: 29, valentia: 30 }],
-  ['Anciano', { velocidad: 28, agilidad: 28, reflejos: 30, resistencia: 30 }, 65, 100],
+  ['Entrenador',{fuerza:85,temple:82,estrategia:82,inteligencia:28}],
+  ['Campista',{velocidad:22,agilidad:30}],
+  ['Estudiante',{agilidad:22,tecnica:25}],
+  ['Boxeador',{fuerza:88,tecnica:82,temple:32}],
+  ['Científico',{inteligencia:88,precision:78,temple:35}],
+  ['Acróbata',{temple:90,velocidad:80,inteligencia:30}],
+  ['Oficinista',{temple:20,agilidad:30}],
+  ['Aficionado',{precision:22,tecnica:30}],
+  ['Turista',{inteligencia:25,agilidad:35}],
+  ['Repartidor',{estrategia:22,temple:30}],
+  ['Musculoso',{fuerza:88,temple:22,estrategia:80}],
+  ['Adolescente',{fuerza:34,estrategia:36},18,19],
+  ['Paramédico',{inteligencia:85,estrategia:78,precision:35}],
+  ['Velocista',{velocidad:90,agilidad:27,inteligencia:31,precision:33}],
+  ['Atleta',{inteligencia:78,agilidad:88,estrategia:35}],
+  ['Beisbolista',{fuerza:85,precision:82,velocidad:30,tecnica:33}],
+  ['Malabarista',{tecnica:90,precision:82,fuerza:32}],
+  ['Corredor',{velocidad:30,inteligencia:29,temple:30}],
+  ['Anciano',{velocidad:28,agilidad:28,estrategia:30,temple:30},65,100],
 ];
 
 const edades = [
@@ -42,9 +41,7 @@ export function ajustar_edad(base, edad) {
   return {
     ...base,
     fuerza: base.fuerza * fuerza,
-    resistencia: base.resistencia * fuerza,
     velocidad: base.velocidad * movimiento,
-    reflejos: base.reflejos * movimiento,
     agilidad: base.agilidad * movimiento,
   };
 }
@@ -91,14 +88,14 @@ export function crear_sorteo_objetos(catalogo) {
   };
 }
 
-export function generar_hombres(sortear_objeto, azar = Math.random) {
+export function generar_hombres(sortear_objeto, azar = Math.random, equipados = 100) {
   return Array.from({ length: 100 }, (_, indice) => {
     const edad = 18 + Math.floor(azar() * 83);
     // Independent draws favor middle values and leave both extremes possible.
     const base = Object.fromEntries(habilidades.map(habilidad =>
       [habilidad, Math.round((azar() + azar()) * 50)]));
     const radar = ajustar_edad(base, edad);
-    const objeto = sortear_objeto(azar);
+    const objeto = indice < equipados ? sortear_objeto(azar) : null;
     return {
       id: indice + 1,
       escuadron: Math.floor(indice / 10) + 1,
@@ -106,8 +103,25 @@ export function generar_hombres(sortear_objeto, azar = Math.random) {
       arquetipo: elegir_arquetipo(base, radar, edad),
       radar,
       objeto,
-      fuerza_efectiva: radar.fuerza * (1 + objeto.bono_fuerza_pb / 10000),
-      velocidad_efectiva: radar.velocidad * (1 - objeto.penalizacion_velocidad_pb / 10000),
+      fuerza_efectiva: radar.fuerza * (1 + (objeto?.bono_fuerza_pb || 0) / 10000),
+      velocidad_efectiva: radar.velocidad * (1 - (objeto?.penalizacion_velocidad_pb || 0) / 10000),
     };
   });
+}
+
+
+export function preparar_equipo(sortear_objeto,catalogo,arena='claro',azar=Math.random) {
+  const armas_suelo=sortear_inventario(catalogo,arena,azar);
+  const disponibles=100-armas_suelo.length;
+  const equipados=Array.from({length:disponibles},()=>azar()<.7).filter(Boolean).length;
+  const hombres=generar_hombres(sortear_objeto,azar,equipados);
+  // Barajar evita que un escuadrón entero tenga todos los objetos.
+  for(let i=hombres.length-1;i>0;i--){const j=Math.floor(azar()*(i+1));
+    const obj=hombres[i].objeto;hombres[i].objeto=hombres[j].objeto;hombres[j].objeto=obj;
+    for(const h of [hombres[i],hombres[j]]){
+      h.fuerza_efectiva=h.radar.fuerza*(1+(h.objeto?.bono_fuerza_pb||0)/10000);
+      h.velocidad_efectiva=h.radar.velocidad*(1-(h.objeto?.penalizacion_velocidad_pb||0)/10000);
+    }
+  }
+  return {hombres,armas_suelo,resumen:resumir_equipo(hombres,armas_suelo),arena:ARENAS[arena]?arena:'claro'};
 }
