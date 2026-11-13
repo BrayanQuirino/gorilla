@@ -9,11 +9,10 @@ label{display:grid;gap:4px;color:var(--texto-secundario);font-size:.95rem}.table
 .campo,aside,.reglas{background:var(--panel);border:3px solid #665e48;border-radius:5px;box-shadow:0 0 0 3px #111a20,0 8px 25px #0008;overflow:hidden}
 .marcador{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:12px;background:linear-gradient(#2c363a,#19252a);border-bottom:3px solid #786a46}.marcador>div{display:grid;align-content:start;gap:4px}.marcador small{text-transform:uppercase;letter-spacing:.06em;font-weight:700}.marcador strong{font-variant-numeric:tabular-nums;font-size:1.5rem;color:#f5cb64}.marcador strong span{color:#bbb5a4;font-size:.8rem}
 progress{width:100%;height:.75rem;accent-color:#e7b95b}.arena{position:relative;background:#192824}.arena canvas{display:block;width:100%;aspect-ratio:1000/640;image-rendering:pixelated;cursor:crosshair;touch-action:manipulation}
-.estado{position:absolute;left:12px;bottom:12px;padding:7px 11px;background:#172429ec;border:2px solid #d2a456;color:#f2d58a;font-family:'Press Start 2P',monospace;font-size:.55rem;line-height:1.7;pointer-events:none}
 .ordenes{padding:13px;background:#1d292e;border-top:3px solid #4d554b}.ordenes button{font-size:.98rem}.ayuda{padding:0 13px 14px;font-size:.95rem;line-height:1.5}
 aside,.reglas{padding:14px}aside h2{margin:9px 0}.escuadrones{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:10px 0 18px}.escuadrones button{font-size:.84rem;padding:5px 3px;line-height:1.1;overflow-wrap:anywhere}.escuadrones button:first-child{grid-column:1/-1}.escuadrones small{display:block;font-size:.7rem}.ficha{padding-top:7px;border-top:2px solid #414a45;margin-top:10px}.ficha select{width:100%}.ficha h2{display:flex;justify-content:space-between;gap:8px;margin:14px 0}.ficha h2 small{font:600 1rem Rajdhani,sans-serif}.radar{width:100%;display:block}.radar text{font-size:9px;fill:var(--texto-secundario)}.objeto{display:grid;gap:5px;padding:10px;background:#2e3837;border:1px solid #59604e;font-size:.95rem}.objeto span{color:var(--texto-secundario)}.miedo{margin-top:12px}.miedo progress{accent-color:#ec875c}.reglas{margin-top:16px}.reglas p{margin-top:8px;max-width:84ch;line-height:1.55}
 @media(max-width:970px){.tablero{grid-template-columns:1fr}.cabecera{align-items:start}.marcador{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:480px){main{padding:9px}.ordenes button{flex:1 1 30%}.marcador strong{font-size:1.2rem}.estado{font-size:.44rem}aside,.reglas{padding:9px}}
+@media(max-width:480px){main{padding:9px}.ordenes button{flex:1 1 30%}.marcador strong{font-size:1.2rem}aside,.reglas{padding:9px}}
 
 /* Arcade tactics dock and expandable store */
 .controles-arcade{background:linear-gradient(180deg,#202b30,#172329);border-top:3px solid #9b7b40;padding:10px 12px}
@@ -34,3 +33,14 @@ aside,.reglas{padding:14px}aside h2{margin:9px 0}.escuadrones{display:grid;grid-
 .lista-suministros strong{color:#ecc775;white-space:nowrap}
 .ayuda{padding:6px 12px 13px;background:#182429}
 @media(max-width:640px){.tabs-retro{width:100%}.tabs-retro button{flex:1}.barra-control .principal{flex:1}.comprar-acceso{flex:1}.lista-suministros{grid-template-columns:1fr}}
+
+/* Keep the HUD on the frame so the arena art stays legible. */
+.arena{isolation:isolate}
+.nombre-arena,.arena .estado{position:absolute;top:10px;bottom:auto;max-width:calc(50% - 14px);padding:5px 8px;background:#101714eb;color:#f5e1a9;border:1px solid #ac925b;line-height:1.35;pointer-events:none}
+.nombre-arena{left:10px;font-size:clamp(.72rem,1.4vw,1rem);font-weight:700;letter-spacing:.04em}
+.arena .estado{left:auto;right:10px;text-align:right;font-family:'Press Start 2P',monospace;font-size:clamp(.46rem,1vw,.55rem)}
+@media(max-width:600px){
+  .nombre-arena,.arena .estado{top:6px;padding:4px 5px}
+  .nombre-arena{left:6px}
+  .arena .estado{right:6px}
+}

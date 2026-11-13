@@ -56,6 +56,10 @@ function App() {
   const [, actualizar_panel] = useState(0);
   const canvas = useRef(null);
   const dibujar = useRef(null);
+  const ultimo_cuadro = useRef(null);
+  const destino_visual = useRef(null);
+  const [arte_listo, cambiar_arte_listo] = useState(false);
+  const cargando_arena = modo_visual === '3d' && !arte_listo;
   const hombre = batalla.hombres[hombre_id - 1];
   const gorila = batalla.gorila;
   const activos = batalla.hombres.filter(personaje => personaje.vida > 0 && personaje.estado !== 'incapacitado' && personaje.estado !== 'eliminado').length;
@@ -64,18 +68,37 @@ function App() {
   const reloj = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 
   useEffect(() => {
-    try {dibujar.current = modo_visual === '3d' ? crear_dibujante_3d(canvas.current) : crear_dibujante(canvas.current);}
-    catch (error) {console.warn('WebGL no disponible; activando modo 2D:',error); cambiar_modo_visual('2d');}
+    const fallo = error => {
+      console.warn('Vista WebGL:', error);
+      cambiar_modo_visual('2d');
+    };
+    try {
+      const render = modo_visual === '3d'
+        ? crear_dibujante_3d(canvas.current, () => ultimo_cuadro.current?.(), fallo)
+        : crear_dibujante(canvas.current);
+      dibujar.current = render;
+      return () => {
+        render.liberar?.();
+        dibujar.current = null;
+      };
+    } catch (error) {
+      fallo(error);
+    }
   }, [modo_visual]);
 
   useEffect(() => {
     let anterior;
     let ultimo_panel = 0;
     let cuadro;
+    function pintar() {
+      const listo = dibujar.current?.(batalla, escuadron, destino_visual.current);
+      if (modo_visual === '3d') cambiar_arte_listo(listo === true);
+    }
+    ultimo_cuadro.current = pintar;
     function animar(ahora) {
       if (anterior !== undefined && !en_pausa) avanzar_batalla(batalla, Math.min(.035, (ahora - anterior) / 1000));
       anterior = ahora;
-      dibujar.current?.(batalla, escuadron);
+      pintar();
       if (ahora - ultimo_panel >= 100) {
         ultimo_panel = ahora;
         actualizar_panel(valor => valor + 1);
@@ -83,27 +106,37 @@ function App() {
       if (!en_pausa && !batalla.resultado) cuadro = requestAnimationFrame(animar);
     }
     cuadro = requestAnimationFrame(animar);
-    return () => cancelAnimationFrame(cuadro);
+    return () => {
+      cancelAnimationFrame(cuadro);
+      ultimo_cuadro.current = null;
+    };
   }, [batalla, en_pausa, escuadron, modo_visual]);
 
   useEffect(() => {
     function pausar(evento) {
       if (evento.code !== 'Space' || evento.repeat || evento.target.closest('button, select, input')) return;
       evento.preventDefault();
-      if (!batalla.resultado) cambiar_pausa(valor => !valor);
+      if (!batalla.resultado && (!cargando_arena || !en_pausa)) cambiar_pausa(valor => !valor);
     }
     window.addEventListener('keydown', pausar);
     return () => window.removeEventListener('keydown', pausar);
-  }, [batalla]);
+  }, [batalla, cargando_arena, en_pausa]);
 
   function nueva_partida(nivel = dificultad,arena = arena_elegida) {
+    destino_visual.current = null;
+    cambiar_arte_listo(false);
     cambiar_batalla(partida(nivel,arena));
     cambiar_escuadron(0);
     cambiar_hombre_id(1);
     cambiar_pausa(true);
   }
 
-  function comprar(id) { if (comprar_suministro(batalla,id)) actualizar_panel(v=>v+1); }
+  function comprar(id) {
+    if (comprar_suministro(batalla, id)) {
+      actualizar_panel(v => v + 1);
+      ultimo_cuadro.current?.();
+    }
+  }
 
   function seleccionar_escuadron(id) {
     cambiar_escuadron(id);
@@ -111,23 +144,27 @@ function App() {
   }
 
   function ordenar(orden, destino) {
-    if (!batalla.resultado) {dar_orden(batalla, escuadron, orden, destino);actualizar_panel(v=>v+1);}
+    if (batalla.resultado) return;
+    dar_orden(batalla, escuadron, orden, destino);
+    destino_visual.current = destino ? { ...destino, inicio: batalla.transcurrido } : null;
+    actualizar_panel(v => v + 1);
+    ultimo_cuadro.current?.();
   }
 
   function mover(evento) {
     const rect = evento.currentTarget.getBoundingClientRect();
     const nx = (evento.clientX - rect.left) / rect.width;
     const ny = (evento.clientY - rect.top) / rect.height;
-    ordenar('mover', modo_visual==='3d' ? punto_terreno_3d(nx,ny) : {x:nx*ancho,y:ny*alto});
+    ordenar('mover', modo_visual==='3d' ? punto_terreno_3d(nx, ny, batalla.arena) : {x:nx*ancho,y:ny*alto});
   }
 
   return <main>
     <header className="cabecera">
       <div><h1>Gorilla<span>.</span></h1><p>100 hombres contra un gorila · Arcade 2.5D</p></div>
       <div className="configuracion">
-        <label>Vista <select value={modo_visual} onChange={e=>cambiar_modo_visual(e.target.value)}><option value="3d">2.5D · WebGL</option><option value="2d">2D · Retro</option></select></label>
-        <label>Arena <select value={arena_elegida} onChange={evento=>{const id=evento.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>{Object.entries(ARENAS).map(([id,a])=><option value={id} key={id}>{a.nombre}</option>)}</select></label>
-        <label>Dificultad <select value={dificultad} onChange={evento => {
+        <label>Vista <select aria-label="Vista" value={modo_visual} onChange={e => { cambiar_arte_listo(false); cambiar_modo_visual(e.target.value); }}><option value="3d">Arcade 2.5D</option><option value="2d">Retro 2D</option></select></label>
+        <label>Arena <select aria-label="Arena" value={arena_elegida} onChange={evento=>{const id=evento.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>{Object.entries(ARENAS).map(([id,a])=><option value={id} key={id}>{a.nombre}</option>)}</select></label>
+        <label>Dificultad <select aria-label="Dificultad" value={dificultad} onChange={evento => {
           const nivel = Number(evento.target.value);
           cambiar_dificultad(nivel);
           nueva_partida(nivel);
@@ -144,14 +181,19 @@ function App() {
           <div><small>Gorila · Nivel {gorila.nivel}</small>
             <progress aria-label="Resistencia del gorila" value={gorila.vida} max={gorila.vida_maxima} /></div>
         </div>
-        <div className="arena">
+        <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} onClick={mover} aria-label={ARENAS[batalla.arena].nombre} />
-          <div className="estado" role="status">{batalla.resultado || (en_pausa ? 'Pausa táctica' : ARENAS[batalla.arena].nombre)}</div>
+          <div className="nombre-arena">{ARENAS[batalla.arena].nombre}</div>
+          {(batalla.resultado || en_pausa || cargando_arena) && (
+            <div className="estado" role="status">
+              {batalla.resultado || (cargando_arena ? 'Cargando arena' : 'Pausa táctica')}
+            </div>
+          )}
         </div>
         <div className="controles-arcade">
           <div className="barra-control">
-            <button className="principal" disabled={Boolean(batalla.resultado)}
-              onClick={() => cambiar_pausa(valor => !valor)}>{en_pausa ? '▶ INICIAR' : '⏸ PAUSAR'}</button>
+            <button className="principal" disabled={Boolean(batalla.resultado) || (en_pausa && cargando_arena)}
+              onClick={() => cambiar_pausa(valor => !valor)}>{en_pausa ? (batalla.transcurrido > 0 ? '▶ REANUDAR' : '▶ INICIAR') : '⏸ PAUSAR'}</button>
             <div className="tabs-retro" role="group" aria-label="Categorías de tácticas">
               <button aria-pressed={panel_tacticas==='combate'} onClick={()=>cambiar_panel_tacticas('combate')}>⚔ Combate</button>
               <button aria-pressed={panel_tacticas==='supervivencia'} onClick={()=>cambiar_panel_tacticas('supervivencia')}>🌿 Supervivencia</button>
