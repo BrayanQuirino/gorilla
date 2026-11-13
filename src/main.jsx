@@ -232,6 +232,33 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
     if(nuevo)siguiente.rescatar=nuevo;else delete siguiente.rescatar;
     cambiar_plan(siguiente);
   }
+  const vivos=batalla.hombres.filter(activo);
+  const armados=vivos.filter(h=>h.objeto).length;
+  const heridos=vivos.filter(h=>h.estado==='herido').length;
+  const cansados=vivos.filter(h=>h.energia<30).length;
+  const caidos=batalla.hombres.filter(h=>!activo(h)).length;
+  const conArmaFuego=vivos.filter(h=>h.objeto?.tipo==='fuego'&&h.objeto.municion>0).length;
+  const vidaEquipo=vivos.length?Math.round(vivos.reduce((total,h=>total+h.vida/h.vida_maxima),0)/vivos.length*100):0;
+  const energiaEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.energia,0)/vivos.length):0;
+  const coraje=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.valentia,0)/vivos.length):0;
+  const indicadores=[
+    {icon:'👥',etiqueta:'En combate',valor:vivos.length,sub:'de '+batalla.hombres.length},
+    {icon:'🧰',etiqueta:'Armados',valor:armados,sub:conArmaFuego+' con arma de fuego'},
+    {icon:'🩹',etiqueta:'Heridos',valor:heridos,sub:cansados+' agotados'},
+    {icon:'💀',etiqueta:'Bajas',valor:caidos,sub:'fuera de combate'},
+  ];
+  const descripcionesTacticas={
+    atacar:{icon:'⚔️',detalle:'Presionan al gorila; mayor daño, mayor exposición.',foco:'Ofensiva'},
+    huir:{icon:'💨',detalle:'Se alejan del gorila para sobrevivir y recuperar posición.',foco:'Supervivencia'},
+    esconder:{icon:'🌿',detalle:'Se refugian detrás del terreno para evitar ser vistos.',foco:'Cobertura'},
+    buscar_armas:{icon:'🎒',detalle:'Recogen equipo de la arena para aumentar el daño.',foco:'Equipamiento'},
+    distraer:{icon:'🎯',detalle:'Desvían la atención del gorila para proteger aliados.',foco:'Control'},
+  };
+  const orientacion=armados<Math.max(10,vivos.length*.3)?'Queda poco equipo armado: conviene buscar armas.'
+    :heridos>vivos.length*.25?'Hay muchos heridos: considera huir y asignar paramédicos.'
+    :energiaEquipo<42?'El equipo está agotado: conviene reducir la presión y reagruparse.'
+    :coraje<45?'La valentía es baja: distraer y esconderse puede evitar bajas.'
+    :'El equipo tiene recursos para presionar; ajusta los porcentajes según el terreno.';
   return <dialog ref={dialogo} className="menu-estrategia" aria-labelledby="titulo-estrategia"
     onCancel={e=>{e.preventDefault();cancelar();}}>
     <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Suministros'?'📦 Suministros':'⚔️ Tácticas'}</h2>
@@ -247,6 +274,34 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
           onClick={()=>comprar(id)}><span><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
           <b>{item.costo} 🍌</b></button>)}</div>
     </>:<>
+      <section className="comando-panel" aria-label="Inteligencia táctica">
+        <div className="comando-encabezado">
+          <span className="comando-emblema" aria-hidden="true">🦍</span>
+          <div><strong>CENTRO DE MANDO</strong><small>Estado del escuadrón · {ARENAS[batalla.arena].nombre}</small></div>
+          <span className="comando-directo">● EN VIVO</span>
+        </div>
+        <div className="comando-indicadores">{indicadores.map(d=><div className="comando-dato" key={d.etiqueta}>
+          <span className="comando-icono" aria-hidden="true">{d.icon}</span>
+          <span><small>{d.etiqueta}</small><strong>{d.valor}</strong><em>{d.sub}</em></span>
+        </div>)}</div>
+        <div className="comando-graficas">
+          <div className="comando-dona" style={{'--porcion':vivos.length/Math.max(1,batalla.hombres.length)*100}}>
+            <span><strong>{vivos.length}</strong><small>ACTIVOS</small></span>
+          </div>
+          <div className="comando-barras">
+            {[
+              {nombre:'Salud media',n:vidaEquipo,color:'#7ed99b'},
+              {nombre:'Energía',n:energiaEquipo,color:'#eec36c'},
+              {nombre:'Valentía',n:coraje,color:'#8fc7f1'},
+              {nombre:'Equipamiento',n:Math.round(armados/Math.max(1,vivos.length)*100),color:'#c9a4fc'},
+            ].map(d=><div className="comando-medidor" key={d.nombre}>
+              <div><span>{d.nombre}</span><b>{d.n}%</b></div>
+              <div className="comando-pista"><i style={{width:d.n+'%',background:d.color}}/></div>
+            </div>)}
+          </div>
+        </div>
+        <div className="comando-consejo"><span>💡</span><p>{orientacion}</p></div>
+      </section>
       <div className="tactica-medicos">
         <div><strong>🩺 Paramédicos de rescate</strong><small>Cada paramédico asignado resta un combatiente de las demás tácticas.</small></div>
         <div className="contador-paramedicos">
@@ -257,13 +312,14 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
             onClick={()=>cambiar_rescate(rescatar+1)}>+</button>
         </div>
       </div>
-      <div className="total-tactico"><span>Equipo distribuido</span><strong>{distribucion.total?100:0}%</strong></div>
+      <div className="total-tactico"><span>⚙️ Asignación táctica</span><strong>{distribucion.total?100:0}%</strong></div>
       <div className="reparto-real">🩺 Rescate: {rescatar} ({distribucion.porcentaje('rescatar').toFixed(1)}%) · Otras tácticas: {distribucion.restantes} ({porcentajeDisponible.toFixed(1)}%)</div>
       <div className="progreso-total-tactico" aria-label="Distribución total del equipo"><span style={{width:distribucion.porcentaje('rescatar')+'%'}}/><span style={{width:porcentajeDisponible+'%'}}/></div>
       <div className="tacticas-todas">{entradas.map(([id,t])=>{
         const valor=plan[id]||0;
         return <div className="tactica-fila" key={id}>
-          <div className="tactica-cabecera"><strong>{t.nombre}</strong><b>{distribucion.porcentaje(id).toFixed(1)}% <small>({distribucion.cuotas[id]||0})</small></b></div>
+          <div className="tactica-cabecera"><strong><span className="tactica-emoji">{descripcionesTacticas[id]?.icon}</span>{t.nombre}</strong><b>{distribucion.porcentaje(id).toFixed(1)}% <small>({distribucion.cuotas[id]||0})</small></b></div>
+          <div className="tactica-detalle"><span>{descripcionesTacticas[id]?.foco}</span><small>{descripcionesTacticas[id]?.detalle}</small></div>
           <div className="tactica-ajuste">
             <input type="range" aria-label={t.nombre} min="0" max="100" step="any"
               value={valor*porcentajeDisponible/100}
