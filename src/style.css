@@ -359,3 +359,14 @@ html,body,#root{min-height:100%;margin:0}
  .menu-estrategia .comando-indicadores{grid-template-columns:repeat(2,minmax(0,1fr))}
  .menu-estrategia .comando-graficas{gap:10px}
 }
+
+
+/* Critical: native <dialog> must be hidden when closed.
+   display:flex on .menu-estrategia otherwise overrides the browser's
+   dialog:not([open]) { display:none } rule and leaves an invisible modal
+   blocking game interactions after close(). */
+.menu-estrategia:not([open]){display:none!important}
+.menu-estrategia[open]{display:flex!important}
+.menu-estrategia .menu-cabecera{position:relative;z-index:2;flex-shrink:0}
+.menu-estrategia .menu-cabecera button{position:relative;z-index:3;min-width:44px;min-height:44px;touch-action:manipulation}
+.menu-estrategia>footer{flex-shrink:0;z-index:2;background:#202c2f;position:relative}
