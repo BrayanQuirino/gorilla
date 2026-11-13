@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -360,4 +360,33 @@ test('medicos asignados reducen el porcentaje real del equipo disponible para at
   assert.ok(Math.abs(reparto.porcentaje('atacar')-88/92*100)<.00001);
   assert.ok(reparto.porcentaje('atacar')<100);
   assert.equal(batalla.hombres.filter(h=>h.orden==='rescatar'&&h.vida>0).length,4);
+});
+
+test('embestida: cono frontal exacto de 90 grados',()=>{
+  const g={x:500,y:350,direccion_embestida:{x:1,y:0}};
+  assert.equal(en_cono_embestida(g,{x:600,y:350}),true);
+  assert.equal(en_cono_embestida(g,{x:600,y:450}),true,'45 grados a la derecha');
+  assert.equal(en_cono_embestida(g,{x:600,y:250}),true,'45 grados a la izquierda');
+  assert.equal(en_cono_embestida(g,{x:590,y:460}),false,'fuera por 5-10 grados');
+  assert.equal(en_cono_embestida(g,{x:500,y:450}),false,'costado');
+  assert.equal(en_cono_embestida(g,{x:400,y:350}),false,'detrás');
+  g.direccion_embestida={x:0,y:-1};
+  assert.equal(en_cono_embestida(g,{x:500,y:200}),true,'carga hacia arriba');
+  assert.equal(en_cono_embestida(g,{x:500,y:500}),false,'detrás de la carga');
+});
+
+test('puños desarmados apenas dañan al gorila; las armas importan',()=>{
+  const {batalla}=partida('claro');
+  const h=batalla.hombres.find(p=>p.vida>0);
+  h.objeto=null;
+  const punio=danio_humano(h,false);
+  h.objeto={peso_g:420,tipo:'contundente'};
+  const zapato=danio_humano(h,false);
+  h.objeto={peso_g:2500,tipo:'contundente'};
+  const bate=danio_humano(h,false);
+  h.objeto={peso_g:1000,tipo:'fuego',municion:3};
+  const disparo=danio_humano(h,true);
+  assert.ok(punio>0 && punio<zapato*.25);
+  assert.ok(zapato<bate && bate<disparo);
+  assert.ok(punio<1.5,'golpe de puño casi sin efecto');
 });
