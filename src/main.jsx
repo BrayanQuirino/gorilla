@@ -295,6 +295,8 @@ function App() {
   const audio = useRef(null);
   const indice_sonido = useRef(0);
   const [sonido, cambiar_sonido] = useState(true);
+  const [volumen_musica, cambiar_volumen_musica] = useState(27);
+  const [volumen_efectos, cambiar_volumen_efectos] = useState(70);
   const ultimo_cuadro = useRef(null);
   const dialogo = useRef(null);
   const boton_estrategia = useRef(null);
@@ -316,6 +318,10 @@ function App() {
     audio.current?.configurarArena(batalla.arena);
     audio.current?.activar(sonido && iniciada && !pausa_activa && !Boolean(batalla.resultado), anuncio);
   },[sonido,iniciada,pausa_activa,batalla.resultado,anuncio,batalla.arena]);
+  useEffect(() => {
+    audio.current?.volumenMusica(volumen_musica / 100);
+    audio.current?.volumenEfectos(volumen_efectos / 100);
+  },[volumen_musica,volumen_efectos]);
   useEffect(() => {
     const fallo = error => {
       console.warn('Vista WebGL:', error);
@@ -479,6 +485,8 @@ function App() {
             {Object.entries(ARENAS).map(([id,item])=><option key={id} value={id}>{item.nombre}</option>)}</select></label>
           <label>Dificultad<select value={dificultad} onChange={e=>{const n=Number(e.target.value);cambiar_dificultad(n);nueva_partida(n);}}>
             {dificultades.map((d,i)=><option key={d} value={i}>{d}</option>)}</select></label>
+          <label>♫ Música {volumen_musica}%<input type="range" min="0" max="100" value={volumen_musica} onChange={e=>cambiar_volumen_musica(Number(e.target.value))} aria-label="Volumen de música"/></label>
+          <label>🔊 Efectos {volumen_efectos}%<input type="range" min="0" max="100" value={volumen_efectos} onChange={e=>cambiar_volumen_efectos(Number(e.target.value))} aria-label="Volumen de efectos"/></label>
           <button className="principal" onClick={()=>{nueva_partida();cambiar_panel_movil(null);}}>↻ Nueva partida</button>
         </div>}
       </section></div>}
