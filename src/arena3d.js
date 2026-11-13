@@ -217,12 +217,14 @@ function poseGorila(g, tiempo) {
   return 'reposo';
 }
 
-function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
+function dibujarHumano(quads, h, x, y, tiempo, g, mirando, celebracion=0) {
   // Eliminated humans remain visible as fallen bodies.
   const caido = h.estado === 'incapacitado' || h.estado === 'eliminado' || h.vida <= 0;
   const moviendo = Math.abs(h.vx) + Math.abs(h.vy) > 10;
   if (Math.abs(h.vx) > 7) mirando.set(h.id, h.vx < 0);
-  const paso = moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
+  const bailando=celebracion>0 && !caido;
+  const baile=bailando?Math.sin(celebracion*10+h.id*.87):0;
+  const paso = bailando?baile*3:moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
   const golpe = Math.max(0, (h.atacando_hasta ?? 0) - tiempo);
   const tono = h.estado === 'herido' ? herido : blanco;
   const escala = 1;
@@ -232,11 +234,25 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
   const vuelo = h.vuelo ? (tiempo - h.vuelo.inicio) / h.vuelo.duracion : 0;
   const sujeto = g.fase === 'agarre' && g.sujeto === h;
   const izquierda = mirando.get(h.id) ?? g.x < h.x;
-  const avance = golpe > 0 ? Math.sin(golpe / .38 * Math.PI) * (g.x < h.x ? -4 : 4) : 0;
+  const avance = bailando?Math.sin(celebracion*6+h.id)*6:golpe > 0 ? Math.sin(golpe / .38 * Math.PI) * (g.x < h.x ? -4 : 4) : 0;
   sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x + avance, y - altura - Math.abs(paso) * 2,
     escala, y + altura * .35, [tono[0], tono[1], tono[2], -(tono[3] + Number(!caido && h.valentia > 70))],
-    h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : h.defensa > 0 ? -.16 : paso * .085,
+    h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : bailando ? baile*.25 : h.defensa > 0 ? -.16 : paso * .085,
     izquierda);
+  if(!caido){
+    const cab = y-altura-27-Math.abs(paso)*2;
+    if(h.cascondo){rectangulo(quads,x+avance,cab,24,8,y,[.89,.76,.31,-1]);rectangulo(quads,x+avance,cab-4,17,5,y,[.75,.69,.32,-1]);}
+    if(h.chaleco){rectangulo(quads,x+avance,y-altura-6-Math.abs(paso)*2,23,20,y,[.32,.57,.45,-.9]);
+      rectangulo(quads,x+avance,y-altura-6,5,13,y,[.82,.75,.49,-.9]);}
+    if(h.escudo){rectangulo(quads,x+avance+(izquierda?-15:15),y-altura-4,15,28,y,[.63,.77,.85,-1]);
+      rectangulo(quads,x+avance+(izquierda?-15:15),y-altura-4,5,16,y,[.31,.49,.6,-1]);}
+    if(bailando){
+      for(const lado of [-1,1]){
+        const levanta=Math.abs(Math.sin(celebracion*8+h.id*.3));
+        rectangulo(quads,x+avance+lado*15,cab-levanta*12,7,20,y,[.91,.72,.53,-1],lado*(.55+levanta*.5));
+      }
+    }
+  }
   if (!h.objeto || caido) return;
   const objeto = h.objeto.tipo === 'fuego' ? 'arma_fuego' :
     h.objeto.peso_g > 1200 ? 'arma_larga' : 'objeto_mano';
@@ -267,7 +283,7 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
 
 function cuadro(quads, batalla, mirando) {
   const g = batalla.gorila;
-  const tiempo = batalla.transcurrido;
+  const tiempo = batalla.transcurrido+(batalla.celebracion||0);
   const vista = encuadre(batalla.arena);
   if ((g.fase === 'aviso' || g.fase === 'embestida') && g.destino) {
     const destino = proyectar(g.destino, vista);
@@ -289,9 +305,15 @@ function cuadro(quads, batalla, mirando) {
       if (Math.abs(avance) > 4) mirando.set(g, avance < 0);
       dibujarGorila(quads, g, x, y, tiempo, g.mira_izquierda ?? mirando.get(g) ?? true);
     } else if (actor.arquetipo) {
-      dibujarHumano(quads, actor, x, y, tiempo, g, mirando);
+      dibujarHumano(quads, actor, x, y, tiempo, g, mirando, batalla.celebracion||0);
     } else if (actor.tipo === 'barricada') {
-      for (let i = -2; i <= 2; i++) sprite(quads, 'caja', x + i * 11, y, 1.2, y, [1, .81, .41, -.91]);
+      const progreso=actor.construccion>0?(3-actor.construccion)/3:1;
+      for(let i=-2;i<=2;i++){
+        if((i+2)/5>progreso)continue;
+        sprite(quads,'caja',x+i*13,y-5,1.36,y,[.78,.58,.36,-1]);
+        rectangulo(quads,x+i*13,y-27,22,5,y,[.46,.32,.18,-1]);
+      }
+      rectangulo(quads,x,y-38,Math.max(0,60*actor.vida/actor.vida_maxima),4,y,[.52,.89,.55,-1]);
     } else {
       sprite(quads, 'caja', x, y, actor.tipo==='paquete' ? 1.45 : .82, y, actor.tipo ? [1, .81, .41, -.91] : [1, 1, 1, -1]);
     }
