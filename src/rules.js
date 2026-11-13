@@ -23,19 +23,12 @@ export const SUMINISTROS = {
   cascos: {nombre:'Cascos', costo:45, cantidad:10, proteccion:.20},
   escudos: {nombre:'Escudos', costo:70, cantidad:6, proteccion:.35},
   chalecos: {nombre:'Chalecos', costo:55, cantidad:8, proteccion:.25},
-  barricada: {nombre:'Barricada', costo:80, cobertura:25},
+  barricada: {nombre:'Barricada', costo:80, cobertura:30,vida:150,construccion:3,proteccion:.40,capacidad:8},
   bates: {nombre:'Bates', costo:40, cantidad:10, dano_extra:.15},
   red: {nombre:'Red de captura', costo:85, gorila_lento:8},
-  cuerdas: {nombre:'Cuerdas', costo:35, cantidad:6},
-  trampa: {nombre:'Trampa', costo:75},
-  senuelos: {nombre:'Señuelos', costo:30, efecto:'distraccion', efecto_duracion:10},
-  camuflaje: {nombre:'Camuflaje', costo:50, cantidad:15, efecto:'camuflaje', efecto_duracion:20},
-  humo: {nombre:'Granada de humo', costo:60, efecto:'humo', efecto_duracion:12},
-  radio: {nombre:'Radio', costo:60, efecto:'coordinacion', efecto_duracion:30},
-  refuerzos: {nombre:'Refuerzos', costo:150, cantidad:5, solo_con_reservas:true},
+  cuerdas: {nombre:'Cuerdas', costo:35, cantidad:6, gorila_lento:4},
+  refuerzos: {nombre:'Refuerzos', costo:150, cantidad:5},
   inspiracion: {nombre:'Inspiración', costo:90, efecto:'inspiracion', efecto_duracion:20},
-  plan_maestro: {nombre:'Plan maestro', costo:110, efecto:'plan', efecto_duracion:25},
-  bananas_extra: {nombre:'Bananas extra', costo:100, efecto:'multiplicador', efecto_duracion:20},
 };
 export const VENTAJAS_GORILA = {
   furia: {umbral_vida:.30, duracion:12, recarga:20, fuerza:1.30, velocidad:1.15},
@@ -79,14 +72,13 @@ export function sortear_inventario(catalogo, arena='claro', azar=Math.random, to
   });
 }
 export function resumir_equipo(hombres,armas_suelo=[]) {
-  const arquetipos={};const edades={adolescentes:0,jovenes:0,adultos:0,mayores:0,ancianos:0};
+  const arquetipos={};
   const objetos={};
   for(const h of hombres){
     arquetipos[h.arquetipo]=(arquetipos[h.arquetipo]||0)+1;
-    edades[h.edad<20?'adolescentes':h.edad<30?'jovenes':h.edad<55?'adultos':h.edad<70?'mayores':'ancianos']++;
     if(h.objeto) objetos[h.objeto.nombre]=(objetos[h.objeto.nombre]||0)+1;
   }
   return {total:hombres.length,armados:hombres.filter(h=>h.objeto).length,
     desarmados:hombres.filter(h=>!h.objeto).length,armas_arena:armas_suelo.length,
-    arquetipos,edades,objetos};
+    arquetipos,objetos};
 }
