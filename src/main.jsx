@@ -26,7 +26,7 @@ function poligono(radios) {
 function Radar({ radar }) {
   return <svg className="radar" viewBox="0 0 290 210" role="img"
     aria-label={etiquetas.map((etiqueta, indice) => `${etiqueta} ${Math.round(radar[habilidades[indice]])}`).join(', ')}>
-    {[18, 36, 54, 72].map(radio => <polygon key={radio} points={poligono(Array(9).fill(radio))}
+    {[18, 36, 54, 72].map(radio => <polygon key={radio} points={poligono(Array(habilidades.length).fill(radio))}
       fill="none" stroke="#456354" />)}
     {habilidades.map((eje, indice) => {
       const [x, y] = punto(indice, 72);
@@ -145,8 +145,6 @@ function App() {
         <div className="ordenes">
           <button className="principal" disabled={Boolean(batalla.resultado)}
             onClick={() => cambiar_pausa(valor => !valor)}>{en_pausa ? 'Jugar' : 'Pausar'}</button>
-          <button onClick={() => ordenar('atacar')}>Atacar</button>
-          <button onClick={() => ordenar('mantener')}>Mantener</button>
           {Object.entries(TACTICAS).filter(([id])=>id!=='mover').map(([id,t])=><button key={id} onClick={()=>ordenar(id)}>{t.nombre}</button>)}
         </div>
         <p className="ayuda">Elige un escuadrón y toca el campo para moverlo. La barra espaciadora activa la pausa táctica.</p>
@@ -184,7 +182,7 @@ function App() {
     <section className="reglas"><h2>Reglas</h2>
       <p>Dirige a 100 hombres en una arena con objetos propios. Agota la resistencia del gorila en cinco minutos.
         Si todos caen o se acaba el tiempo, gana el gorila.</p>
-      <p>Cada hombre tiene ocho habilidades, una edad de 18 a 100 años y un objeto sorteado de un catálogo de 1,000.
+      <p>Cada hombre tiene ocho habilidades, una edad de 18 a 100 años y puede empezar sin objeto o con uno sorteado del catálogo de 1,000.
         La edad modifica sus habilidades físicas y el miedo puede hacerlo retroceder.</p>
     </section>
   </main>;
