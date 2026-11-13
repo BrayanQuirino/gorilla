@@ -73,7 +73,11 @@ export function sortear_inventario(catalogo, arena='claro', azar=Math.random, to
   const elegibles=catalogo.objetos.filter(o=>configuracion.categorias.includes(o.categoria));
   const posiciones=configuracion.puntos;
   return Array.from({length:cantidad},(_,i)=>{
-    const objeto=elegibles[azar_entero(azar,elegibles.length)];
+    const objeto=arena==='hangar'&&azar()<.065
+      ? {id:'hangar_pistola_'+i,nombre:'Pistola',categoria:'armas_fuego',variante:'arena',
+          tipo:'fuego',municion:6+azar_entero(azar,7),alcance:260,bono_fuerza_pb:0,
+          penalizacion_velocidad_pb:10,peso_g:850}
+      : elegibles[azar_entero(azar,elegibles.length)];
     const base=posiciones[i%posiciones.length];
     return {id:'suelo-'+i,objeto,x:limitar(base[0]+(azar()-.5)*110,20,980),
       y:limitar(base[1]+(azar()-.5)*90,20,620),recogido_por:null,visible:azar()>.45};
