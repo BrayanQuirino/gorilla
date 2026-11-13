@@ -283,7 +283,7 @@ export function buscar_objeto(b, h) {
   const inteligencia = limitar(h.radar.inteligencia * condiciones_combate(h).potencia / 100, 0, 1);
   const disponibles = b.armas_suelo.filter(objeto => !objeto.recogido_por && (objeto.disponible_en ?? 0) <= b.transcurrido &&
     valor_objeto(objeto.objeto) > valor_objeto(h.objeto)+1 &&
-    (h.orden==='buscar_armas' || objeto.visible || distancia(h,objeto)<=110+450*inteligencia));
+    (objeto.visible || objeto.descubierto || distancia(h,objeto)<=110+450*inteligencia));
   const actual = disponibles.find(objeto => objeto.id === h.buscando);
   if (actual) return actual;
   if (!disponibles.length) return null;
@@ -389,6 +389,12 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   }
   let destino = h;
   h.oculto = h.orden === 'esconder' && tiene_cobertura(h, g, b.arena);
+  if(h.orden==='buscar_armas'){
+    // Exploration reveals equipment in nearby terrain; no omniscient target map.
+    for(const objeto of b.armas_suelo){
+      if(!objeto.recogido_por && distancia(h,objeto)<52) objeto.descubierto=true;
+    }
+  }
   const paquete=b.suministros.find(p=>p.tipo==='paquete'&&!p.recogido&&p.recolector===h.id);
   if(paquete) {
     destino=paquete;
