@@ -108,7 +108,7 @@ function terreno(id){
  }
  return canvas;
 }
-function humano(c,h,t,atlas,g){
+function humano(c,h,t,atlas,g,celebracion=0){
  if(h.estado==='eliminado'&&!h.vuelo)return;
  const muerto=h.vida<=0||h.estado==='eliminado'||h.estado==='incapacitado';
  if(h.oculto&&!muerto)elipse(c,h.x,h.y-3,15,5,'#4e9e6c55');
@@ -181,7 +181,10 @@ export function crear_dibujante(canvas){
     if(o.objeto?.tipo==='fuego'){rect(ctx,o.x-6,o.y-3,12,3,'#252b30');rect(ctx,o.x+4,o.y-5,3,4,'#dfd49b');}
   }
   for(const s of batalla.suministros||[]){
-    if(s.tipo==='barricada'){for(let i=0;i<5;i++)rect(ctx,s.x-40+i*17,s.y-13,16,26,'#b78b5a');}
+    if(s.tipo==='barricada'){
+      for(let i=0;i<Math.ceil(5*(1-Math.max(0,s.construccion||0)/3));i++)rect(ctx,s.x-40+i*17,s.y-13,16,26,'#b78b5a');
+      rect(ctx,s.x-40,s.y-26,80*Math.max(0,s.vida/s.vida_maxima),4,'#83d477');
+    }
     else caja(ctx,s.x,s.y,s.tipo==='trampa'?'#ae574e':'#799a70');
   }
   for(const p of batalla.proyectiles||[]) {
