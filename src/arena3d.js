@@ -17,10 +17,14 @@ const poses = {
   golpe_area: ['golpe1', 'golpe2', 'golpe3'],
   rugido: ['rugido1', 'rugido2', 'rugido3'],
 };
-const retratos = {
-  Young: 'adolescente',
-  Adult: 'oficinista',
-  Older: 'anciano',
+const retratos={
+  Entrenador:'deportista',Campista:'cazador',Estudiante:'estudiante',
+  Boxeador:'boxeador','Científico':'cientifico','Acróbata':'artista',
+  Oficinista:'oficinista',Aficionado:'conductor',Turista:'ingeniero',
+  Repartidor:'guardia',Musculoso:'tarzan',Adolescente:'adolescente',
+  'Paramédico':'paramedico',Velocista:'deportista',Atleta:'deportista',
+  Beisbolista:'estudiante',Malabarista:'artista',Corredor:'deportista',
+  Anciano:'anciano','Tarzán':'tarzan'
 
 };
 
@@ -221,7 +225,7 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
   const paso = moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
   const golpe = Math.max(0, (h.atacando_hasta ?? 0) - tiempo);
   const tono = h.estado === 'herido' ? herido : blanco;
-  const escala = h.edad >= 75 ? .92 : 1;
+  const escala = 1;
   sprite(quads, 'sombra', x, y + 4, caido ? .51 : .77, y);
   const retrato = retratos[h.arquetipo] ?? 'estudiante';
   const altura = h.altura || 0;
