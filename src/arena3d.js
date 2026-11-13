@@ -232,11 +232,16 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando, celebracion=0) {
   sprite(quads, 'sombra', x, y + 4, caido ? .51 : .77, y);
   const retrato = retratos[h.arquetipo] ?? 'estudiante';
   const altura = h.altura || 0;
+  const enAgua=Boolean(h.nadando&&!h.vuelo);
   const vuelo = h.vuelo ? (tiempo - h.vuelo.inicio) / h.vuelo.duracion : 0;
   const sujeto = g.fase === 'agarre' && g.sujeto === h;
   const izquierda = mirando.get(h.id) ?? g.x < h.x;
   const avance = bailando?Math.sin(celebracion*6+h.id)*4:golpe > 0 ? Math.sin(golpe / .38 * Math.PI) * (g.x < h.x ? -4 : 4) : 0;
-  sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x + avance, y - altura - Math.abs(paso) * 2,
+  if(enAgua){
+    const onda=tiempo*3+h.id*.5;
+    aro(quads,x,y+3,12+Math.sin(onda)*2,4,-1,[.75,.93,1,-.42],onda,12);
+  }
+  sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x + avance, y - altura - Math.abs(paso) * 2+(enAgua?11:0),
     escala, y + altura * .35, [tono[0], tono[1], tono[2], -(tono[3] + Number(!caido && h.valentia > 70))],
     h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : bailando ? baile*.18 : h.defensa > 0 ? -.16 : paso * .085,
     izquierda);
