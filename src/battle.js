@@ -26,9 +26,25 @@ function puede_actuar(h, g) {
   return Boolean(h) && activo(h) && !h.vuelo && !(g.fase === 'agarre' && g.sujeto === h);
 }
 
+// Gorilla hide is resistant to bare fists. Weapons still matter; firearms
+// retain their own stopping power. No artificial instant kills from fists.
 export function danio_humano(h, disparo = false, apertura = 1, cercania = 0) {
+  const armado=Boolean(h.objeto);
+  const penetracion=disparo?2.6:!armado?.075:
+    h.objeto.peso_g>1200?.72:.40;
   return (1 + h.fuerza_efectiva * .112 + h.radar.tecnica * .014) * condiciones_combate(h).potencia * apertura
-    * (disparo ? 2.6 : 1) * (1 + (h.bono_dano ?? 0)) * (1 - .30 * limitar(cercania, 0, 1));
+    * penetracion * (1 + (h.bono_dano ?? 0)) * (1 - .30 * limitar(cercania, 0, 1));
+}
+
+// The charge may only strike within 45 degrees either side of the facing
+// vector captured when the charge starts, regardless of animation mirroring.
+export function en_cono_embestida(g,h) {
+  const d=g.direccion_embestida || {x:g.mira_izquierda?-1:1,y:0};
+  const largo=Math.hypot(d.x,d.y)||1;
+  const dx=h.x-g.x,dy=h.y-g.y;
+  const distancia=Math.hypot(dx,dy);
+  if(distancia<.001)return true;
+  return (dx*d.x+dy*d.y)/(distancia*largo)>=Math.SQRT1_2-1e-9;
 }
 
 export const duracion_segunda_vida = 5200;
@@ -416,7 +432,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 || h.energia < 14 ||
     cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
   b.golpes_disponibles -= 1;
-  h.recarga = (disparo ? 3.6 : 4.7) - h.radar.tecnica * .009;
+  h.recarga = (disparo ? 4.4 : 6.0) - h.radar.tecnica * .008;
   h.atacando_hasta = b.transcurrido + .38;
   h.energia -= disparo ? 10 : 15;
   if (disparo) {
@@ -533,13 +549,14 @@ function resolver_ataque(b,activos) {
 function impacto_embestida(b, h) {
   const g = b.gorila;
   g.impactados ??= new Set();
-  if (g.impactados.has(h.id) || !activo(h) || h.vuelo) return;
+  if (g.impactados.has(h.id) || !activo(h) || h.vuelo || !en_cono_embestida(g,h)) return;
   const cercania = Math.hypot(distancia(h, g), (h.altura - g.altura) * 1.35);
   const radio = radio_ataque(g, 'embestida');
   if (cercania > radio) return;
   g.impactados.add(h.id);
-  danar_hombre(b, h, 1.35 * (1 - .45 * cercania / radio));
-  lanzar(b, h, g, 94);
+  // The collision is brutal even near the edge of the 90-degree cone.
+  danar_hombre(b, h, 2.15 * (1 - .20 * cercania / radio));
+  lanzar(b, h, g, 138);
 }
 
 function cooldown(g,nombre,segundos){g.recargas[nombre]=segundos;}
@@ -659,6 +676,10 @@ function actualizar_gorila(b,activos,dt) {
   if(g.fase==='aviso'){
     if(g.accion==='embestida'){
       g.fase = 'embestida';
+      const dx=(g.destino?.x??g.x)-g.x;
+      const dy=(g.destino?.y??g.y)-g.y;
+      const largo=Math.hypot(dx,dy)||1;
+      g.direccion_embestida=largo>1?{x:dx/largo,y:dy/largo}:{x:g.mira_izquierda?-1:1,y:0};
       g.impactados = new Set();
       g.reloj = 3.1;
     } else if (g.accion === 'agarre') {
