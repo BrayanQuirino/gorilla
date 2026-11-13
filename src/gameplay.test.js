@@ -40,7 +40,7 @@ test('el plan reparte tres acciones y asigna la búsqueda a los más alejados',(
   assert.equal(buscadores.length, 10);
   assert.ok(buscadores.every(h => esperados.includes(h)));
   assert.equal(batalla.hombres.filter(h => h.orden === 'atacar').length, 50);
-  assert.equal(batalla.hombres.filter(h => h.orden === 'huir').length, 39);
+  assert.equal(batalla.hombres.filter(h => h.orden === 'huir').length, 40);
   assert.equal(batalla.hombres.filter(h => h.orden === 'guardia').length, 0);
   assert.equal(aplicar_plan(batalla, { atacar: 30, buscar_armas: 10, huir: 40, rescatar: 20 }), false);
   assert.equal(aplicar_plan(batalla, { atacar: 96, buscar_armas: 5 }), false);
