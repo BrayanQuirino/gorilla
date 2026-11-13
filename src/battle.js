@@ -8,7 +8,7 @@ const efecto_vigente=(batalla,nombre)=>batalla.efectos.some(e=>e.nombre===nombre
 export const activo=h=>Boolean(h)&&h.estado!=='eliminado'&&h.estado!=='incapacitado'&&h.vida>0;
 const azar_normalizado=(azar)=>limitar(azar(),0,0.999999);
 const cerca=(h,g,r)=>distancia(h,g)<r;
-function registrar(batalla,tipo,datos={}) {batalla.eventos.push({tipo,tiempo:300-batalla.tiempo,...datos});if(batalla.eventos.length>300)batalla.eventos.shift();}
+function registrar(batalla,tipo,datos={}) {batalla.evento_id=(batalla.evento_id||0)+1;batalla.eventos.push({tipo,id:batalla.evento_id,tiempo:300-batalla.tiempo,...datos});if(batalla.eventos.length>300)batalla.eventos.shift();}
 const salud = h => limitar(h.vida / h.vida_maxima, 0, 1);
 
 export function condiciones_combate(h) {
