@@ -294,3 +294,24 @@ html,body,#root{min-height:100%;margin:0}
 @media(max-height:520px){
  .juego-app .arena{width:min(100%,calc((100dvh - 178px) * 1.5625))}
 }
+
+/* Tactical war room: compact data visualization instead of a dense form. */
+.comando-panel{background:linear-gradient(145deg,#15292c,#172226 65%,#262b22);border:1px solid #5d7569;border-radius:8px;padding:12px;margin:5px 0 14px;display:grid;gap:12px;box-shadow:inset 0 1px 0 #ffffff12,0 5px 18px #0004}
+.comando-encabezado{display:flex;align-items:center;gap:11px;min-width:0}
+.comando-emblema{display:grid;place-items:center;width:48px;height:48px;flex-shrink:0;background:#283c30;border:1px solid #7e9866;border-radius:8px;font-size:27px}
+.comando-encabezado>div{min-width:0;flex:1;display:grid;gap:1px}.comando-encabezado strong{font-family:'Press Start 2P',monospace;font-size:clamp(.5rem,1.8vw,.68rem);color:#f9cf79;letter-spacing:.03em}.comando-encabezado small{font-size:.82rem;color:#b4c4b3}
+.comando-directo{font-size:.68rem;font-weight:800;letter-spacing:.07em;color:#95e6ab;padding:5px 7px;border:1px solid #4c785b;border-radius:5px}
+.comando-indicadores{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.comando-dato{background:linear-gradient(145deg,#243a38,#1a2929);border:1px solid #53685e;min-width:0;border-radius:6px;padding:8px;display:flex;align-items:center;gap:8px}
+.comando-icono{font-size:22px;flex:none}.comando-dato>span:last-child{display:flex;flex-direction:column;min-width:0;line-height:1.08}.comando-dato small{color:#c2d1c5;font-size:.78rem;white-space:nowrap}.comando-dato strong{font-size:1.7rem;line-height:1.1;color:#f6d48c}.comando-dato em{font-size:.64rem;font-style:normal;color:#9fafaa;line-height:1.3}
+.comando-graficas{display:flex;gap:24px;align-items:center;background:#1020239c;border-radius:7px;padding:10px 14px}
+.comando-dona{width:124px;height:124px;flex:none;aspect-ratio:1;border-radius:50%;background:conic-gradient(#90d6ab calc(var(--porcion)*1%),#53605b 0);display:grid;place-items:center}
+.comando-dona>span{display:flex;flex-direction:column;align-items:center;justify-content:center;width:86px;height:86px;background:#172829;border-radius:50%;border:3px solid #203234}
+.comando-dona strong{font-size:2rem;line-height:1;color:#f7dfad}.comando-dona small{font-size:.65rem;font-weight:800;color:#a9b7a8;letter-spacing:.07em}
+.comando-barras{display:grid;gap:8px;flex:1;min-width:0}.comando-medidor>div:first-child{display:flex;justify-content:space-between;font-size:.81rem;font-weight:700;margin-bottom:2px}.comando-medidor b{color:#f6d48c}
+.comando-pista{height:8px;border-radius:10px;background:#39443e;overflow:hidden}.comando-pista i{height:100%;display:block;border-radius:10px}
+.comando-consejo{display:flex;align-items:center;gap:9px;padding:9px 11px;background:#34412d;border:1px solid #6b8046;border-radius:6px}.comando-consejo>span{font-size:1.35rem}.comando-consejo p{font-size:.85rem;line-height:1.3;color:#f2e9c9;margin:0}
+.tactica-fila{background:linear-gradient(155deg,#1d3434,#1a292c)!important;border-radius:7px!important;padding:11px!important;box-shadow:0 3px 0 #0a1719}
+.tactica-cabecera>strong{display:flex;align-items:center;gap:7px}.tactica-emoji{font-size:1.35rem;line-height:1}
+.tactica-detalle{display:flex;gap:7px;align-items:baseline;margin:3px 0 9px;min-width:0}.tactica-detalle span{font-size:.67rem;color:#f7d385;font-weight:800;text-transform:uppercase}.tactica-detalle small{font-size:.73rem;color:#c3c9bb;line-height:1.15}
+@media(max-width:720px){.comando-panel{padding:8px;gap:8px}.comando-indicadores{grid-template-columns:repeat(2,minmax(0,1fr))}.comando-dato{padding:7px}.comando-graficas{gap:12px;padding:8px}.comando-dona{width:88px;height:88px}.comando-dona>span{width:62px;height:62px}.comando-dona strong{font-size:1.38rem}.comando-dona small{font-size:.48rem}.comando-directo{font-size:.55rem}.tactica-detalle{display:block}.tactica-detalle span{margin-right:5px}}
