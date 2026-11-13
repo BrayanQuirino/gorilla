@@ -276,7 +276,7 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
     </>:<>
       <section className="comando-panel" aria-label="Inteligencia táctica">
         <div className="comando-encabezado">
-          <span className="comando-emblema" aria-hidden="true">🦍</span>
+          <span className="comando-emblema" aria-hidden="true"><img className="comando-retrato" src={retrato_furia} alt=""/></span>
           <div><strong>CENTRO DE MANDO</strong><small>Estado del escuadrón · {ARENAS[batalla.arena].nombre}</small></div>
           <span className="comando-directo">● EN VIVO</span>
         </div>
