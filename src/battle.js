@@ -1,6 +1,6 @@
 import { arquetipos, radar_personal } from './roster.js';
 import { ARENAS, TACTICAS, SUMINISTROS, VENTAJAS_GORILA, limitar, distancia } from './rules.js';
-import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio } from './terreno.js';
+import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio, ruta_humano, corregir_paso_humano, agua_humano, altura_humano } from './terreno.js';
 export { ancho, alto };
 export const dificultades=['Fácil','Normal','Difícil','Extremo'];
 const niveles=[[650,1,1],[775,1.12,1.06],[900,1.24,1.12],[1050,1.38,1.15],[1200,1.53,1.20],[1350,1.68,1.25],[1500,1.84,1.29],[1675,2.02,1.35],[1850,2.20,1.40],[2050,2.40,1.44],[2275,2.63,1.50],[2500,2.85,1.56]];
@@ -38,7 +38,6 @@ export function reanudar_segunda_vida(b) {
   if (b.gorila.segunda_vida !== 'anuncio') return false;
   b.gorila.segunda_vida = 'activa';
   b.gorila.vida = Math.min(b.gorila.vida_maxima, b.gorila.vida + b.gorila.vida_maxima * .15);
-  registrar(b, 'segunda_vida');
   return true;
 }
 
@@ -46,6 +45,7 @@ function anunciar_segunda_vida(b) {
   const g = b.gorila;
   if (g.segunda_vida || g.vida > VENTAJAS_GORILA.segundo_aliento.umbral_vida) return false;
   g.segunda_vida = 'anuncio';
+  registrar(b, 'segunda_vida');
   return true;
 }
 
@@ -144,7 +144,8 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   for (const objeto of batalla.armas_suelo) limitar_posicion(objeto, arena, 8);
   for (const actor of batalla.hombres) limitar_posicion(actor, arena, 6);
   separar_personajes(batalla.hombres, batalla.gorila, 4);
-  for (const actor of [...batalla.hombres, batalla.gorila]) actor.altura = altura_terreno(actor, arena);
+  for (const actor of batalla.hombres){ actor.altura=altura_humano(actor,arena);actor.nadando=agua_humano(actor,arena);}
+  batalla.gorila.altura=altura_terreno(batalla.gorila,arena);
   return batalla;
 }
 
@@ -204,7 +205,7 @@ function aplicar_suministro(batalla,entrega,recolector) {
       const posicion={x:x+(i-2)*25,y:y+35+Math.floor(i/3)*25};
       limitar_posicion(posicion,batalla.arena,6);
       batalla.hombres.push({id:base+i+1,arquetipo,radar,vida:vida_maxima,vida_maxima,
-        objeto:null,energia:100,x:posicion.x,y:posicion.y,altura:altura_terreno(posicion,batalla.arena),
+        objeto:null,energia:100,x:posicion.x,y:posicion.y,altura:altura_humano(posicion,batalla.arena),
         vx:0,vy:0,vz:0,vuelo:null,recarga:0,reaccion:0,defensa:0,valentia:40+radar.temple*.48,
         orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,cascondo:false,chaleco:false,escudo:false,
         mejoras:[],buscando:null,oculto:false,fuerza_efectiva:radar.fuerza,velocidad_efectiva:radar.velocidad});
@@ -225,14 +226,18 @@ function recompensa(batalla,danio,dt=0) {
   const enteros=Math.floor(batalla.bananas_ganadas);
   if(enteros){batalla.bananas+=enteros;batalla.bananas_ganadas-=enteros;}
 }
-function caminar(h,d,dt,velocidad=1) {
+function caminar(h,d,dt,velocidad=1,arena='claro') {
   if(!d)return;
+  const antes={x:h.x,y:h.y};
+  d=ruta_humano(h,d,arena);
   const distancia_restante=distancia(h,d);
   const ritmo = (14 + h.velocidad_efectiva * .72) * (h.energia < 20 ? .67 : 1) * velocidad;
   const giro=Math.min(1,dt*(3+h.radar.agilidad*.14));
   const escala=distancia_restante>3?Math.min(ritmo,distancia_restante/Math.max(dt,.001))/distancia_restante:0;
   h.vx+=((d.x-h.x)*escala-h.vx)*giro;h.vy+=((d.y-h.y)*escala-h.vy)*giro;
   h.x=limitar(h.x+h.vx*dt,10,ancho-10);h.y=limitar(h.y+h.vy*dt,10,alto-10);
+  corregir_paso_humano(h,antes,arena);
+  h.nadando=agua_humano(h,arena);
 }
 export function valor_objeto(o) {
   if(!o)return 0;
@@ -385,7 +390,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     destino={x:limitar(h.x+dx*38-dy*desvio*lado,18,ancho-18),
       y:limitar(h.y+dy*38+dx*desvio*lado,18,alto-18)};
   }
-  caminar(h, destino, dt, ritmo * rendimiento.velocidad * (altura_terreno(h, b.arena) > 8 ? .7 : 1));
+  caminar(h, destino, dt, ritmo * rendimiento.velocidad * (h.nadando ? .57 : 1), b.arena);
   if(paquete)return;
   // An armed fighter may intentionally throw an object. Stronger fighters throw farther
   // and harder; unspent firearms are normally kept for shooting.
@@ -492,11 +497,15 @@ function actualizar_vuelos(b) {
     const t = limitar((b.transcurrido - vuelo.inicio) / vuelo.duracion, 0, 1);
     h.x = limitar(vuelo.x + vuelo.dx * t, 10, ancho - 10);
     h.y = limitar(vuelo.y + vuelo.dy * t, 10, alto - 10);
-    const piso = altura_terreno(h, b.arena);
+    const piso = altura_humano(h, b.arena);
     h.altura = Math.max(piso, vuelo.altura * (1 - t) + piso * t + 250 * t * (1 - t));
     if (t >= 1) {
       delete h.vuelo;
       h.vz = 0;
+      if(agua_humano(h,b.arena)){
+        h.chapuzon_hasta=b.transcurrido+1.15;
+        registrar(b,'chapuzon',{hombre:h.id});
+      }
       if (vuelo.agarre) danar_hombre(b, h, 1, true);
     }
   }
@@ -800,12 +809,16 @@ export function avanzar_batalla(b,dt) {
   const suelo = b.hombres.filter(h => activo(h) && !h.vuelo && !(b.gorila.fase === 'agarre' && b.gorila.sujeto === h));
   empujar_por_contacto(b, suelo);
   separar_personajes(suelo.filter(activo), b.gorila);
-  for (const h of suelo) actualizar_altura(h, b.arena, dt);
+  for (const h of suelo){
+    h.nadando=agua_humano(h,b.arena);
+    h.altura=altura_humano(h,b.arena);
+    h.vz=0;
+  }
   const g = b.gorila;
   if (g.fase === 'agarre' && g.sujeto) {
     g.sujeto.x = g.x + (g.mira_izquierda ? -22 : 22);
     g.sujeto.y = g.y + 2;
-    g.sujeto.altura = Math.max(altura_terreno(g.sujeto, b.arena), g.altura + (g.reloj > .7 ? 20 : 36));
+    g.sujeto.altura = Math.max(altura_humano(g.sujeto, b.arena), g.altura + (g.reloj > .7 ? 20 : 36));
   }
   if(b.gorila.vida<=0){b.resultado='Victoria de los hombres';b.celebracion=0;}
   else if(!b.hombres.some(activo))b.resultado='Victoria del gorila';
