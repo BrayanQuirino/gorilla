@@ -1,122 +1,112 @@
-// Synthesized arcade combat audio: filtered noise, low-frequency impacts and roars.
-// No external music, copyrighted recordings or network audio dependencies.
+// Gorilla audio: recorded CC0/CC-BY sounds and arena-specific licensed music.
+// Every asset is prepared during the GitHub Pages build by scripts/fetch-audio.py.
+// Missing recordings remain silent; never substitute oscillator imitations.
+const BASE = import.meta.env.BASE_URL + 'audio/';
+const TRACK_BY_ARENA = {claro:'music_a',selva:'music_b1',canon:'music_b2',hangar:'music_a'};
 export function crear_audio_arcade(){
-  let ctx=null,timer=null,beat=0,noiseBuffer=null;
-  let ultimoGolpe=0,ultimoPaso=0;
-  const AudioContextClass=typeof window!=='undefined'&&(window.AudioContext||window.webkitAudioContext);
-  function iniciar(){
-    if(!AudioContextClass)return null;
-    if(!ctx){
-      ctx=new AudioContextClass();
-      noiseBuffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*2),ctx.sampleRate);
-      const data=noiseBuffer.getChannelData(0);
-      for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
+  let enabled=false, arena='claro', music=null, live=new Set(), last=new Map(), paused=false;
+  let volumeMusic=.27, volumeEffects=.7, captureTimers=[];
+  const urls = new Map();
+  const url = name => {
+    if(!urls.has(name)) urls.set(name, BASE + name + '.mp3');
+    return urls.get(name);
+  };
+  const stopCapture = () => { for(const t of captureTimers) clearTimeout(t);captureTimers=[]; };
+  function sound(name, opts={}){
+    if(!enabled || typeof Audio==='undefined')return;
+    const now=performance.now();
+    const minGap=opts.minGap??0;
+    if(now-(last.get(name)||-Infinity)<minGap)return;
+    last.set(name,now);
+    const a=new Audio(url(name));
+    a.preload='auto';
+    a.volume=Math.min(1,(opts.volume??1)*volumeEffects);
+    a.playbackRate=opts.speed??1;
+    live.add(a);
+    const clean=()=>{live.delete(a);a.src='';};
+    a.addEventListener('ended',clean,{once:true});
+    a.addEventListener('error',clean,{once:true});
+    a.play().catch(()=>{live.delete(a);});
+    if(opts.maxMs)setTimeout(()=>{a.pause();clean();},opts.maxMs);
+    return a;
+  }
+  function startMusic(){
+    if(!enabled||!music||typeof Audio==='undefined')return;
+    const track=TRACK_BY_ARENA[arena]||'music_a';
+    if(music.dataset.track===track){
+      music.volume=paused?Math.min(volumeMusic,.07):volumeMusic;
+      if(music.paused)music.play().catch(()=>{});
+      return;
     }
-    if(ctx.state==='suspended')ctx.resume().catch(()=>{});
-    return ctx;
-  }
-  function ruido(duracion=.15,vol=.11,corte=550,demora=0,pass='lowpass'){
-    if(!ctx)return;
-    const t=ctx.currentTime+demora;
-    const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
-    src.buffer=noiseBuffer;src.type='buffer';filter.type=pass;filter.frequency.setValueAtTime(corte,t);
-    gain.gain.setValueAtTime(Math.max(.0001,vol),t);
-    gain.gain.exponentialRampToValueAtTime(.0001,t+duracion);
-    src.connect(filter).connect(gain).connect(ctx.destination);
-    src.start(t,Math.random()*.7);src.stop(t+duracion+.02);
-  }
-  function tono(frecuencia,fin,duracion=.18,vol=.08,tipo='sawtooth',demora=0){
-    if(!ctx)return;
-    const t=ctx.currentTime+demora;
-    const osc=ctx.createOscillator(),gain=ctx.createGain(),filtro=ctx.createBiquadFilter();
-    osc.type=tipo;
-    osc.frequency.setValueAtTime(Math.max(25,frecuencia),t);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(25,fin),t+duracion);
-    filtro.type='lowpass';filtro.frequency.value=1100;
-    gain.gain.setValueAtTime(.0001,t);
-    gain.gain.linearRampToValueAtTime(vol,t+.012);
-    gain.gain.exponentialRampToValueAtTime(.0001,t+duracion);
-    osc.connect(filtro).connect(gain).connect(ctx.destination);
-    osc.start(t);osc.stop(t+duracion+.025);
-  }
-  function golpe(fuerza=1){
-    // Heavy impact: bass thump, short transient and crunchy midrange.
-    tono(110*fuerza,42,.18,.12,'sine');
-    tono(150*fuerza,55,.09,.055,'triangle');
-    ruido(.083,.105,1100,0,'bandpass');
-    ruido(.16,.07,290,.016);
-  }
-  function pisada(){
-    tono(64,37,.13,.072,'sine');
-    ruido(.105,.075,175);
-    ruido(.035,.028,700,.012);
-  }
-  function rugido(duracion=.8,intensidad=1){
-    // Multiple slightly detuned low voices create a growling, animal-like roar.
-    tono(125*intensidad,66,duracion,.085,'sawtooth');
-    tono(94*intensidad,45,duracion*.92,.085,'triangle',.035);
-    tono(208*intensidad,102,duracion*.74,.038,'sawtooth',.07);
-    ruido(duracion*.88,.15,380,.025,'bandpass');
-    ruido(duracion*.56,.075,1000,.14,'bandpass');
-  }
-  function estrujon(){
-    ruido(.24,.11,360,0,'bandpass');
-    ruido(.19,.085,165,.08);
-    tono(210,63,.28,.062,'sawtooth');
-  }
-  function gritoBatalla(){
-    // Several independent pitched shouts, rising into a unified charge.
-    for(let i=0;i<7;i++){
-      const delay=i*.052;
-      tono(125+(i%4)*22,255+(i%3)*42,.44,.047,'sawtooth',delay);
-      ruido(.30,.027,820+i*70,delay+.035,'bandpass');
-    }
-    tono(75,48,.52,.10,'triangle',.07);
-    ruido(.7,.065,680,.08,'bandpass');
-  }
-  function ambiente(){
-    if(!ctx)return;
-    beat++;
-    if(beat%2===0){tono(73,40,.18,.045,'triangle');ruido(.06,.018,210);}
-    if(beat%4===2)ruido(.07,.022,420);
+    music.pause();
+    music=new Audio(url(track));
+    music.dataset.track=track;
+    music.loop=true;
+    music.volume=paused?Math.min(volumeMusic,.07):volumeMusic;
+    music.play().catch(()=>{});
   }
   return {
-    activar(encendido){
-      if(!encendido){if(timer)clearInterval(timer);timer=null;return;}
-      if(!iniciar()||timer)return;
-      ambiente();timer=setInterval(ambiente,360);
+    configurarArena(id){
+      if(arena===id)return;
+      arena=id;
+      if(enabled&&music)startMusic();
     },
-    efecto(tipo,datos={}){
-      if(!iniciar())return;
-      const ahora=ctx.currentTime;
-      if(tipo==='inicio_batalla'){gritoBatalla();return;}
-      if(tipo==='golpe_humano'||tipo==='golpe_gorila'||tipo==='impacto_objeto'){
-        if(ahora-ultimoGolpe<.09)return;
-        ultimoGolpe=ahora;golpe(tipo==='golpe_gorila'?1.25:1);return;
-      }
-      if(tipo==='pisada_gorila'){
-        if(ahora-ultimoPaso<.24)return;
-        ultimoPaso=ahora;pisada();return;
-      }
-      if(tipo==='ataque_gorila'){
-        if(datos.accion==='rugido')rugido(.98,1.3);
-        else if(datos.accion==='embestida')rugido(.40,.9);
-        else golpe(.85);
+    volumenMusica(valor){volumeMusic=Math.max(0,Math.min(1,valor));if(music)music.volume=paused?Math.min(volumeMusic,.07):volumeMusic;},
+    volumenEfectos(valor){volumeEffects=Math.max(0,Math.min(1,valor));},
+    activar(active,segundaVida=false){
+      enabled=Boolean(active);
+      paused=Boolean(segundaVida);
+      if(!enabled){
+        stopCapture();
+        if(music){music.pause();music.currentTime=0;music=null;}
+        for(const a of live)a.pause();
+        live.clear();
         return;
       }
-      if(tipo==='agarre'){estrujon();return;}
-      if(tipo==='estrujon'){estrujon();return;}
-      if(tipo==='lanzamiento'){ruido(.28,.08,970,0,'bandpass');golpe(.95);return;}
-      if(tipo==='disparo'){ruido(.09,.13,1550,0,'highpass');tono(170,59,.14,.075,'triangle');return;}
-      if(tipo==='baja'){tono(145,64,.22,.037,'sine');return;}
-      if(tipo==='segunda_vida'){rugido(1.4,1.4);return;}
-      if(tipo==='captura_rota'){ruido(.32,.11,1400,0,'highpass');return;}
-      if(tipo==='captura_desplegada'){ruido(.27,.06,800,0,'bandpass');return;}
-      if(tipo==='suministro_recogido'||tipo==='arma_encontrada'){
-        tono(360,500,.1,.038,'triangle');tono(530,680,.14,.032,'triangle',.1);return;
-      }
-      if(tipo==='objeto_lanzado'||tipo==='objeto_soltado')ruido(.14,.035,920,0,'bandpass');
+      if(!music&&typeof Audio!=='undefined')music=new Audio();
+      startMusic();
     },
-    cerrar(){if(timer)clearInterval(timer);timer=null;if(ctx)ctx.close().catch(()=>{});ctx=null;}
+    efecto(tipo,datos={}){
+      if(!enabled)return;
+      switch(tipo){
+        case 'inicio_batalla': return sound('inicio_batalla',{volume:.85,maxMs:4000});
+        case 'golpe_humano':
+          if(!datos.disparo)sound('golpe_humano',{volume:.72,minGap:95});
+          return;
+        case 'golpe_gorila':return sound('golpe_humano',{speed:.8,volume:1,minGap:120});
+        case 'pisada_gorila':return sound('pisada_gorila',{volume:.35,minGap:290,maxMs:380});
+        case 'ataque_gorila':
+          if(datos.accion==='rugido')sound('rugido',{volume:.9,minGap:1000});
+          return;
+        case 'agarre':
+          // The progressive squeeze begins with the grab. Don't restart it on each squeeze tick.
+          return sound('estrujon',{volume:.75,minGap:1000,maxMs:3000});
+        case 'estrujon':return;
+        case 'lanzamiento':return sound('lanzamiento',{volume:.75,minGap:180});
+        case 'disparo':return sound('disparo',{volume:.7,minGap:120});
+        case 'objeto_lanzado':return sound('objeto_lanzado',{volume:.5,minGap:100});
+        case 'impacto_objeto':return sound('impacto_objeto',{volume:.65,minGap:90});
+        case 'baja':return sound('baja',{volume:.65,minGap:120});
+        case 'segunda_vida':return sound('segunda_vida',{volume:1,maxMs:3000});
+        case 'captura_desplegada':
+          stopCapture();
+          sound('captura_desplegada',{volume:.55});
+          // Synchronize multiple actual rope snaps to the existing restraint duration.
+          // Rope = 4s, net = 8s. Last rupture coincides with breaking free.
+          {const ms=datos.tipo==='cuerdas'?4000:8000;
+           for(let i=1;i<=5;i++)
+             captureTimers.push(setTimeout(()=>sound('captura_rota',{volume:.2+i*.13,minGap:90}),Math.round(ms*i/5)));
+          }
+          return;
+        case 'captura_rota':
+          stopCapture();
+          return sound('captura_rota',{volume:1});
+        case 'suministro_recogido':
+        case 'arma_encontrada':return sound('suministro_recogido',{volume:.35,minGap:90});
+        case 'objeto_soltado':return sound('objeto_soltado',{volume:.5,minGap:90,maxMs:1000});
+        default:return;
+      }
+    },
+    cerrar(){enabled=false;stopCapture();if(music)music.pause();music=null;for(const a of live)a.pause();live.clear();}
   };
 }
