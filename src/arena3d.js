@@ -245,24 +245,17 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando, celebracion=0) {
     escala, y + altura * .35, [tono[0], tono[1], tono[2], -(tono[3] + Number(!caido && h.valentia > 70))],
     h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : bailando ? baile*.18 : h.defensa > 0 ? -.16 : paso * .085,
     izquierda);
-  if(!caido){
+  if(!caido && !bailando){
     const cab = y-altura-27-Math.abs(paso)*2;
     if(h.cascondo){rectangulo(quads,x+avance,cab,24,8,y,[.89,.76,.31,-1]);rectangulo(quads,x+avance,cab-4,17,5,y,[.75,.69,.32,-1]);}
     if(h.chaleco){rectangulo(quads,x+avance,y-altura-6-Math.abs(paso)*2,23,20,y,[.32,.57,.45,-.9]);
       rectangulo(quads,x+avance,y-altura-6,5,13,y,[.82,.75,.49,-.9]);}
     if(h.escudo){rectangulo(quads,x+avance+(izquierda?-15:15),y-altura-4,15,28,y,[.63,.77,.85,-1]);
       rectangulo(quads,x+avance+(izquierda?-15:15),y-altura-4,5,16,y,[.31,.49,.6,-1]);}
-    if(bailando){
-      // Two raised vertical arms, aligned to shoulders: no huge diagonal quads.
-      const levanta=Math.abs(Math.sin(celebracion*8+h.id*.27));
-      for(const lado of [-1,1]){
-        const ax=x+avance+lado*10;
-        rectangulo(quads,ax,cab+1-levanta*6,4,11,y,[.94,.74,.52,-1]);
-        rectangulo(quads,ax,cab-8-levanta*6,6,4,y,[.96,.80,.57,-1]);
-      }
-    }
+    // Victory uses the existing sprite's dancing/bobbing animation only.
+    // No procedural rectangles for hands or weapons during celebration.
   }
-  if (!h.objeto || caido) return;
+  if (!h.objeto || caido || bailando) return;
   const objeto = h.objeto.tipo === 'fuego' ? 'arma_fuego' :
     h.objeto.peso_g > 1200 ? 'arma_larga' : 'objeto_mano';
   const [, , ancho_retrato, alto_retrato] = fotogramas[retrato];
@@ -288,9 +281,17 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
     }
   }
   if(derrotado){
-    // The gorilla visibly collapses horizontally onto the floor.
-    quads.quad(x-20*escala,y+5,region[2]*escala,region[3]*escala,
-      y+15,region,[.78,.76,.73,-3],-Math.PI*.47,espejo);
+    // Full-body prone pose: rotate the intact full gorilla sprite around its
+    // geometric centre, not around its feet. Previous pivot hid half its torso.
+    const cuerpo=fotogramas.reposo;
+    const grande=escala*1.72;
+    const anchoCaido=cuerpo[2]*grande;
+    const altoCaido=cuerpo[3]*grande;
+    // A horizontal silhouette occupies the ground plane and keeps the entire
+    // original gorilla texture (face, torso, arms, legs) visible.
+    quads.quad(x+altoCaido*.46,y+anchoCaido*.48,
+      anchoCaido,altoCaido,y+anchoCaido*.48,
+      cuerpo,[.86,.83,.80,-3],-Math.PI/2,espejo);
   }else{
     quads.quad(x, y - altura, region[2] * escala, region[3] * escala,
       y + altura * .35, region, [1, 1, 1, -3], 0, espejo);
