@@ -659,6 +659,46 @@ function alcanza_agarre(g, h) {
   return Math.hypot(distancia(g, h), (h.altura - g.altura) * 1.35) <= radio_ataque(g, 'agarre');
 }
 
+// Every active fight should have movement or a meaningful attack. Detect
+// progress stalls and re-route, including when fighters hide or are searching.
+export function conducta_gorila(b,activos,dt){
+  const g=b.gorila;
+  const p=g.memoria_movimiento??{x:g.x,y:g.y,restante:0,quieto:0,desvio:0};
+  p.restante-=dt;p.desvio=Math.max(0,p.desvio-dt);
+  const recorrido=Math.hypot(g.x-p.x,g.y-p.y);
+  const sinAvance=recorrido<5 && g.fase!=='agarre' && g.fase!=='aviso';
+  p.quieto=sinAvance?p.quieto+dt:Math.max(0,p.quieto-dt*1.5);
+  if(p.restante<=0){p.x=g.x;p.y=g.y;p.restante=.7;}
+  g.memoria_movimiento=p;
+  if(!activos.length)return;
+  // Stationary for >1.5 s while supposedly moving: change the trajectory.
+  if(p.quieto>1.55 && p.desvio<=0){
+    const cercano=activos.reduce((best,h)=>distancia(h,g)<distancia(best,g)?h:best);
+    const angulo=Math.atan2(cercano.y-g.y,cercano.x-g.x);
+    const giro=(b.azar()<.5?-1:1)*(Math.PI/2+.25);
+    g.destino={x:limitar(g.x+Math.cos(angulo+giro)*170,35,ancho-35),
+      y:limitar(g.y+Math.sin(angulo+giro)*160,35,alto-35)};
+    if(distancia(g,g.destino)<35)
+      g.destino={x:limitar(g.x+(g.x<ancho/2?180:-180),35,ancho-35),
+        y:limitar(g.y+(g.y<alto/2?150:-150),35,alto-35)};
+    g.fase='repliegue';
+    g.reloj=2.5;
+    g.objetivo=cercano;
+    p.quieto=0;p.desvio=2.5;
+    registrar(b,'gorila_se_repliega',{motivo:'desatasco'});
+  }
+}
+function flanqueo_gorila(b,activos){
+  const g=b.gorila;
+  const cercanos=activos.filter(h=>distancia(h,g)<140).length;
+  const objetivo=activos.reduce((best,h)=>distancia(h,g)<distancia(best,g)?h:best);
+  // Mix strafing, rushes and retreating. Only the gorilla may climb rocks.
+  const rumbo=Math.atan2(objetivo.y-g.y,objetivo.x-g.x);
+  const angulo=rumbo+(b.azar()<.5?-1:1)*(cercanos>4?1.8:1.15);
+  const radio=cercanos>6?165:110;
+  return {x:limitar(g.x+Math.cos(angulo)*radio,32,ancho-32),
+    y:limitar(g.y+Math.sin(angulo)*radio,32,alto-32)};
+}
 function actualizar_gorila(b,activos,dt) {
   const g=b.gorila;
   if(g.ataduras){
@@ -732,6 +772,16 @@ function actualizar_gorila(b,activos,dt) {
     }
     return;
   }
+  if(g.fase==='recuperacion' && g.reloj>0 && activos.length && !g.ataduras){
+    // Even after a strike, keep the gorilla alive on screen with unpredictable
+    // defensive sidesteps; attack cooldowns still apply.
+    if(!g.paso_lateral || distancia(g,g.paso_lateral)<20 || b.transcurrido>(g.paso_hasta||0)){
+      g.paso_lateral=flanqueo_gorila(b,activos);
+      g.paso_hasta=b.transcurrido+1.2;
+    }
+    mover_gorila(g,g.paso_lateral,dt,velocidad_gorila.repliegue*.38*lento,b.arena);
+    return;
+  }
   if(g.reloj>0)return;
   if(g.fase==='aviso'){
     if(g.accion==='embestida'){
@@ -759,12 +809,13 @@ function actualizar_gorila(b,activos,dt) {
   const cercanos = amenazas.filter(h => cerca(h, g, g.radio + 91)).length;
   const salida = VENTAJAS_GORILA.retiro_estrategico;
   if (!amenazas.length) {
-    if (habilitada(g, 'repliegue')) {
-      g.destino = zona_entrega(b.arena, b.azar);
-      g.fase = 'repliegue';
-      g.reloj = 2.6;
-      cooldown(g, 'repliegue', salida.recarga);
-    }
+    // Hiding/scouting men are still valid prey. Never let an empty threats
+    // array leave the gorilla standing in place for the rest of the game.
+    const objetivo=activos.reduce((best,h)=>distancia(h,g)<distancia(best,g)?h:best);
+    g.objetivo=objetivo;
+    g.destino={x:objetivo.x,y:objetivo.y};
+    g.fase='persecucion';
+    g.reloj=2.6;
     return;
   }
   const distracciones = amenazas.filter(h => h.orden === 'distraer' && cerca(h, g, 145));
@@ -807,6 +858,8 @@ function actualizar_gorila(b,activos,dt) {
     g.sujeto = presa;
     cooldown(g, 'agarre', reglas.agarre.recarga);
   } else if (distancia(g, presa) > g.radio + 43) {
+    // A pursuit always advances even if the gorilla's other moves are cooling.
+    g.destino={x:presa.x,y:presa.y};
     g.fase = 'persecucion';
     return;
   } else {
@@ -867,6 +920,7 @@ export function avanzar_batalla(b,dt) {
   for (const h of activos) h.oculto = h.orden === 'esconder' && tiene_cobertura(h, b.gorila, b.arena);
   const previoGorila={x:b.gorila.x,y:b.gorila.y};
   actualizar_gorila(b,activos,dt);
+  conducta_gorila(b,activos,dt);
   const recorrido=distancia(previoGorila,b.gorila);
   // Sound giant dirt footsteps only while running (pursuit, charge or escape).
   const corriendo=['persecucion','embestida','repliegue'].includes(b.gorila.fase)&&recorrido>1.3;
