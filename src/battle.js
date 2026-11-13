@@ -678,7 +678,7 @@ export function conducta_gorila(b,activos,dt){
   g.memoria_movimiento=p;
   if(!activos.length)return;
   // Stationary for >1.5 s while supposedly moving: change the trajectory.
-  if(p.quieto>1.55 && p.desvio<=0){
+  if(p.quieto>1.55 && p.desvio<=0 && !['agarre','aviso','embestida'].includes(g.fase)){
     const cercano=activos.reduce((best,h)=>distancia(h,g)<distancia(best,g)?h:best);
     const angulo=Math.atan2(cercano.y-g.y,cercano.x-g.x);
     const giro=(b.azar()<.5?-1:1)*(Math.PI/2+.25);
