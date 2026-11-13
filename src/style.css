@@ -315,3 +315,6 @@ html,body,#root{min-height:100%;margin:0}
 .tactica-cabecera>strong{display:flex;align-items:center;gap:7px}.tactica-emoji{font-size:1.35rem;line-height:1}
 .tactica-detalle{display:flex;gap:7px;align-items:baseline;margin:3px 0 9px;min-width:0}.tactica-detalle span{font-size:.67rem;color:#f7d385;font-weight:800;text-transform:uppercase}.tactica-detalle small{font-size:.73rem;color:#c3c9bb;line-height:1.15}
 @media(max-width:720px){.comando-panel{padding:8px;gap:8px}.comando-indicadores{grid-template-columns:repeat(2,minmax(0,1fr))}.comando-dato{padding:7px}.comando-graficas{gap:12px;padding:8px}.comando-dona{width:88px;height:88px}.comando-dona>span{width:62px;height:62px}.comando-dona strong{font-size:1.38rem}.comando-dona small{font-size:.48rem}.comando-directo{font-size:.55rem}.tactica-detalle{display:block}.tactica-detalle span{margin-right:5px}}
+
+.comando-emblema{overflow:hidden;position:relative;background:#132423;box-shadow:inset 0 0 12px #b7ad6b33}
+.comando-retrato{display:block;width:100%;height:100%;object-fit:cover;object-position:center 39%;image-rendering:auto;filter:contrast(1.15) saturate(1.1)}
