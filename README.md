@@ -1,6 +1,6 @@
 # Gorilla — 100 hombres contra un gorila
 
-Juego táctico 2D. **Esta etapa implementa reglas y simulación; el rediseño pixel-art queda pendiente.** El motor de batalla no depende de React ni del lienzo.
+Juego táctico 2D. **El motor de reglas se conserva y ahora incluye un primer renderizado retro pixel-art procedural.** El motor de batalla no depende de React ni del lienzo.
 
 ## Desarrollo
 
@@ -33,9 +33,9 @@ npm run build
 - `src/roster.js`: generación de personajes, efectos de edad, asignación inicial y reserva de armas por arena.
 - `src/battle.js`: motor determinista con generador de azar inyectable, estado de combate, compras, IA y eventos.
 - `src/gameplay.test.js`: pruebas de inventario, tácticas, compras y simulación.
-- `src/arena.js`: renderizado Canvas 2D heredado, pendiente de renovación.
+- `src/arena.js`: nueva capa Canvas 2D pixel-art con cuatro escenarios, personajes, señales de ataque, objetos y barra de salud del gorila. Los sprites definitivos ilustrados todavía no se han convertido en spritesheets ni se ha migrado a Phaser.
 - `src/main.jsx`: panel de control temporal para las reglas, sin rediseño visual.
 
 ## Balance pendiente
 
-Las probabilidades y cantidades actuales son **parámetros de videojuego** sujetos a pruebas, no estadísticas de ataques reales de gorilas. Algunas habilidades declaradas, efectos de suministros y nuevos tipos de arena requerirán iteraciones de comportamiento y balance; la representación visual, animaciones, efectos sonoros y sprites se realizarán en una etapa posterior.
+Las probabilidades y cantidades actuales son **parámetros de videojuego** sujetos a pruebas, no estadísticas de ataques reales de gorilas. Algunas habilidades declaradas, efectos de suministros y nuevos tipos de arena requerirán iteraciones de comportamiento y balance; la integración de spritesheets profesionales, animaciones detalladas, efectos sonoros y la posible migración a Phaser se realizarán en etapas posteriores.
