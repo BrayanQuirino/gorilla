@@ -26,7 +26,7 @@ function puede_actuar(h, g) {
 }
 
 export function danio_humano(h, disparo = false, apertura = 1, cercania = 0) {
-  return (1 + h.fuerza_efectiva * .086) * condiciones_combate(h).potencia * apertura
+  return (1 + h.fuerza_efectiva * .112 + h.radar.tecnica * .014) * condiciones_combate(h).potencia * apertura
     * (disparo ? 2.6 : 1) * (1 + (h.bono_dano ?? 0)) * (1 - .30 * limitar(cercania, 0, 1));
 }
 
@@ -115,8 +115,7 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
       const indice=personaje.id-1;
       const x = 53 + indice % 10 * 36;
       const y = 120 + Math.floor(indice / 10) * 43;
-      const edad = limitar((personaje.edad - 45) / 55, 0, 1);
-      const vida_maxima = (37 + personaje.radar.estrategia * .47 + personaje.radar.fuerza * .22) * (1 - edad * .27);
+      const vida_maxima = 37 + personaje.radar.estrategia * .47 + personaje.radar.fuerza * .22;
       return {...personaje,objeto:personaje.objeto ? {...personaje.objeto} : null,x,y,vida:vida_maxima,vida_maxima,energia:100,vx:0,vy:0,miedo:0,
         recarga:0,reaccion:0,defensa:0,valentia:40+personaje.radar.temple*.48,orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,
         mejoras:[],buscando:null,oculto:false};
@@ -196,7 +195,7 @@ function recompensa(batalla,danio,dt=0) {
 function caminar(h,d,dt,velocidad=1) {
   if(!d)return;
   const distancia_restante=distancia(h,d);
-  const ritmo = (14 + h.velocidad_efectiva * .58) * (h.energia < 20 ? .67 : 1) * velocidad;
+  const ritmo = (14 + h.velocidad_efectiva * .72) * (h.energia < 20 ? .67 : 1) * velocidad;
   const giro=Math.min(1,dt*(3+h.radar.agilidad*.14));
   const escala=distancia_restante>3?Math.min(ritmo,distancia_restante/Math.max(dt,.001))/distancia_restante:0;
   h.vx+=((d.x-h.x)*escala-h.vx)*giro;h.vy+=((d.y-h.y)*escala-h.vy)*giro;
