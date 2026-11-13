@@ -4,7 +4,7 @@ export { ancho, alto };
 export const dificultades=['Fácil','Normal','Difícil','Extremo'];
 const niveles=[[650,1,1],[775,1.12,1.06],[900,1.24,1.12],[1050,1.38,1.15],[1200,1.53,1.20],[1350,1.68,1.25],[1500,1.84,1.29],[1675,2.02,1.35],[1850,2.20,1.40],[2050,2.40,1.44],[2275,2.63,1.50],[2500,2.85,1.56]];
 const efecto_vigente=(batalla,nombre)=>batalla.efectos.some(e=>e.nombre===nombre&&e.restante>0);
-export const activo=h=>h.estado!=='eliminado'&&h.estado!=='incapacitado'&&h.vida>0;
+export const activo=h=>Boolean(h)&&h.estado!=='eliminado'&&h.estado!=='incapacitado'&&h.vida>0;
 const azar_normalizado=(azar)=>limitar(azar(),0,0.999999);
 const cerca=(h,g,r)=>distancia(h,g)<r;
 function registrar(batalla,tipo,datos={}) {batalla.eventos.push({tipo,tiempo:300-batalla.tiempo,...datos});if(batalla.eventos.length>300)batalla.eventos.shift();}
@@ -30,13 +30,31 @@ export function danio_humano(h, disparo = false, apertura = 1, cercania = 0) {
     * (disparo ? 2.6 : 1) * (1 + (h.bono_dano ?? 0)) * (1 - .30 * limitar(cercania, 0, 1));
 }
 
+export const duracion_segunda_vida = 2300;
+export const en_furia = g => g.furia > 0 || g.segunda_vida === 'activa';
+
+export function reanudar_segunda_vida(b) {
+  if (b.gorila.segunda_vida !== 'anuncio') return false;
+  b.gorila.segunda_vida = 'activa';
+  b.gorila.vida = b.gorila.vida_maxima;
+  registrar(b, 'segunda_vida');
+  return true;
+}
+
+function anunciar_segunda_vida(b) {
+  const g = b.gorila;
+  if (g.segunda_vida || g.vida > VENTAJAS_GORILA.segundo_aliento.umbral_vida) return false;
+  g.segunda_vida = 'anuncio';
+  return true;
+}
+
 export const velocidad_gorila = { persecucion: 77, repliegue: 83, embestida: 210 };
 export function radio_ataque(g, accion = g.accion) {
   return ({ rugido: 145, golpe_area: g.radio + 75, agarre: g.radio + 54,
     embestida: g.radio + 34, barrido: g.radio + 38 })[accion] ?? g.radio + 38;
 }
 export function rango_golpe_gorila(g) {
-  const fuerza = g.fuerza * (g.furia > 0 ? VENTAJAS_GORILA.furia.fuerza : 1);
+  const fuerza = g.fuerza * (en_furia(g) ? VENTAJAS_GORILA.furia.fuerza : 1);
   return [36 * fuerza, 60 * fuerza];
 }
 
@@ -317,7 +335,12 @@ function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
   const azar = azar_normalizado(b.azar);
   const impacto = lanzamiento ? h.vida_maxima * (.92 + azar * .24) :
     (minimo + azar * (maximo - minimo)) * multiplicador * (1 - h.proteccion) * cobertura * defensa;
-  h.vida=Math.max(0,h.vida-impacto);h.miedo=limitar(h.miedo+45,0,100);
+  aplicar_danio_humano(b, h, impacto, 45);
+}
+
+function aplicar_danio_humano(b, h, impacto, miedo) {
+  h.vida = Math.max(0, h.vida - impacto);
+  h.miedo = limitar(h.miedo + miedo, 0, 100);
   if(h.vida<=0) {
     h.estado=azar_normalizado(b.azar)<.22?'incapacitado':'eliminado';
     registrar(b,'baja',{hombre:h.id,estado:h.estado});
@@ -329,6 +352,23 @@ function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
     h.estado = 'herido';
   }
 }
+function empujar_por_contacto(b, hombres) {
+  const g = b.gorila;
+  const radio = g.radio + 10;
+  for (const h of hombres) {
+    if ((h.empuje_disponible ?? 0) > b.transcurrido || Math.abs(h.altura - g.altura) >= 22 || !cerca(h, g, radio)) continue;
+    h.empuje_disponible = b.transcurrido + .4;
+    aplicar_danio_humano(b, h, h.vida_maxima * .0005, 0);
+    const dx = h.x - g.x;
+    const dy = h.y - g.y;
+    const largo = Math.hypot(dx, dy) || 1;
+    h.x = limitar(h.x + (dx / largo || (dy === 0 ? 1 : 0)) * 4, 14, ancho - 14);
+    h.y = limitar(h.y + dy / largo * 4, 22, alto - 22);
+    h.vx *= .6;
+    h.vy *= .6;
+  }
+}
+
 function lanzar(b, h, origen, fuerza) {
   const dx = h.x - origen.x;
   const dy = h.y - origen.y;
@@ -371,7 +411,8 @@ function resolver_ataque(b,activos) {
       if (g.accion === 'golpe_area') lanzar(b, h, g, 94);
     }
   }
-  g.fase='recuperacion';g.reloj=g.vida<g.vida_maxima*.3?.65:1.15;
+  g.fase = 'recuperacion';
+  g.reloj = g.accion === 'golpe_area' ? .46 : en_furia(g) ? .65 : 1.15;
 }
 function impacto_embestida(b, h) {
   const g = b.gorila;
@@ -409,16 +450,31 @@ function salida_gorila(g, hombres) {
   return candidatos.reduce((mejor, punto) => puntuacion(punto) > puntuacion(mejor) ? punto : mejor);
 }
 
+function agarrar(b, h, forzado = false) {
+  const g = b.gorila;
+  g.sujeto = h;
+  g.fase = 'agarre';
+  g.accion = 'agarre';
+  g.reloj = 1.1;
+  g.mira_izquierda = h.x < g.x;
+  if (forzado) cooldown(g, 'agarre', VENTAJAS_GORILA.agarre.recarga);
+  registrar(b, 'agarre', { hombre: h.id });
+}
+
+function alcanza_agarre(g, h) {
+  return Math.hypot(distancia(g, h), (h.altura - g.altura) * 1.35) <= radio_ataque(g, 'agarre');
+}
+
 function actualizar_gorila(b,activos,dt) {
   const g=b.gorila;
   for(const key of Object.keys(g.recargas))g.recargas[key]=Math.max(0,g.recargas[key]-dt);
   g.furia=Math.max(0,g.furia-dt);g.reduccion_velocidad=Math.max(0,g.reduccion_velocidad-dt);
   g.energia=limitar(g.energia+(g.fase==='recuperacion'?dt*5:dt*.6),0,100);
-  if(g.vida/g.vida_maxima<VENTAJAS_GORILA.furia.umbral_vida&&!g.furia&&habilitada(g,'furia')){
-    g.furia=12;cooldown(g,'furia',60);registrar(b,'furia');
-  }
-  if(g.energia<20&&habilitada(g,'segundo_aliento')&&g.fase!=='aviso'){
-    g.energia=Math.min(100,g.energia+20);cooldown(g,'segundo_aliento',90);registrar(b,'segundo_aliento');
+  const furia = VENTAJAS_GORILA.furia;
+  if (g.vida / g.vida_maxima < furia.umbral_vida && !en_furia(g) && habilitada(g, 'furia')) {
+    g.furia = furia.duracion;
+    cooldown(g, 'furia', furia.recarga);
+    registrar(b, 'furia');
   }
   g.movimiento = 0;
   g.reloj -= dt;
@@ -431,12 +487,15 @@ function actualizar_gorila(b,activos,dt) {
     return;
   }
   if (g.fase === 'persecucion') {
-    if (puede_actuar(g.objetivo, g) && !g.objetivo.oculto && g.reloj > 0) {
-      g.destino = { x: g.objetivo.x, y: g.objetivo.y };
-      if (distancia(g, g.objetivo) > g.radio + 43) {
+    const objetivo = g.objetivo;
+    if (activo(objetivo)) {
+      if (puede_actuar(objetivo, g) && alcanza_agarre(g, objetivo)) {
+        agarrar(b, objetivo, true);
+      } else {
+        g.destino = { x: objetivo.x, y: objetivo.y };
         mover_gorila(g, g.destino, dt, velocidad_gorila.persecucion * lento, b.arena);
-        return;
       }
+      return;
     }
     g.fase = 'espera';
     g.reloj = 0;
@@ -457,8 +516,8 @@ function actualizar_gorila(b,activos,dt) {
   }
   if(g.fase==='embestida'){
     const fatiga = g.energia < 20 ? .7 : 1;
-    const furia = g.furia > 0 ? VENTAJAS_GORILA.furia.velocidad : 1;
-    const llego = mover_gorila(g, g.destino, dt, (g.altura > 10 ? 158 : velocidad_gorila.embestida) * lento * fatiga * furia, b.arena);
+    const impulso_furia = en_furia(g) ? VENTAJAS_GORILA.furia.velocidad : 1;
+    const llego = mover_gorila(g, g.destino, dt, (g.altura > 10 ? 158 : velocidad_gorila.embestida) * lento * fatiga * impulso_furia, b.arena);
     for (const h of activos) {
       if (distancia(h, g) <= radio_ataque(g, 'embestida')) impacto_embestida(b, h);
     }
@@ -475,10 +534,8 @@ function actualizar_gorila(b,activos,dt) {
       g.impactados = new Set();
       g.reloj = 3.1;
     } else if (g.accion === 'agarre') {
-      if (puede_actuar(g.sujeto, g) && Math.hypot(distancia(g, g.sujeto), (g.sujeto.altura - g.altura) * 1.35) <= radio_ataque(g, 'agarre')) {
-        g.fase = 'agarre';
-        g.reloj = 1.1;
-        registrar(b, 'agarre', { hombre: g.sujeto.id });
+      if (puede_actuar(g.sujeto, g) && alcanza_agarre(g, g.sujeto)) {
+        agarrar(b, g.sujeto);
       } else {
         g.sujeto = null;
         g.accion = 'barrido';
@@ -489,12 +546,16 @@ function actualizar_gorila(b,activos,dt) {
   }
   const trampa=b.suministros.find(s=>s.tipo==='trampa'&&distancia(g,s)<45);
   if(trampa){g.fase='recuperacion';g.reloj=3;trampa.restante=0;registrar(b,'trampa_activada');return;}
-  const señuelo=b.suministros.find(s=>s.tipo==='senuelos');
   const amenazas = activos.filter(h => puede_actuar(h, g) && !h.oculto);
+  const cercanos = amenazas.filter(h => cerca(h, g, g.radio + 91)).length;
+  const salida = VENTAJAS_GORILA.retiro_estrategico;
   if (!amenazas.length) {
-    g.destino = zona_entrega(b.arena, b.azar);
-    g.fase = 'repliegue';
-    g.reloj = 2.6;
+    if (habilitada(g, 'repliegue')) {
+      g.destino = zona_entrega(b.arena, b.azar);
+      g.fase = 'repliegue';
+      g.reloj = 2.6;
+      cooldown(g, 'repliegue', salida.recarga);
+    }
     return;
   }
   const distracciones = amenazas.filter(h => h.orden === 'distraer' && cerca(h, g, 145));
@@ -502,49 +563,55 @@ function actualizar_gorila(b,activos,dt) {
   const puntuacion = h => distancia(g, h) + 13 * amenazas.filter(otro => otro !== h && cerca(h, otro, 57)).length;
   const objetivo = candidatos.reduce((mejor, h) => puntuacion(h) < puntuacion(mejor) ? h : mejor);
   const cercano = amenazas.reduce((mejor, h) => distancia(g, h) < distancia(g, mejor) ? h : mejor);
-  const cercanos = amenazas.filter(h => cerca(h, g, g.radio + 91)).length;
-  if ((cercanos >= 5 || (cercanos >= 2 && g.vida / g.vida_maxima < .38)) && habilitada(g, 'repliegue')) {
+  const presa = distancia(g, cercano) < g.radio + 43 ? cercano : objetivo;
+  g.objetivo = presa;
+  g.mira_izquierda = presa.x < g.x;
+  g.destino = { x: g.x, y: g.y };
+  g.reloj = Math.max(.55, 1.32 - g.nivel * .035);
+
+  const reglas = VENTAJAS_GORILA;
+  if (cercanos >= reglas.carga.min_cercanos && habilitada(g, 'carga')) {
+    const señuelo = b.suministros.find(s => s.tipo === 'senuelos');
+    g.accion = 'embestida';
+    g.destino = señuelo ?? salida_gorila(g, amenazas);
+    if (señuelo) {
+      señuelo.restante = 0;
+      registrar(b, 'gorila_distraido');
+    }
+    cooldown(g, 'carga', reglas.carga.recarga);
+  } else if (cercanos >= reglas.golpe_area.min_cercanos && habilitada(g, 'golpe_area')) {
+    g.accion = 'golpe_area';
+    g.reloj = .35;
+    cooldown(g, 'golpe_area', reglas.golpe_area.recarga);
+  } else if (amenazas.some(h => cerca(h, g, radio_ataque(g, 'rugido'))) && habilitada(g, 'rugido')) {
+    g.accion = 'rugido';
+    cooldown(g, 'rugido', reglas.rugido.recarga);
+  } else if ((cercanos >= 5 || (cercanos >= 2 && g.vida / g.vida_maxima < .38)) && habilitada(g, 'repliegue')) {
     g.destino = salida_gorila(g, amenazas);
     g.fase = 'repliegue';
     g.reloj = 2.8;
-    cooldown(g, 'repliegue', 8);
+    cooldown(g, 'repliegue', salida.recarga);
     registrar(b, 'gorila_se_repliega');
     return;
-  }
-  if(señuelo&&azar_normalizado(b.azar)<.55){
-    g.ataques++;
-    g.accion='embestida';g.destino={x:señuelo.x,y:señuelo.y};g.fase='aviso';g.reloj=.8;
-    señuelo.restante=0;registrar(b,'gorila_distraido');return;
-  }
-  const presa = distancia(g, cercano) < g.radio + 43 ? cercano : objetivo;
-  const d = distancia(g, presa);
-  g.objetivo = presa;
-  g.mira_izquierda = presa.x < g.x;
-  if (d > g.radio + 43 && (d < 155 || !habilitada(g, 'carga'))) {
-    g.fase = 'persecucion';
-    g.reloj = 3.5;
-    return;
-  }
-  const táctica=Object.entries(b.tacticas_usadas).sort((a,z)=>z[1]-a[1])[0];
-  if(táctica&&táctica[1]>=3)g.memoria[táctica[0]]=true;
-  g.ataques++;
-  if (d < g.radio + 43 && habilitada(g,'agarre') && !presa.vuelo) {
+  } else if (alcanza_agarre(g, presa) && habilitada(g, 'agarre')) {
     g.accion = 'agarre';
     g.sujeto = presa;
-    g.mira_izquierda = presa.x < g.x;
-    cooldown(g, 'agarre', 12);
-  } else if(cercanos>=8&&habilitada(g,'golpe_area')){g.accion='golpe_area';cooldown(g,'golpe_area',35);}
-  else if(g.ataques%4===0&&habilitada(g,'rugido')){g.accion='rugido';cooldown(g,'rugido',45);}
-  else if(d>=155&&habilitada(g,'carga')){g.accion='embestida';cooldown(g,'carga',30);}
-  else g.accion=d<g.radio+40?'barrido':'embestida';
-  g.destino=g.accion==='embestida'?{x:presa.x,y:presa.y}:{x:g.x,y:g.y};
-  g.fase='aviso';g.reloj=Math.max(.55,1.32-g.nivel*.035);
+    cooldown(g, 'agarre', reglas.agarre.recarga);
+  } else if (distancia(g, presa) > g.radio + 43) {
+    g.fase = 'persecucion';
+    return;
+  } else {
+    g.accion = 'barrido';
+  }
+  g.ataques++;
+  g.fase = 'aviso';
   g.energia=limitar(g.energia-7,0,100);
   for(const h of activos)h.reaccion=(100-h.radar.agilidad)*.008;
   registrar(b,'ataque_gorila',{accion:g.accion});
 }
 export function avanzar_batalla(b,dt) {
-  if(b.resultado||!Number.isFinite(dt)||dt<=0)return;
+  if (b.resultado || !Number.isFinite(dt) || dt <= 0 || b.gorila.segunda_vida === 'anuncio') return;
+  if (anunciar_segunda_vida(b)) return;
   dt=Math.min(dt,.1);
   b.tiempo=Math.max(0,b.tiempo-dt);b.transcurrido+=dt;
   recompensa(b,0,dt);
@@ -575,9 +642,11 @@ export function avanzar_batalla(b,dt) {
     const h = activos[(i + turno) % activos.length];
     if(!activo(h) || h.vuelo || (b.gorila.fase === 'agarre' && b.gorila.sujeto === h))continue;
     actualizar_hombre(b, h, dt, puestos.get(h), disponibles.length);
+    if (anunciar_segunda_vida(b)) return;
   }
   const suelo = b.hombres.filter(h => activo(h) && !h.vuelo && !(b.gorila.fase === 'agarre' && b.gorila.sujeto === h));
-  separar_personajes(suelo, b.gorila);
+  empujar_por_contacto(b, suelo);
+  separar_personajes(suelo.filter(activo), b.gorila);
   for (const h of suelo) actualizar_altura(h, b.arena, dt);
   const g = b.gorila;
   if (g.fase === 'agarre' && g.sujeto) {

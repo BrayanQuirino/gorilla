@@ -1,7 +1,7 @@
 // A fixed oblique camera projects the battle plane into the painted arenas.
 // Painted silhouettes supply per-pixel occlusion for upright actor billboards.
 import { ancho, alto, encuadre } from './terreno.js';
-import { duracion_entrega, paracaidas_visible, radio_ataque } from './battle.js';
+import { duracion_entrega, paracaidas_visible, radio_ataque, en_furia } from './battle.js';
 import { limitar } from './rules.js';
 import fotogramas from './art/sprites.json';
 
@@ -118,7 +118,9 @@ const spriteFragmento = `
     float frente = texture2D(profundidad, pantalla).r;
     float suelo = pie < 0.0 ? pantalla.y : pie;
     vec4 tinta = texture2D(atlas, texel);
-    if (frente > suelo + .009) {
+    float valiente = step(1.5, abs(tono.a));
+    float opacidad = abs(tono.a) - valiente;
+    if (frente > suelo + .009 || valiente > .0) {
       if (tono.a >= 0.0) discard;
       float pixel = 1.0 / 512.0;
       float interior = min(min(texture2D(atlas, texel + vec2(pixel, 0.0)).a,
@@ -126,10 +128,11 @@ const spriteFragmento = `
         min(texture2D(atlas, texel + vec2(0.0, pixel)).a,
         texture2D(atlas, texel - vec2(0.0, pixel)).a));
       vec3 contraste = mix(vec3(.19, .17, .15), tinta.rgb * .78 + .035, interior);
-      gl_FragColor = vec4(contraste, tinta.a);
+      vec3 base = frente > suelo + .009 ? contraste : tinta.rgb * tono.rgb;
+      gl_FragColor = vec4(mix(base, vec3(1.0, .85, .49), valiente * (1.0 - interior) * .44), tinta.a * opacidad);
       return;
     }
-    gl_FragColor = tinta * vec4(tono.rgb, abs(tono.a));
+    gl_FragColor = tinta * vec4(tono.rgb, opacidad);
   }`;
 
 function proyectar({ x, y }, vista) {
@@ -201,13 +204,14 @@ function poseGorila(g, tiempo) {
   if (g.fase === 'aviso' || g.fase === 'recuperacion') {
     const secuencia = poses[g.accion] ?? poses.barrido;
     if (g.fase === 'recuperacion') {
-      const reposo = g.vida < g.vida_maxima * .3 ? .65 : 1.15;
+      const reposo = g.accion === 'golpe_area' ? .46 : en_furia(g) ? .65 : 1.15;
       if (g.reloj > reposo - .25 && g.reloj <= reposo) return secuencia.at(-1);
-      return g.furia > 0 ? 'furia' : 'reposo';
+      return en_furia(g) ? 'furia' : 'reposo';
     }
+    if (g.accion === 'golpe_area') return secuencia[g.reloj > .17 ? 0 : 1];
     return secuencia[Math.max(0, Math.min(secuencia.length - 2, Math.floor((1.3 - g.reloj) * 2)))];
   }
-  if (g.furia > 0) return 'furia';
+  if (en_furia(g)) return 'furia';
   if (g.vida < g.vida_maxima * .35) return 'herido';
   return 'reposo';
 }
@@ -229,7 +233,7 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
   const izquierda = mirando.get(h.id) ?? g.x < h.x;
   const avance = golpe > 0 ? Math.sin(golpe / .38 * Math.PI) * (g.x < h.x ? -4 : 4) : 0;
   sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x + avance, y - altura - Math.abs(paso) * 2,
-    escala, y + altura * .35, [tono[0], tono[1], tono[2], -tono[3]],
+    escala, y + altura * .35, [tono[0], tono[1], tono[2], -(tono[3] + Number(!caido && h.valentia > 70))],
     h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : h.defensa > 0 ? -.16 : paso * .085,
     izquierda);
   if (!h.objeto || caido) return;
@@ -247,6 +251,15 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
   sprite(quads, 'sombra', x, y + 15, escala * 2.75, y);
   const region = fotogramas[pose];
   const altura = g.altura || 0;
+  if (en_furia(g)) {
+    for (let i = 0; i < 11; i++) {
+      const fase = (tiempo * (1.3 + i % 3 * .25) + i * .37) % 1;
+      const dx = ((i * 23 % 41) - 20) * escala + Math.sin(fase * 5 + i) * 6;
+      const py = y - altura - 9 - fase * 56 * escala;
+      const fuego = [1, .25 + .55 * (1 - fase), .10, -(1 - fase) * .74];
+      rectangulo(quads, x + dx, py, 3 + (1 - fase) * 4, 4 + (1 - fase) * 5, y, fuego, fase * .7);
+    }
+  }
   quads.quad(x, y - altura, region[2] * escala, region[3] * escala, y + altura * .35, region, [1, 1, 1, -1], 0, espejo);
 
 }

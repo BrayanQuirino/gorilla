@@ -55,6 +55,7 @@ test('un ataque acertado que agota la resistencia da la victoria a los hombres',
   hombre.x = batalla.gorila.x - 20;
   hombre.y = batalla.gorila.y;
   hombre.altura = batalla.gorila.altura;
+  batalla.gorila.segunda_vida = 'activa';
   batalla.gorila.vida = 1;
   aplicar_plan(batalla, {atacar:100});
   avanzar_batalla(batalla, 1 / 60);

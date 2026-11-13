@@ -1,4 +1,4 @@
-import { alto, ancho, duracion_entrega, paracaidas_visible, radio_ataque } from './battle.js';
+import { alto, ancho, duracion_entrega, paracaidas_visible, radio_ataque, en_furia } from './battle.js';
 import { ARENAS } from './rules.js';
 import { crear_atlas, accion_humano, accion_gorila, dibujar_sprite } from './sprites.js';
 
@@ -118,6 +118,11 @@ function humano(c,h,t,atlas,g){
  const frames=atlas.humano(action,(h.id-1)%10,h.id%5,h.edad>=65,Boolean(h.objeto));
  const speed=action==='run'?1.8:action==='tired'?.45:1;
  const elevacion = h.altura || 0;
+ c.save();
+ if (!muerto && h.valentia > 70) {
+  c.shadowColor = '#ffdd81';
+  c.shadowBlur = 5;
+ }
  if(h.vuelo||sujeto){
   c.save();
   c.translate(h.x,h.y-elevacion);
@@ -125,12 +130,13 @@ function humano(c,h,t,atlas,g){
   dibujar_sprite(c,frames,0,0,34,44,t*speed,h.id*.41);
   c.restore();
  }else dibujar_sprite(c,frames,h.x,h.y-elevacion,34,44,t*speed,h.id*.41);
+ c.restore();
  if(h.proteccion>0&&!muerto)rect(c,h.x-7,h.y-27,14,3,'#bfc2a3');
  if(h.estado==='herido')rect(c,h.x+8,h.y-34,3,5,'#ef554f');
 }
 function gorila(c,g,t,atlas){
  elipse(c,g.x+3,g.y+1,g.radio*1.5,12,'#0c151baf');
- if(g.furia>0){for(let i=0;i<10;i++){
+ if(en_furia(g)){for(let i=0;i<10;i++){
   const theta=i*Math.PI/5+t*2;
   rect(c,g.x+Math.cos(theta)*g.radio*1.45-3,g.y-36+Math.sin(theta)*25,6,7,i%2?'#eb513e':'#ffb65b');
  }}

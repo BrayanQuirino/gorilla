@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades, radar_arquetipo } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, danio_humano, radio_ataque, rango_golpe_gorila, velocidad_gorila } from './battle.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, danio_humano, radio_ataque, rango_golpe_gorila, velocidad_gorila, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS, resumir_equipo } from './rules.js';
+import retrato_furia from './art/gorila-segunda-vida.webp';
 import './style.css';
 
 const sortear_objeto = crear_sorteo_objetos(catalogo);
@@ -217,6 +218,7 @@ function App() {
   const [arte_listo, cambiar_arte_listo] = useState(false);
   const cargando_arena = modo_visual === '3d' && !arte_listo;
   const gorila = batalla.gorila;
+  const anuncio = gorila.segunda_vida === 'anuncio';
   const activos = batalla.hombres.filter(activo).length;
   const ultimo_evento = batalla.eventos.at(-1);
   const segundos = Math.ceil(batalla.tiempo);
@@ -250,7 +252,7 @@ function App() {
       if (modo_visual === '3d') cambiar_arte_listo(listo === true);
     }
     ultimo_cuadro.current = pintar;
-    const jugando = iniciada && !en_pausa && !cargando_arena;
+    const jugando = iniciada && !en_pausa && !cargando_arena && !anuncio;
     function animar(ahora) {
       if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * .65);
       anterior = ahora;
@@ -259,14 +261,23 @@ function App() {
         ultimo_panel = ahora;
         actualizar_panel(valor => valor + 1);
       }
-      if (jugando && !batalla.resultado) cuadro = requestAnimationFrame(animar);
+      if (jugando && batalla.gorila.segunda_vida === 'anuncio') actualizar_panel(valor => valor + 1);
+      else if (jugando && !batalla.resultado) cuadro = requestAnimationFrame(animar);
     }
     cuadro = requestAnimationFrame(animar);
     return () => {
       cancelAnimationFrame(cuadro);
       ultimo_cuadro.current = null;
     };
-  }, [batalla, iniciada, en_pausa, modo_visual, cargando_arena]);
+  }, [batalla, iniciada, en_pausa, modo_visual, cargando_arena, anuncio]);
+
+  useEffect(() => {
+    if (!anuncio) return;
+    const aviso = setTimeout(() => {
+      if (reanudar_segunda_vida(batalla)) actualizar_panel(valor => valor + 1);
+    }, duracion_segunda_vida);
+    return () => clearTimeout(aviso);
+  }, [batalla, anuncio]);
 
   function abrir_estrategia() {
     cambiar_plan({ ...batalla.plan });
@@ -320,7 +331,7 @@ function App() {
         <div className="marcador">
           <div className="datos-marcador"><span>Tiempo <strong>{reloj}</strong></span><span>🍌 <strong>{batalla.bananas}</strong></span></div>
           <Barra nombre="Hombres activos" valor={activos} maximo={100} detalle={`${activos} / 100`} />
-          <Barra nombre={`Gorila · Nivel ${gorila.nivel}`} valor={gorila.vida} maximo={gorila.vida_maxima}
+          <Barra nombre={`Gorila · Nivel ${gorila.nivel}${en_furia(gorila) ? ' · Furia' : ''}`} valor={gorila.vida} maximo={gorila.vida_maxima}
             detalle={`${Math.ceil(gorila.vida / gorila.vida_maxima * 100)} %`} />
         </div>
         <div className="arena" aria-busy={cargando_arena}>
@@ -331,10 +342,15 @@ function App() {
               {batalla.resultado || (cargando_arena ? 'Cargando arena' : iniciada ? 'Pausa táctica' : 'Listo para iniciar')}
             </div>
           )}
+          {anuncio && <div className="segunda-vida" role="status" aria-label="Segunda vida del gorila">
+            <img src={retrato_furia} alt="" />
+            <strong>Segunda vida</strong>
+            <span>Furia permanente</span>
+          </div>}
         </div>
         <div className="controles-arcade">
           {!iniciada ? <button className="principal" disabled={cargando_arena} onClick={() => cambiar_inicio(true)}>Iniciar</button> : <button ref={boton_estrategia} className="principal" aria-haspopup="dialog"
-            disabled={Boolean(batalla.resultado) || cargando_arena} onClick={abrir_estrategia}>Estrategia</button>}
+            disabled={Boolean(batalla.resultado) || cargando_arena || anuncio} onClick={abrir_estrategia}>Estrategia</button>}
           <p>Tácticas · <strong>{Object.entries(batalla.plan).map(([id, valor]) => `${TACTICAS[id].nombre} ${valor} %`).join(' · ') || 'Guardia'}</strong></p>
           <p className="ultimo-evento">Último evento · {ultimo_evento?.tipo.replaceAll('_', ' ') || 'Equipo listo'}</p>
         </div>

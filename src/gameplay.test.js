@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,condiciones_combate} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,condiciones_combate,en_furia,reanudar_segunda_vida} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -193,7 +193,7 @@ test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', (
   const g = batalla.gorila;
   batalla.hombres = batalla.hombres.slice(0, 6);
   aplicar_plan(batalla, {});
-  Object.assign(g, { x: 600, y: 400, altura: 0, reloj: 0 });
+  Object.assign(g, { x: 600, y: 400, altura: 0, reloj: 0, recargas: { rugido: 10 } });
   for (let i = 0; i < 6; i++) Object.assign(batalla.hombres[i], {
     x: 600 + Math.cos(i * Math.PI / 3) * 70, y: 400 + Math.sin(i * Math.PI / 3) * 70, altura: 0,
   });
@@ -210,6 +210,11 @@ test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', (
   assert.equal(g.objetivo, batalla.hombres[0]);
   avanzar_batalla(batalla, .05);
   assert.ok(g.x > 600);
+  g.recargas.agarre = 99;
+  batalla.hombres[0].x = g.x + 28;
+  avanzar_batalla(batalla, .05);
+  assert.equal(g.fase, 'agarre');
+  assert.equal(g.recargas.agarre, 3);
 });
 
 test('el golpe del gorila hiere con caída de daño dentro del radio', () => {
@@ -228,4 +233,54 @@ test('el golpe del gorila hiere con caída de daño dentro del radio', () => {
   assert.equal(cerca.estado, 'herido');
   assert.ok(cerca.vida < lejos.vida);
   assert.equal(fuera.vida, 65);
+});
+
+test('segunda vida pausa el reloj y vuelve con furia permanente una sola vez', () => {
+  const { batalla } = partida('claro');
+  const g = batalla.gorila;
+  g.vida = 20;
+  avanzar_batalla(batalla, .05);
+  assert.equal(g.segunda_vida, 'anuncio');
+  const tiempo = batalla.tiempo;
+  avanzar_batalla(batalla, .1);
+  assert.equal(batalla.tiempo, tiempo);
+  assert.equal(reanudar_segunda_vida(batalla), true);
+  assert.equal(g.vida, g.vida_maxima);
+  g.furia = 0;
+  assert.equal(en_furia(g), true);
+  assert.equal(reanudar_segunda_vida(batalla), false);
+  g.vida = 0;
+  avanzar_batalla(batalla, .05);
+  assert.equal(batalla.resultado, 'Victoria de los hombres');
+});
+
+test('la embestida requiere once hombres y el golpe de área anuncia y recarga más rápido', () => {
+  for (const [cantidad, accion, espera, recarga] of [[10, 'golpe_area', .35, 3], [11, 'embestida', 1.18, 5]]) {
+    const { batalla } = partida('claro');
+    batalla.hombres = batalla.hombres.slice(0, cantidad);
+    aplicar_plan(batalla, {});
+    const g = batalla.gorila;
+    Object.assign(g, { x: 610, y: 450, altura: 0, reloj: 0, nivel: 4 });
+    for (const h of batalla.hombres) Object.assign(h, { x: 650, y: 450, altura: 0 });
+    avanzar_batalla(batalla, .05);
+    assert.equal(g.accion, accion);
+    assert.ok(Math.abs(g.reloj - espera) < .001);
+    assert.equal(g.recargas[accion === 'embestida' ? 'carga' : accion], recarga);
+  }
+});
+
+test('empuje de contacto aplica 0.05 % de vida inicial sin repetir cada cuadro', () => {
+  const { batalla } = partida('claro');
+  batalla.hombres = batalla.hombres.slice(0, 1);
+  aplicar_plan(batalla, {});
+  const [h] = batalla.hombres;
+  const g = batalla.gorila;
+  Object.assign(g, { x: 610, y: 450, altura: 0, reloj: 100 });
+  Object.assign(h, { x: 630, y: 450, altura: 0 });
+  avanzar_batalla(batalla, .05);
+  assert.ok(Math.abs(h.vida - h.vida_maxima * .9995) < .0001);
+  const vida = h.vida;
+  h.x = 630;
+  avanzar_batalla(batalla, .05);
+  assert.equal(h.vida, vida);
 });
