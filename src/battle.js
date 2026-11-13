@@ -417,7 +417,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
 function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
   if(!activo(h))return;
   const g=b.gorila;
-  const cobertura=b.suministros.some(s=>s.tipo==='barricada'&&distancia(h,s)<80)?0.65:1;
+  const cobertura=b.suministros.some(s=>s.tipo==='barricada'&&s.construccion<=0&&s.vida>0&&distancia(h,s)<80)?0.60:1;
   const [minimo, maximo] = rango_golpe_gorila(g);
   const defensa = h.defensa > 0 ? .76 - h.radar.agilidad * .002 : 1;
   const azar = azar_normalizado(b.azar);
@@ -559,7 +559,7 @@ function actualizar_gorila(b,activos,dt) {
   const g=b.gorila;
   if(g.ataduras){
     g.ataduras.restante-=dt;
-    if(g.ataduras.restante<=0){registrar(b,'captura_rota',{tipo:g.ataduras.tipo});g.ataduras=null;}
+    if(g.ataduras.restante<=0){registrar(b,'captura_rota',{tipo:g.ataduras.tipo});g.ataduras=null;g.reduccion_velocidad=0;}
   }
   const barrera=b.suministros.find(s=>s.tipo==='barricada'&&s.construccion<=0&&distancia(s,g)<95);
   if(barrera&&g.vida>0){barrera.vida-=dt*(en_furia(g)?54:32)*g.fuerza;
@@ -716,7 +716,7 @@ export function avanzar_batalla(b,dt) {
   b.efectos=b.efectos.filter(e=>e.restante>0);
   for(const s of b.suministros)if(s.tipo!=='paquete'||s.recogido)s.restante-=dt;
   for(const s of b.suministros.filter(s=>s.tipo==='barricada'&&s.construccion>0))s.construccion=Math.max(0,s.construccion-dt);
-  b.suministros=b.suministros.filter(s=>s.restante>0&&!(s.tipo==='barricada'&&s.vida<=0));
+  b.suministros=b.suministros.filter(s=>!s.recogido&&s.restante>0&&!(s.tipo==='barricada'&&s.vida<=0));
   for(const p of b.suministros.filter(s=>s.tipo==='paquete'&&!s.recogido)) {
     if(!b.hombres.some(h=>h.id===p.recolector&&activo(h)))
       p.recolector=b.hombres.filter(activo).sort((a,z)=>distancia(a,p)-distancia(z,p))[0]?.id;
