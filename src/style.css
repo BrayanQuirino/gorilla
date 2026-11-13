@@ -370,3 +370,11 @@ html,body,#root{min-height:100%;margin:0}
 .menu-estrategia .menu-cabecera{position:relative;z-index:2;flex-shrink:0}
 .menu-estrategia .menu-cabecera button{position:relative;z-index:3;min-width:44px;min-height:44px;touch-action:manipulation}
 .menu-estrategia>footer{flex-shrink:0;z-index:2;background:#202c2f;position:relative}
+
+/* Battle menus use explicit React state, not the browser's native dialog
+   visibility. The screen overlay is mounted ONLY while the menu is open. */
+.estrategia-cortina{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:clamp(6px,1.5vh,18px);background:rgba(5,11,14,.77);backdrop-filter:blur(5px);overscroll-behavior:contain}
+.estrategia-cortina .menu-estrategia{display:flex!important;position:relative;margin:0;width:min(1180px,calc(100vw - 20px));max-width:100%;min-height:0;max-height:calc(100dvh - 20px);box-shadow:0 22px 70px #000e;overflow:hidden}
+.estrategia-cortina .menu-estrategia>footer{display:flex!important;position:relative!important;bottom:auto!important;flex-shrink:0}
+.estrategia-cortina .menu-estrategia>.menu-cabecera button{min-width:44px;min-height:44px;position:relative;z-index:5}
+@media(max-width:800px){.estrategia-cortina{padding:6px}.estrategia-cortina .menu-estrategia{height:calc(100dvh - 12px);max-height:calc(100dvh - 12px)!important}}
