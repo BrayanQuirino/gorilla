@@ -24,7 +24,7 @@ test('inventario inicial y reserva de arena comparten presupuesto sin duplicarlo
     assert.equal(equipo.resumen.armas_arena,equipo.armas_suelo.length);
     assert.ok(equipo.resumen.armados+equipo.resumen.armas_arena<=100);
     assert.ok(equipo.hombres.some(h=>h.objeto===null));
-    assert.ok(equipo.armas_suelo.every(o=>ARENAS[id].categorias.includes(o.objeto.categoria)));
+    assert.ok(equipo.armas_suelo.every(o=>ARENAS[id].categorias.includes(o.objeto.categoria)||(id==='hangar'&&o.objeto.categoria==='armas_fuego')));
   }
 });
 test('las tácticas se pueden asignar por escuadrón sin afectar a otros',()=>{
@@ -60,4 +60,14 @@ test('buscar armas las recoge del suelo sin clonar el objeto',()=>{
   dar_orden(batalla,hombre.escuadron,'buscar_armas');
   avanzar_batalla(batalla,.033);
   assert.ok(batalla.armas_suelo.some(a=>a.recogido_por));
+});
+
+test('las pistolas del hangar usan munición finita y no alteran el catálogo original',()=>{
+  const arma={id:'hangar_pistola_prueba',nombre:'Pistola',categoria:'armas_fuego',tipo:'fuego',municion:2,alcance:260,bono_fuerza_pb:0,penalizacion_velocidad_pb:0};
+  assert.equal(catalogo.objetos.length,1000);
+  const {batalla}=partida('hangar');
+  const h=batalla.hombres[0];h.objeto=arma;h.orden='atacar';h.x=batalla.gorila.x-100;h.y=batalla.gorila.y;
+  h.miedo=0;h.recarga=0;
+  for(let i=0;i<150&&arma.municion>0;i++)avanzar_batalla(batalla,.033);
+  assert.ok(arma.municion>=0&&arma.municion<2);
 });
