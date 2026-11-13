@@ -572,7 +572,7 @@ function agarrar(b, h, forzado = false) {
   g.fase = 'agarre';
   g.estrujon_en=b.transcurrido;
   g.accion = 'agarre';
-  g.reloj = 1.1;
+  g.reloj = 3;
   g.mira_izquierda = h.x < g.x;
   if (forzado) cooldown(g, 'agarre', VENTAJAS_GORILA.agarre.recarga);
   registrar(b, 'agarre', { hombre: h.id });
