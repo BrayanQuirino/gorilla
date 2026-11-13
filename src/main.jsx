@@ -260,9 +260,10 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
     :coraje<45?'La valentía es baja: distraer y esconderse puede evitar bajas.'
     :'El equipo tiene recursos para presionar; ajusta los porcentajes según el terreno.';
   return <dialog ref={dialogo} className="menu-estrategia" aria-labelledby="titulo-estrategia"
-    onCancel={e=>{e.preventDefault();cancelar();}}>
+    onCancel={e=>{e.preventDefault();cancelar();}}
+    onClick={e=>{if(e.target===e.currentTarget)cancelar();}}>
     <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Suministros'?'📦 Suministros':'⚔️ Tácticas'}</h2>
-      <button onClick={cancelar} aria-label="Cerrar">✕</button></header>
+      <button type="button" onClick={cancelar} aria-label="Cerrar menú y volver al campo">✕</button></header>
     <div className="tabs-retro">
       <button aria-pressed={categoria!=='Suministros'} onClick={()=>cambiar_categoria('Combate')}>⚔️ Tácticas</button>
       <button aria-pressed={categoria==='Suministros'} onClick={()=>cambiar_categoria('Suministros')}>📦 Suministros</button>
