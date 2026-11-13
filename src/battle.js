@@ -743,6 +743,17 @@ function actualizar_gorila(b,activos,dt) {
         distancia(h,g)<distancia(mejor,g)?h:mejor);
       g.caza_en=0;
     }
+    // Grab any vulnerable human encountered along the way, not only the
+    // initially selected quarry. Chases still end in grab + throw.
+    const alcanzables=activos.filter(h=>puede_actuar(h,g)&&alcanza_agarre(g,h));
+    const oportunidad=alcanzables.length
+      ?alcanzables.reduce((mejor,h)=>distancia(h,g)<distancia(mejor,g)?h:mejor)
+      :null;
+    if(oportunidad){
+      g.objetivo=oportunidad;g.caza_en=0;
+      agarrar(b,oportunidad,true);
+      return;
+    }
     const objetivo = g.objetivo;
     if (activo(objetivo)) {
       if (puede_actuar(objetivo, g) && alcanza_agarre(g, objetivo)) {
