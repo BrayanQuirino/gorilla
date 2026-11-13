@@ -2,18 +2,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { avanzar_batalla, crear_batalla, aplicar_plan } from '../src/battle.js';
-import { ajustar_edad, crear_sorteo_objetos, generar_hombres, habilidades } from '../src/roster.js';
+import { arquetipos, radar_arquetipo, crear_sorteo_objetos, generar_hombres, habilidades } from '../src/roster.js';
 
 const catalogo = JSON.parse(readFileSync(new URL('../src/data/objetos.json', import.meta.url)));
 const sortear_objeto = crear_sorteo_objetos(catalogo);
 
-test('genera 100 hombres con ocho habilidades, edades válidas y objetos del catálogo', () => {
+test('genera 100 adultos con ocho habilidades y objetos del catálogo', () => {
   for (const azar of [() => 0, () => .5, () => .99999]) {
     const hombres = generar_hombres(sortear_objeto, azar);
     assert.equal(hombres.length, 100);
     assert.equal(new Set(hombres.map(hombre => hombre.id)).size, 100);
     for (const hombre of hombres) {
-      assert.ok(hombre.edad >= 18 && hombre.edad <= 100);
+      assert.ok(!('edad' in hombre));
+      assert.ok(arquetipos.includes(hombre.arquetipo));
       assert.equal(Object.keys(hombre.radar).length, 8);
       assert.ok(catalogo.objetos.includes(hombre.objeto));
     }
@@ -21,12 +22,12 @@ test('genera 100 hombres con ocho habilidades, edades válidas y objetos del cat
   assert.equal(new Set(catalogo.objetos.map(objeto => objeto.id)).size, 1000);
 });
 
-test('el ajuste por edad conserva los atributos mentales y técnicos acordados', () => {
-  const base = Object.fromEntries(habilidades.map(habilidad => [habilidad, 100]));
-  const radar = ajustar_edad(base, 72);
-  assert.equal(radar.fuerza, 72);
-  assert.equal(radar.velocidad, 63);
-  for (const eje of ['inteligencia', 'temple', 'precision', 'estrategia', 'tecnica']) assert.equal(radar[eje], 100);
+test('los arquetipos conservan atributos específicos y todos son adultos',()=>{
+  assert.equal(arquetipos.length,20);
+  assert.ok(radar_arquetipo.Boxeador.fuerza>radar_arquetipo.Oficinista.fuerza);
+  assert.ok(radar_arquetipo.Velocista.velocidad>radar_arquetipo.Campista.velocidad);
+  const equipo=generar_hombres(sortear_objeto,()=>.5);
+  assert.ok(equipo.every(h=>!('edad' in h)));
 });
 
 test('cada dificultad sortea solo sus tres niveles', () => {
