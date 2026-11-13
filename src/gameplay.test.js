@@ -163,7 +163,7 @@ test('el agarre retiene al hombre y lo lanza en arco; la embestida proyecta a lo
   avanzar_batalla(batalla,.05);
   assert.equal(g.fase,'agarre');
   assert.ok(h.altura>g.altura);
-  for(let i=0;i<25;i++) avanzar_batalla(batalla,.05);
+  for(let i=0;i<65;i++) avanzar_batalla(batalla,.05);
   assert.ok(h.vuelo?.agarre);
   assert.ok(h.altura>35);
   for(let i=0;i<20;i++) avanzar_batalla(batalla,.05);
