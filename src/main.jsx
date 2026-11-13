@@ -322,12 +322,12 @@ function App() {
   }, [batalla, iniciada, pausa_activa, modo_visual, cargando_arena, anuncio]);
 
   useEffect(() => {
-    if (!anuncio) return;
+    if (!anuncio || pausa_activa) return;
     const aviso = setTimeout(() => {
       if (reanudar_segunda_vida(batalla)) actualizar_panel(valor => valor + 1);
     }, duracion_segunda_vida);
     return () => clearTimeout(aviso);
-  }, [batalla, anuncio]);
+  }, [batalla, anuncio, pausa_activa]);
 
   function abrir_estrategia(seccion='Combate') {
     cambiar_categoria(seccion);
