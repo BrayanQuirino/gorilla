@@ -98,7 +98,7 @@ function createScene(gl,canvas){
  projection:gl.getUniformLocation(p,'projection'),model:gl.getUniformLocation(p,'model'),
  color:gl.getUniformLocation(p,'color'),alpha:gl.getUniformLocation(p,'alpha')};
  const mesh={cube:cube(gl),sphere:sphere(gl),cylinder:cylinder(gl)};
- gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.enable(gl.CULL_FACE);
+ gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
  const cam=[0,39,48],view=lookAt(cam,[0,0,0],[0,1,0]);
  const proj=mul(ortho(-24,24,-14,14,.1,110),view);
  gl.uniformMatrix4fv(loc.projection,false,new Float32Array(proj));
