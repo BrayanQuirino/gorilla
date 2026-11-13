@@ -1,5 +1,6 @@
 import { alto, ancho } from './battle.js';
 import { ARENAS } from './rules.js';
+import { crear_atlas, accion_humano, accion_gorila, dibujar_sprite } from './sprites.js';
 
 // Capa visual independiente: sprites dibujados en pixels, sin modificar la simulación.
 // Los sprites definitivos del concept art podrán reemplazar estas figuras manteniendo esta API.
@@ -107,58 +108,28 @@ function terreno(id){
  }
  return canvas;
 }
-function humano(c,h,seleccionado,t){
- const x=Math.round(h.x),y=Math.round(h.y);
- const caido=h.vida<=0||h.estado==='eliminado'||h.estado==='incapacitado';
- const color=equipoColores[(h.escuadron-1)%equipoColores.length];
- c.save();c.translate(x,y);
- if(seleccionado){c.strokeStyle='#fff2aa';c.lineWidth=2;c.beginPath();c.ellipse(0,2,10,5,0,0,Math.PI*2);c.stroke();}
- elipse(c,1,6,8,3,'#0d181c99');
- if(caido){rect(c,-7,0,14,3,'#8e655b');rect(c,5,2,8,3,'#34393b');c.restore();return;}
- const paso=Math.sin(t*8+h.id)*2;
- const fisico=h.edad>=70?'#b7a9a2':'#e9b88d';
- // silueta pixelada legible a escalas pequeñas
- rect(c,-5,-10,11,9,color);rect(c,-4,-14,8,6,fisico);
- rect(c,-5,-15,10,3,h.edad>=65?'#d2d2c9':'#3c2c2a');
- rect(c,-6,-8,3,7,fisico);rect(c,5,-8,3,7,fisico);
- rect(c,-4,0,3,5+paso,'#293945');rect(c,2,0,3,5-paso,'#293945');
- rect(c,2,-12,2,2,'#21292c');
- if(h.objeto){rect(c,7,-10,5,2,h.objeto.tipo==='fuego'?'#e0db90':'#c6c3af');}
- if(h.proteccion>0)rect(c,-5,-10,11,3,'#afba9a');
- if(h.oculto)rect(c,-7,-16,15,3,'#5ca56e');
- if(h.estado==='panico'||h.miedo>70){rect(c,-1,-23,3,5,'#ffca6d');rect(c,-1,-16,3,2,'#ffca6d');}
- if(h.estado==='herido')rect(c,-6,-17,3,3,'#e65a50');
- c.restore();
+function humano(c,h,seleccionado,t,atlas){
+ const muerto=h.vida<=0||h.estado==='eliminado'||h.estado==='incapacitado';
+ if(seleccionado){elipse(c,h.x,h.y+2,13,6,'#f4e4a466');}
+ if(h.oculto&&!muerto)elipse(c,h.x,h.y-3,15,5,'#4e9e6c55');
+ elipse(c,h.x+2,h.y+1,11,4,'#0b151b80');
+ const action=accion_humano(h);
+ const frames=atlas.humano(action,h.escuadron-1,h.id%5,h.edad>=65,Boolean(h.objeto));
+ const speed=action==='run'?1.8:action==='tired'?.45:1;
+ dibujar_sprite(c,frames,h.x,h.y,25,34,t*speed,h.id*.41);
+ if(h.proteccion>0&&!muerto)rect(c,h.x-7,h.y-27,14,3,'#bfc2a3');
+ if(h.estado==='herido')rect(c,h.x+8,h.y-34,3,5,'#ef554f');
 }
-function gorila(c,g,t){
- const x=Math.round(g.x),y=Math.round(g.y);
- c.save();c.translate(x,y);
- const factor=g.radio/30;c.scale(factor,factor);
- elipse(c,2,15,37,12,'#0c151caa');
- if(g.furia>0){for(let i=0;i<9;i++){
-  const a=i*Math.PI*2/9+t*3;
-  rect(c,Math.cos(a)*39-4,Math.sin(a)*31-6,9,9,i%2?'#f04d3b':'#ff9b4b');
+function gorila(c,g,t,atlas){
+ elipse(c,g.x+3,g.y+1,g.radio*1.5,12,'#0c151baf');
+ if(g.furia>0){for(let i=0;i<10;i++){
+  const theta=i*Math.PI/5+t*2;
+  rect(c,g.x+Math.cos(theta)*g.radio*1.45-3,g.y-36+Math.sin(theta)*25,6,7,i%2?'#eb513e':'#ffb65b');
  }}
- const movimiento=g.fase==='embestida'?Math.sin(t*19)*3:Math.sin(t*3);
- // brazos poderosos, espalda plateada, cara y nudillos.
- rect(c,-30,-6+movimiento,18,30,'#292b37');
- rect(c,17,-6-movimiento,19,30,'#272a33');
- rect(c,-32,19,14,9,'#5f5660');rect(c,23,18,15,9,'#5f5660');
- rect(c,-21,-22,44,39,'#252933');
- rect(c,-20,-20,38,15,'#87858e');
- rect(c,-11,-16,22,12,'#aaa6aa');
- rect(c,-16,9,12,12,'#35363d');rect(c,7,9,14,12,'#34343b');
- rect(c,-15,-33,31,25,'#272a34');
- rect(c,-11,-24,25,13,'#6e6669');
- rect(c,-8,-22,6,4,'#141720');rect(c,7,-22,6,4,'#15191c');
- rect(c,-6,-22,3,2,g.furia>0?'#ff4838':'#e4b669');
- rect(c,8,-22,3,2,g.furia>0?'#ff4838':'#e4b669');
- rect(c,-7,-14,18,6,g.fase==='aviso'?'#d2806a':'#29252a');
- rect(c,-4,-12,4,2,'#dfd0be');rect(c,4,-12,4,2,'#dfd0be');
- if(g.fase==='aviso'){
-  c.strokeStyle='#ff9a52';c.lineWidth=2;c.beginPath();c.arc(0,-15,43,-1.1,1.0);c.stroke();
- }
- c.restore();
+ const action=accion_gorila(g);
+ const frames=atlas.gorila.get(action)||atlas.gorila.get('idle');
+ const scale=g.radio/30;
+ dibujar_sprite(c,frames,g.x,g.y+10,Math.round(90*scale),Math.round(96*scale),t,0);
 }
 function baliza(c,x,y,r,color){
  c.strokeStyle=color;c.lineWidth=3;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.stroke();
@@ -167,11 +138,27 @@ export function crear_dibujante(canvas){
  const ctx=canvas.getContext('2d',{alpha:false});
  ctx.imageSmoothingEnabled=false;
  const capas=new Map();
+ const atlas=crear_atlas();
  let tiempo=0;
+ let visto=0;
+ const chispas=[];
+ let previo=null;
  return (batalla,escuadron)=>{
   const id=batalla.arena||'claro';
   if(!capas.has(id))capas.set(id,terreno(id));
   tiempo+=1/60;
+  if(previo!==batalla){previo=batalla;visto=0;chispas.length=0;}
+  const eventos=batalla.eventos||[];
+  if(visto>eventos.length)visto=0;
+  for(const e of eventos.slice(visto)){
+   if(['arma_encontrada','disparo','baja','rescate','furia','compra','ataque_gorila'].includes(e.tipo)){
+    const h=batalla.hombres.find(u=>u.id===e.hombre);
+    const x=h?.x??batalla.gorila.x,y=h?.y??batalla.gorila.y;
+    const txt={arma_encontrada:'¡EQUIPO!',disparo:'BANG!',baja:'¡CAÍDO!',rescate:'¡RESCATE!',furia:'¡FURIA!',compra:'🍌 COMPRA',ataque_gorila:'¡CUIDADO!'}[e.tipo];
+    chispas.push({x,y,texto:txt,vida:1.0,color:e.tipo==='baja'?'#ff6960':e.tipo==='arma_encontrada'?'#f4e27a':'#fff2bd'});
+   }
+  }
+  visto=eventos.length;
   ctx.imageSmoothingEnabled=false;ctx.drawImage(capas.get(id),0,0);
   // objetos aún en arena: los ocultos nunca se muestran antes de encontrarlos.
   for(const o of batalla.armas_suelo||[]){
@@ -193,8 +180,8 @@ export function crear_dibujante(canvas){
   // orden por eje Y para profundidad estilo arcade isométrico
   const actores=[...batalla.hombres.map(h=>({y:h.y,tipo:'humano',h})),{y:g.y,tipo:'gorila'}].sort((a,b)=>a.y-b.y);
   for(const a of actores){
-    if(a.tipo==='gorila')gorila(ctx,g,tiempo);
-    else humano(ctx,a.h,Boolean(escuadron&&escuadron===a.h.escuadron),tiempo);
+    if(a.tipo==='gorila')gorila(ctx,g,tiempo,atlas);
+    else humano(ctx,a.h,Boolean(escuadron&&escuadron===a.h.escuadron),tiempo,atlas);
   }
   // barras de estado discretas y contexto táctico
   const barra=lim=>Math.max(0,Math.min(1,lim));
@@ -203,6 +190,13 @@ export function crear_dibujante(canvas){
   rect(ctx,g.x-32,g.y-g.radio-27,64*barra(g.energia/100),2,'#e6b85d');
   ctx.font='bold 12px monospace';ctx.textAlign='center';
   ctx.fillStyle='#fff0b2';ctx.fillText(g.furia>0?'¡FURIA!':'GORILA',g.x,g.y-g.radio-39);
+  // Impactos y eventos efímeros, nunca interfieren con la simulación.
+  ctx.textAlign='center';ctx.font='bold 12px monospace';
+  for(let i=chispas.length-1;i>=0;i--){const fx=chispas[i];
+   ctx.globalAlpha=Math.max(0,fx.vida);ctx.fillStyle='#151a21';ctx.fillText(fx.texto,fx.x+1,fx.y-34-(1-fx.vida)*25+2);
+   ctx.fillStyle=fx.color;ctx.fillText(fx.texto,fx.x,fx.y-34-(1-fx.vida)*25);
+   ctx.globalAlpha=1;fx.vida-=1/60;if(fx.vida<=0)chispas.splice(i,1);
+  }
   // borde cromático característico de HUD arcade
   rect(ctx,0,0,ancho,4,'#17252a');rect(ctx,0,alto-4,ancho,4,'#17252a');
  };
