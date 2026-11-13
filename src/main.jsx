@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades, radar_arquetipo } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, danio_humano, radio_ataque, rango_golpe_gorila, velocidad_gorila, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, clase_danio, danio_humano, radio_ataque, rango_golpe_gorila, velocidad_gorila, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS, resumir_equipo } from './rules.js';
 import retrato_furia from './art/gorila-segunda-vida.webp';
+import { crear_audio_arcade } from './audio.js';
 import './style.css';
 
 const sortear_objeto = crear_sorteo_objetos(catalogo);
@@ -88,7 +89,7 @@ function PanelEquipo({ batalla, perfil, cambiar_perfil }) {
           return <div key={hombre.id}>
             <strong>#{hombre.id} · {hombre.edad} años</strong>
             <span>{formato.format(hombre.vida)} / {formato.format(hombre.vida_maxima)} PV</span>
-            <small>{activo(hombre) ? `${formato.format(danio_humano(hombre, disparo, g.fase === 'recuperacion' ? 1.35 : 1))} PV máx. por ${disparo ? 'disparo' : 'golpe'}` : hombre.estado}</small>
+            <small>{activo(hombre) ? `${formato.format(danio_humano(hombre, disparo, g.fase === 'recuperacion' ? 1.35 : 1))} PV máx. por ${disparo ? 'disparo' : 'golpe'} · Objeto: ${clase_danio(hombre.objeto)}` : hombre.estado}</small>
           </div>;
         })}
       </div>
@@ -122,6 +123,7 @@ function PanelEquipo({ batalla, perfil, cambiar_perfil }) {
         <p>Daño de un golpe directo antes de defensa. Disminuye con la distancia. El lanzamiento quita entre 92 % y 116 % de la vida máxima del combatiente.</p>
       </details>
       <h2>Perfiles del equipo</h2>
+      <p>Objetos clasificados por daño: Bajo · Medio · Alto · Crítico.</p>
       <div className="perfiles">
         {[...perfiles].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es')).map(([nombre, grupo]) =>
           <button key={nombre} onClick={() => cambiar_perfil(nombre)}><span>{nombre}</span><strong>{grupo.length}</strong></button>)}
@@ -152,16 +154,43 @@ function MenuEstrategia({ dialogo, batalla, categoria, cambiar_categoria, plan, 
   const elegidas = Object.entries(plan);
   const disponible = 100 - elegidas.reduce((total, [, porcentaje]) => total + porcentaje, 0);
   function porcentaje(id, valor) {
-    const siguiente = { ...plan };
-    if (valor) siguiente[id] = valor;
-    else delete siguiente[id];
+    const siguiente = {...plan};
+    const actual=siguiente[id]||0;
+    if(valor===0) {
+      if(elegidas.length<=1)return;
+      delete siguiente[id];
+      const destino=Object.keys(siguiente).sort((a,b)=>siguiente[b]-siguiente[a])[0];
+      siguiente[destino]+=actual;
+    } else if(!actual) {
+      if(elegidas.length>=3)return;
+      const donante=Object.keys(siguiente).sort((a,b)=>siguiente[b]-siguiente[a])[0];
+      const cesion=Math.min(valor,siguiente[donante]-5);
+      if(cesion<5)return;
+      siguiente[donante]-=cesion;
+      siguiente[id]=cesion;
+    } else {
+      let diferencia=valor-actual;
+      if(diferencia>0) {
+        for(const otro of Object.keys(siguiente).filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])) {
+          const movible=Math.min(diferencia,siguiente[otro]-5);
+          siguiente[otro]-=movible;diferencia-=movible;
+          if(!diferencia)break;
+        }
+        siguiente[id]=valor-diferencia;
+      } else if(diferencia<0) {
+        const destino=Object.keys(siguiente).filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])[0];
+        if(!destino)return;
+        siguiente[id]=valor;
+        siguiente[destino]-=diferencia;
+      }
+    }
     cambiar_plan(siguiente);
   }
   return <dialog ref={dialogo} className="menu-estrategia" aria-labelledby="titulo-estrategia"
     onCancel={evento => { evento.preventDefault(); cancelar(); }}>
     <header>
       <h2 id="titulo-estrategia">Estrategia</h2>
-      <p>Reparte hasta tres tácticas entre los hombres activos.</p>
+      <p>Reparte el 100 % de los hombres activos entre un máximo de tres tácticas.</p>
     </header>
     <div className="tabs-retro" role="group" aria-label="Categorías de estrategia">
       {[...Object.keys(categorias), 'Suministros'].map(nombre => <button key={nombre}
@@ -177,24 +206,24 @@ function MenuEstrategia({ dialogo, batalla, categoria, cambiar_categoria, plan, 
         {elegidas.map(([id, valor]) => <div key={id}>
           <label>{TACTICAS[id].nombre} · {valor} %
             <input type="range" aria-label={`Porcentaje para ${TACTICAS[id].nombre}`}
-              min="0" max={valor + disponible} step="5" value={valor}
+              min="0" max="100" step="5" value={valor}
               onChange={evento => porcentaje(id, Number(evento.target.value))} />
           </label>
           <button onClick={() => porcentaje(id, 0)} aria-label={`Quitar ${TACTICAS[id].nombre}`}>Quitar</button>
         </div>)}
-        <p role="status">{disponible} % en guardia · {elegidas.length} de 3 tácticas</p>
+        <p role="status">Asignado: {100-disponible} % / 100 % · {elegidas.length} de 3 tácticas</p>
       </div>
       <div className="ordenes">
         {categorias[categoria].map(id => <button key={id} aria-pressed={Boolean(plan[id])}
-          disabled={Boolean(plan[id]) || elegidas.length >= 3 || disponible < 5}
-          onClick={() => porcentaje(id, Math.min(disponible, id === 'buscar_armas' ? 10 : 25))}>
+          disabled={Boolean(plan[id]) || elegidas.length >= 3 || Math.max(...Object.values(plan)) <= 5}
+          onClick={() => porcentaje(id, id === 'buscar_armas' ? 10 : 25)}>
           <strong>{TACTICAS[id].nombre}</strong><span>{descripciones[id]}</span>
         </button>)}
       </div>
     </>}
     <footer>
       <button onClick={cancelar}>Cerrar sin aplicar tácticas</button>
-      <button className="principal" onClick={reanudar}>Reanudar</button>
+      <button className="principal" disabled={disponible!==0} onClick={reanudar}>Reanudar</button>
     </footer>
   </dialog>;
 }
@@ -212,6 +241,9 @@ function App() {
   const [, actualizar_panel] = useState(0);
   const canvas = useRef(null);
   const dibujar = useRef(null);
+  const audio = useRef(null);
+  const indice_sonido = useRef(0);
+  const [sonido, cambiar_sonido] = useState(true);
   const ultimo_cuadro = useRef(null);
   const dialogo = useRef(null);
   const boton_estrategia = useRef(null);
@@ -224,6 +256,13 @@ function App() {
   const segundos = Math.ceil(batalla.tiempo);
   const reloj = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 
+  useEffect(() => {
+    audio.current=crear_audio_arcade();
+    return ()=>audio.current?.cerrar();
+  },[]);
+  useEffect(() => {
+    audio.current?.activar(sonido && iniciada && !en_pausa && !Boolean(batalla.resultado) && !anuncio);
+  },[sonido,iniciada,en_pausa,batalla.resultado,anuncio]);
   useEffect(() => {
     const fallo = error => {
       console.warn('Vista WebGL:', error);
@@ -257,6 +296,10 @@ function App() {
       if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * .65);
       anterior = ahora;
       pintar();
+      if(sonido && iniciada && !en_pausa) {
+        const eventos=batalla.eventos;
+        while(indice_sonido.current<eventos.length)audio.current?.efecto(eventos[indice_sonido.current++].tipo);
+      }
       if (ahora - ultimo_panel >= 100) {
         ultimo_panel = ahora;
         actualizar_panel(valor => valor + 1);
@@ -297,6 +340,7 @@ function App() {
   }
 
   function nueva_partida(nivel = dificultad, arena = arena_elegida) {
+    indice_sonido.current=0;
     cambiar_arte_listo(false);
     cambiar_batalla(partida(nivel, arena));
     cambiar_perfil(null);
@@ -323,6 +367,7 @@ function App() {
           cambiar_dificultad(nivel);
           nueva_partida(nivel);
         }}>{dificultades.map((nombre, indice) => <option value={indice} key={nombre}>{nombre}</option>)}</select></label>
+        <button type="button" aria-pressed={sonido} onClick={() => cambiar_sonido(v=>!v)}>{sonido ? "♫ Audio ON" : "♫ Audio OFF"}</button>
         <button onClick={() => nueva_partida()}>Nueva partida</button>
       </div>
     </header>
@@ -358,7 +403,7 @@ function App() {
       <PanelEquipo batalla={batalla} perfil={perfil} cambiar_perfil={cambiar_perfil} />
     </div>
     <section className="reglas"><h2>Reglas</h2>
-      <p>Pulsa Iniciar para que el equipo entre en combate. Abre Estrategia para pausar la batalla y repartir hasta tres tácticas. Agota la resistencia del gorila antes de que se agote el reloj.
+      <p>Pulsa Iniciar para que el equipo entre en combate. Abre Estrategia para pausar la batalla y repartir exactamente el 100 % entre un máximo de tres tácticas. Agota la resistencia del gorila antes de que se agote el reloj.
         Si todos caen o se acaba el tiempo, gana el gorila.</p>
       <p>Cada hombre tiene ocho habilidades, una edad de 18 a 100 años y puede empezar sin objeto o con uno sorteado del catálogo de 1,000.
         La edad modifica sus habilidades físicas y el miedo puede hacerlo retroceder.</p>
