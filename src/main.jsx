@@ -267,14 +267,8 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
       <button aria-pressed={categoria!=='Suministros'} onClick={()=>cambiar_categoria('Combate')}>⚔️ Tácticas</button>
       <button aria-pressed={categoria==='Suministros'} onClick={()=>cambiar_categoria('Suministros')}>📦 Suministros</button>
     </div>
-    {categoria==='Suministros'?<>
-      <p className="saldo">🍌 {batalla.bananas} · {batalla.entregas.length} paquetes en camino</p>
-      <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id,item])=>
-        <button className="suministro-descrito" key={id} disabled={batalla.bananas<item.costo}
-          onClick={()=>comprar(id)}><span><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
-          <b>{item.costo} 🍌</b></button>)}</div>
-    </>:<>
-      <section className="comando-panel" aria-label="Inteligencia táctica">
+    <div className="panel-tactico-layout">
+      <section className="comando-panel comando-compartido" aria-label="Inteligencia táctica">
         <div className="comando-encabezado">
           <span className="comando-emblema" aria-hidden="true"><img className="comando-retrato" src={retrato_furia} alt=""/></span>
           <div><strong>CENTRO DE MANDO</strong><small>Estado del escuadrón · {ARENAS[batalla.arena].nombre}</small></div>
@@ -302,6 +296,15 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
         </div>
         <div className="comando-consejo"><span>💡</span><p>{orientacion}</p></div>
       </section>
+    <div className="panel-tactico-acciones">
+    {categoria==='Suministros'?<>
+      <p className="saldo">🍌 {batalla.bananas} · {batalla.entregas.length} paquetes en camino</p>
+      <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id,item])=>
+        <button className="suministro-descrito" key={id} disabled={batalla.bananas<item.costo}
+          onClick={()=>comprar(id)}><span><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
+          <b>{item.costo} 🍌</b></button>)}</div>
+    </>:<>
+
       <div className="tactica-medicos">
         <div><strong>🩺 Paramédicos de rescate</strong><small>Cada paramédico asignado resta un combatiente de las demás tácticas.</small></div>
         <div className="contador-paramedicos">
@@ -329,6 +332,7 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
         </div>;
       })}</div>
     </>}
+    </div></div>
     <footer><button onClick={cancelar}>Cancelar</button>
       <button className="principal" onClick={reanudar} disabled={suma!==100}>Aplicar y jugar</button></footer>
   </dialog>;
@@ -531,10 +535,10 @@ function App() {
     </div>
     {panel_movil&&<div className="hoja-fondo" onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}}>
       <section role="dialog" aria-modal="true" aria-label={panel_movil==='ajustes'?'Ajustes':'Equipo'}
-        className="hoja-movil hoja-superpuesta" onClick={e=>e.stopPropagation()}>
+        className={`hoja-movil hoja-superpuesta ${panel_movil==='ajustes'?'hoja-ajustes':'hoja-equipo'}`} onClick={e=>e.stopPropagation()}>
         <div className="hoja-cabecera"><h2>{panel_movil==='ajustes'?'⚙ Ajustes':'📊 Equipo'}</h2>
           <button onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}} aria-label="Cerrar">✕</button></div>
-        {panel_movil==='equipo'?<PanelEquipo batalla={batalla} seleccionInicial={arquetipo_abierto}/>:<div className="ajustes-panel">
+        {panel_movil==='equipo'?<PanelEquipo batalla={batalla} seleccionInicial={arquetipo_abierto}/>:<div className="ajustes-panel ajustes-cuadricula">
           <label>Vista<select value={modo_visual} onChange={e=>{cambiar_arte_listo(false);cambiar_modo_visual(e.target.value);}}>
             <option value="3d">Arcade 2.5D</option><option value="2d">Retro 2D</option></select></label>
           <label>Arena<select value={arena_elegida} onChange={e=>{const id=e.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>
@@ -543,7 +547,7 @@ function App() {
             {dificultades.map((d,i)=><option key={d} value={i}>{d}</option>)}</select></label>
           <label>♫ Música {volumen_musica}%<input type="range" min="0" max="100" value={volumen_musica} onChange={e=>cambiar_volumen_musica(Number(e.target.value))} aria-label="Volumen de música"/></label>
           <label>🔊 Efectos {volumen_efectos}%<input type="range" min="0" max="100" value={volumen_efectos} onChange={e=>cambiar_volumen_efectos(Number(e.target.value))} aria-label="Volumen de efectos"/></label>
-          <button className="principal" onClick={()=>{nueva_partida();cambiar_panel_movil(null);}}>↻ Nueva partida</button>
+          <button className="principal reiniciar-partida" onClick={()=>{nueva_partida();cambiar_panel_movil(null);}}>↻ Nueva partida</button>
         </div>}
       </section></div>}
     <MenuEstrategia dialogo={dialogo} batalla={batalla} categoria={categoria}
