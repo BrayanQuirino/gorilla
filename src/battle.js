@@ -147,8 +147,11 @@ function actualizar_hombre(b,h,dt,puesto) {
   const mov=h.orden==='huir'?1.4:h.orden==='esconder'?.5:1;
   caminar(h,destino,dt,mov);
   const emboscando=h.orden==='emboscada'&&cerca_g<g.radio+35;
-  if((h.orden==='atacar'||emboscando)&&!pánico&&h.reaccion===0&&h.recarga<=0&&cerca_g<=g.radio+24){
-    h.recarga=2.4-h.radar.tecnica*.016;
+  const disparo=h.objeto?.tipo==='fuego'&&h.objeto.municion>0;
+  const alcance=disparo?h.objeto.alcance:g.radio+24;
+  if((h.orden==='atacar'||emboscando)&&!pánico&&h.reaccion===0&&h.recarga<=0&&cerca_g<=alcance){
+    h.recarga=disparo?1.15:2.4-h.radar.tecnica*.016;
+    if(disparo){h.objeto.municion--;registrar(b,'disparo',{hombre:h.id,restante:h.objeto.municion});}
     const bono_estrategia=efecto_vigente(b,'plan')?.15:0;
     const humo=efecto_vigente(b,'humo')?-.12:0;
     const golpe=azar_normalizado(b.azar)<limitar(.2+h.radar.precision*.0075+bono_estrategia+humo,.05,.95);
@@ -157,7 +160,7 @@ function actualizar_hombre(b,h,dt,puesto) {
       const arma=h.objeto?1+(h.objeto.bono_fuerza_pb||0)/10000:1;
       const cuerdas=b.suministros.some(s=>s.tipo==='cuerdas')?1.12:1;
       const alerta=g.memoria.emboscada?.85:1;
-      const danio=(1+h.fuerza_efectiva*.065)*apertura*arma*(1+h.bono_dano)*(emboscando?1.35*cuerdas*alerta:1);
+      const danio=(1+h.fuerza_efectiva*.065)*apertura*arma*(disparo?3:1)*(1+h.bono_dano)*(emboscando?1.35*cuerdas*alerta:1);
       const aplicado=Math.min(g.vida,danio);g.vida=Math.max(0,g.vida-aplicado);recompensa(b,aplicado);
     }
     if(emboscando)h.orden='retirar';
