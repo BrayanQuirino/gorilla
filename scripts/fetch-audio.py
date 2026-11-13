@@ -12,21 +12,21 @@ OUT.mkdir(parents=True, exist_ok=True)
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; GorillaGame/1.0)", "Accept": "text/html,application/xhtml+xml,*/*"}
 SOURCES = [
   # key, page, trim-start, duration, speed, pitch semitones, variant index
-  ("inicio_batalla", "https://freesound.org/people/ShangusBurger/sounds/764267/", 0, 4, 1, 0, 0),
-  ("golpe_humano", "https://freesound.org/people/danlucaz/sounds/517744/", 0, 1, 1, 0, 0),
-  ("rugido", "https://freesound.org/people/J0ck0/sounds/397054/", 0, 3.1, 1, 0, 0),
-  ("pisada_gorila", "https://pixabay.com/sound-effects/film-special-effects-running-on-dirt-road-345729/", 0, 14, 1.5, 0, 0),
+  ("inicio_batalla", "https://cdn.freesound.org/previews/764/764267_11744683-hq.mp3", 0, 4, 1, 0, 0),
+  ("golpe_humano", "https://cdn.freesound.org/previews/517/517744_9996727-hq.mp3", 0, 1, 1, 0, 0),
+  ("rugido", "https://cdn.freesound.org/previews/397/397054_2884295-hq.mp3", 0, 3.1, 1, 0, 0),
+  ("pisada_gorila", "https://cdn.pixabay.com/download/audio/2025/05/23/audio_b1a8e3188f.mp3?filename=running-on-dirt-road-footsteps-sound-effect-194380.mp3", 0, 14, 1.5, 0, 0),
   ("estrujon", "https://pixabay.com/sound-effects/film-special-effects-lettuce-crushing-gore-sound-27156/", 0, 3, 1, 0, 0),
   ("lanzamiento", "https://pixabay.com/sound-effects/film-special-effects-fast-swoosh-383967/", 0, 8, .65, 0, 0),
-  ("disparo", "https://freesound.org/people/michorvath/sounds/427594/", 0, 3.1, 1, 0, 0),
+  ("disparo", "https://cdn.freesound.org/previews/427/427594_3094998-hq.mp3", 0, 3.1, 1, 0, 0),
   ("objeto_lanzado", "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-5-198498/", 0, 3, 1, 0, 0),
   ("impacto_objeto", "https://pixabay.com/sound-effects/film-special-effects-impact-thud-291047/", 0, 2, 1, 0, 0),
-  ("baja", "https://freesound.org/people/CosmicEmbers/sounds/160742/", 0, 1.1, 1, 0, 0),
+  ("baja", "https://cdn.freesound.org/previews/160/160742_2895542-hq.mp3", 0, 1.1, 1, 0, 0),
   ("segunda_vida", "https://pixabay.com/sound-effects/film-special-effects-gorilla-roar-523007/", 2, 3, 1, 0, 0),
   ("captura_desplegada", "https://pixabay.com/es/sound-effects/pel%C3%ADculas-y-efectos-especiales-rope-tighten-knot-5-199791/", 0, 2, 1, 0, 0),
-  ("captura_rota", "https://freesound.org/people/checholio/sounds/443833/", 0, 1, 1, 0, 0),
-  ("suministro_recogido", "https://freesound.org/people/qubodup/sounds/822565/", 0, 1, 1, 0, 0),
-  ("objeto_soltado", "https://freesound.org/people/qubodup/sounds/189312/", 0, 1, 1, 0, 0),
+  ("captura_rota", "https://cdn.freesound.org/previews/443/443833_9184212-hq.mp3", 0, 1, 1, 0, 0),
+  ("suministro_recogido", "https://cdn.freesound.org/previews/822/822565_71257-hq.mp3", 0, 1, 1, 0, 0),
+  ("objeto_soltado", "https://cdn.freesound.org/previews/189/189312_71257-hq.mp3", 0, 1, 1, 0, 0),
   ("music_a", "https://opengameart.org/sites/default/files/Juhani%20Junkala%20-%20Epic%20Boss%20Battle%20%5BSeamlessly%20Looping%5D.wav", 0, None, 1, 0, 0),
   ("music_b1", "https://opengameart.org/sites/default/files/CleytonRX%20-%20Battle%20RPG%20Theme_1.mp3", 0, None, 1, 0, 0),
   ("music_b2", "https://opengameart.org/sites/default/files/CleytonRX%20-%20Battle%20RPG%20Theme%20Var_0.ogg", 0, None, 1, 0, 0),
@@ -37,7 +37,7 @@ def fetch(url):
         return r.read()
 
 def media_url(page):
-    if page.endswith((".mp3", ".ogg", ".wav")):
+    if re.search(r"\.(mp3|ogg|wav)(?:\?|$)", page):
         return page
     data = fetch(page).decode("utf-8", "replace")
     normalized = html.unescape(data.replace(r"\/", "/").replace(r"\u002F", "/").replace(r"\u0026", "&"))
