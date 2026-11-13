@@ -17,6 +17,7 @@ test('se conservan los 100 hombres, ocho atributos y edades de 18-100',()=>{
   assert.equal(equipo.hombres.length,100);
   assert.equal(habilidades.length,8);
   assert.ok(equipo.hombres.every(h=>h.edad>=18&&h.edad<=100));
+  assert.ok(equipo.hombres.every(h=>['Young','Adult','Older'].includes(h.arquetipo)));
 });
 test('inventario inicial y reserva de arena comparten presupuesto sin duplicarlo',()=>{
   for(const id of Object.keys(ARENAS)){
@@ -28,7 +29,7 @@ test('inventario inicial y reserva de arena comparten presupuesto sin duplicarlo
     assert.ok(equipo.armas_suelo.every(o=>ARENAS[id].categorias.includes(o.objeto.categoria)||(id==='hangar'&&o.objeto.categoria==='armas_fuego')));
   }
 });
-test('el plan reparte tres acciones y asigna la búsqueda a los más alejados',()=>{
+test('el plan reparte seis acciones y asigna la búsqueda a los más alejados',()=>{
   const {batalla}=partida();
   const caido=batalla.hombres.at(-1);
   caido.estado='incapacitado';
@@ -42,7 +43,9 @@ test('el plan reparte tres acciones y asigna la búsqueda a los más alejados',(
   assert.equal(batalla.hombres.filter(h => h.orden === 'atacar').length, 50);
   assert.equal(batalla.hombres.filter(h => h.orden === 'huir').length, 40);
   assert.equal(batalla.hombres.filter(h => h.orden === 'guardia').length, 0);
-  assert.equal(aplicar_plan(batalla, { atacar: 30, buscar_armas: 10, huir: 40, rescatar: 20 }), false);
+  assert.equal(aplicar_plan(batalla, {atacar:25, buscar_armas:15, huir:20, rescatar:15, esconder:15, distraer:10}), true);
+  assert.equal(Object.keys(batalla.plan).length,6);
+  assert.equal(batalla.hombres.filter(h=>h.estado!=='incapacitado'&&h.orden==='guardia').length,0);
   assert.equal(aplicar_plan(batalla, { atacar: 96, buscar_armas: 5 }), false);
   assert.equal(aplicar_plan(batalla, { atacar: 80, huir: 10 }), false);
   for (const orden of ['defender', 'emboscada', 'mantener', 'retirar']) assert.equal(aplicar_plan(batalla, { [orden]: 100 }), false);
@@ -256,7 +259,7 @@ test('segunda vida pausa el reloj y vuelve con furia permanente una sola vez', (
   avanzar_batalla(batalla, .1);
   assert.equal(batalla.tiempo, tiempo);
   assert.equal(reanudar_segunda_vida(batalla), true);
-  assert.equal(g.vida, g.vida_maxima);
+  assert.ok(Math.abs(g.vida-(20+g.vida_maxima*.15))<.0001);
   g.furia = 0;
   assert.equal(en_furia(g), true);
   assert.equal(reanudar_segunda_vida(batalla), false);
