@@ -108,6 +108,6 @@ export function accion_gorila(g){
  return 'idle';
 }
 export function dibujar_sprite(c,frames,x,y,w,h,t,offset=0){
- const frame=frames[Math.floor(t*7+offset)%frames.length];
+ const frame=frames[Math.floor(t*9.5+offset)%frames.length];
  c.drawImage(frame,Math.round(x-w/2),Math.round(y-h),w,h);
 }
