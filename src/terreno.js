@@ -32,6 +32,17 @@ export function obstaculo_humano(p, arena, margen=13) {
 }
 export function ruta_humano(actor, destino, arena) {
   if(!destino)return destino;
+  // New spawns and knockback positions may overlap a cliff's clearance margin.
+  // Escape outward first instead of freezing against the collision boundary.
+  for(const o of obstaculos[arena]||[]){
+    const nx=(actor.x-o.x)/(o.rx+17),ny=(actor.y-o.y)/(o.ry+18);
+    const d=Math.hypot(nx,ny);
+    if(d<1){
+      const angle=d>0.001?Math.atan2(ny,nx):actor.id%2?0:Math.PI;
+      return {x:limitar(o.x+Math.cos(angle)*(o.rx+29),14,ancho-14),
+        y:limitar(o.y+Math.sin(angle)*(o.ry+32),22,alto-22)};
+    }
+  }
   const lista=(obstaculos[arena]||[]);
   // Check the entire segment: don't let actors go through rock in one frame.
   let bloque=null, tPrimero=2;
@@ -70,6 +81,13 @@ export function corregir_paso_humano(actor, antes, arena){
   const x={x:actor.x,y:antes.y},y={x:antes.x,y:actor.y};
   if(!obstaculo_humano(x,arena,12)){actor.y=antes.y;actor.vy=0;return;}
   if(!obstaculo_humano(y,arena,12)){actor.x=antes.x;actor.vx=0;return;}
+  const enclosing=(obstaculos[arena]||[]).find(o=>
+    ((antes.x-o.x)/(o.rx+12))**2+((antes.y-o.y)/(o.ry+12))**2<1);
+  if(enclosing){
+    const dist=p=>((p.x-enclosing.x)/(enclosing.rx+12))**2+
+      ((p.y-enclosing.y)/(enclosing.ry+12))**2;
+    if(dist(actor)>dist(antes))return;
+  }
   actor.x=antes.x;actor.y=antes.y;actor.vx*=.3;actor.vy*=.3;
 }
 export function agua_humano(p,arena) {
