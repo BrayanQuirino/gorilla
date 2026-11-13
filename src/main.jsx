@@ -1,14 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
-import { crear_sorteo_objetos, generar_hombres, habilidades } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, dar_orden, dificultades } from './battle.js';
+import { crear_sorteo_objetos, preparar_equipo, habilidades } from './roster.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, dar_orden, comprar_suministro, dificultades } from './battle.js';
 import { crear_dibujante } from './arena.js';
+import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import './style.css';
 
 const sortear_objeto = crear_sorteo_objetos(catalogo);
-const etiquetas = ['Fuerza', 'Velocidad', 'Reflejos', 'Resistencia', 'Precisión',
-  'Inteligencia', 'Agilidad', 'Valentía', 'Manejo'];
+const etiquetas = ['Fuerza','Velocidad','Inteligencia','Temple','Precisión','Agilidad','Estrategia','Técnica'];
+function partida(nivel=0,arena='claro') {
+ const equipo=preparar_equipo(sortear_objeto,catalogo,arena);
+ return crear_batalla(equipo.hombres,nivel,Math.random,equipo);
+}
 
 function punto(indice, radio) {
   const angulo = indice * Math.PI * 2 / habilidades.length - Math.PI / 2;
@@ -40,7 +44,8 @@ function Radar({ radar }) {
 
 function App() {
   const [dificultad, cambiar_dificultad] = useState(0);
-  const [batalla, cambiar_batalla] = useState(() => crear_batalla(generar_hombres(sortear_objeto), 0));
+  const [arena_elegida,cambiar_arena] = useState('claro');
+  const [batalla, cambiar_batalla] = useState(() => partida(0));
   const [en_pausa, cambiar_pausa] = useState(true);
   const [escuadron, cambiar_escuadron] = useState(0);
   const [hombre_id, cambiar_hombre_id] = useState(1);
@@ -49,7 +54,7 @@ function App() {
   const dibujar = useRef(null);
   const hombre = batalla.hombres[hombre_id - 1];
   const gorila = batalla.gorila;
-  const activos = batalla.hombres.filter(personaje => personaje.vida > 0).length;
+  const activos = batalla.hombres.filter(personaje => personaje.vida > 0 && personaje.estado !== 'incapacitado' && personaje.estado !== 'eliminado').length;
   const segundos = Math.ceil(batalla.tiempo);
   const reloj = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 
@@ -85,12 +90,14 @@ function App() {
     return () => window.removeEventListener('keydown', pausar);
   }, [batalla]);
 
-  function nueva_partida(nivel = dificultad) {
-    cambiar_batalla(crear_batalla(generar_hombres(sortear_objeto), nivel));
+  function nueva_partida(nivel = dificultad,arena = arena_elegida) {
+    cambiar_batalla(partida(nivel,arena));
     cambiar_escuadron(0);
     cambiar_hombre_id(1);
     cambiar_pausa(true);
   }
+
+  function comprar(id) { if (comprar_suministro(batalla,id)) actualizar_panel(v=>v+1); }
 
   function seleccionar_escuadron(id) {
     cambiar_escuadron(id);
@@ -113,6 +120,7 @@ function App() {
     <header className="cabecera">
       <div><h1>Gorilla<span>.</span></h1><p>100 hombres contra un gorila</p></div>
       <div className="configuracion">
+        <label>Arena <select value={arena_elegida} onChange={evento=>{const id=evento.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>{Object.entries(ARENAS).map(([id,a])=><option value={id} key={id}>{a.nombre}</option>)}</select></label>
         <label>Dificultad <select value={dificultad} onChange={evento => {
           const nivel = Number(evento.target.value);
           cambiar_dificultad(nivel);
@@ -126,29 +134,32 @@ function App() {
         <div className="marcador">
           <div><small>Hombres activos</small><strong>{activos} <span>/ 100</span></strong></div>
           <div><small>Tiempo</small><strong>{reloj}</strong></div>
+          <div><small>Bananas</small><strong>🍌 {batalla.bananas}</strong></div>
           <div><small>Gorila · Nivel {gorila.nivel}</small>
             <progress aria-label="Resistencia del gorila" value={gorila.vida} max={gorila.vida_maxima} /></div>
         </div>
         <div className="arena">
           <canvas ref={canvas} width={ancho} height={alto} onClick={mover} aria-label="Claro del bosque" />
-          <div className="estado" role="status">{batalla.resultado || (en_pausa ? 'Pausa táctica' : 'Claro del bosque')}</div>
+          <div className="estado" role="status">{batalla.resultado || (en_pausa ? 'Pausa táctica' : ARENAS[batalla.arena].nombre)}</div>
         </div>
         <div className="ordenes">
           <button className="principal" disabled={Boolean(batalla.resultado)}
             onClick={() => cambiar_pausa(valor => !valor)}>{en_pausa ? 'Jugar' : 'Pausar'}</button>
           <button onClick={() => ordenar('atacar')}>Atacar</button>
           <button onClick={() => ordenar('mantener')}>Mantener</button>
-          <button onClick={() => ordenar('retirar')}>Retirar</button>
+          {Object.entries(TACTICAS).filter(([id])=>id!=='mover').map(([id,t])=><button key={id} onClick={()=>ordenar(id)}>{t.nombre}</button>)}
         </div>
         <p className="ayuda">Elige un escuadrón y toca el campo para moverlo. La barra espaciadora activa la pausa táctica.</p>
       </section>
       <aside>
+        <h2>Suministros · 🍌 {batalla.bananas}</h2>
+        <div className="escuadrones">{Object.entries(SUMINISTROS).map(([id,s])=><button key={id} disabled={batalla.bananas<s.costo||Boolean(batalla.resultado)} onClick={()=>comprar(id)} title={s.nombre}>{s.nombre} · {s.costo} 🍌</button>)}</div>
         <h2>Escuadrones</h2>
         <div className="escuadrones">
           <button aria-pressed={escuadron === 0} onClick={() => seleccionar_escuadron(0)}>Todos</button>
           {Array.from({ length: 10 }, (_, indice) => {
             const id = indice + 1;
-            const vivos = batalla.hombres.filter(personaje => personaje.escuadron === id && personaje.vida > 0).length;
+            const vivos = batalla.hombres.filter(personaje => personaje.escuadron === id && personaje.vida > 0 && personaje.estado !== 'incapacitado' && personaje.estado !== 'eliminado').length;
             return <button key={id} aria-label={`Escuadrón ${id}, ${vivos} activos`}
               aria-pressed={escuadron === id} onClick={() => seleccionar_escuadron(id)}>{id}<small>{vivos}</small></button>;
           })}
@@ -162,17 +173,18 @@ function App() {
           <h2>{hombre.arquetipo} <small>{hombre.edad} años</small></h2>
           <Radar radar={hombre.radar} />
           <div className="objeto">
-            <strong>{hombre.objeto.nombre}</strong>
-            <span>+{hombre.objeto.bono_fuerza_pb / 100} % de fuerza · {hombre.objeto.peso_g} g</span>
+            <strong>{hombre.objeto?.nombre || 'Sin objeto'}</strong>
+            <span>+{(hombre.objeto?.bono_fuerza_pb || 0) / 100} % de fuerza · {hombre.objeto?.peso_g || 0} g</span>
           </div>
           <label className="miedo">Miedo <progress value={hombre.miedo} max="100" /></label>
         </div>
+        <div className="ficha"><h2>Resumen del sorteo</h2><p>Armados: {batalla.resumen?.armados ?? '—'} · Sin armas: {batalla.resumen?.desarmados ?? '—'} · Objetos en arena: {batalla.resumen?.armas_arena ?? 0}</p><p>Las armas de la arena se deben descubrir con la táctica Buscar armas.</p></div>
       </aside>
     </div>
     <section className="reglas"><h2>Reglas</h2>
-      <p>Dirige a 100 hombres en el Claro del bosque. Agota la resistencia del gorila en cinco minutos.
+      <p>Dirige a 100 hombres en una arena con objetos propios. Agota la resistencia del gorila en cinco minutos.
         Si todos caen o se acaba el tiempo, gana el gorila.</p>
-      <p>Cada hombre tiene nueve habilidades, una edad de 18 a 100 años y un objeto sorteado de un catálogo de 1,000.
+      <p>Cada hombre tiene ocho habilidades, una edad de 18 a 100 años y un objeto sorteado de un catálogo de 1,000.
         La edad modifica sus habilidades físicas y el miedo puede hacerlo retroceder.</p>
     </section>
   </main>;
