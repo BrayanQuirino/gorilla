@@ -174,3 +174,21 @@ aside h2{margin:9px 0}
  .datos-marcador{font-size:.85rem}
  .lista-suministros{grid-template-columns:1fr!important}
 }
+
+/* Visual archetype drill-down: large tap targets and compact graphic counts */
+.arquetipos-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 14px}
+.tarjeta-arquetipo{text-align:left;min-width:0;padding:10px 9px;background:#203335;border:1px solid #55716b;border-radius:8px;box-shadow:0 2px #111d20;min-height:91px}
+.tarjeta-arquetipo:hover,.tarjeta-arquetipo:focus-visible{border-color:#f3c872;background:#304544}
+.tarjeta-cabecera{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.tarjeta-cabecera strong{font-size:clamp(.86rem,1.4vw,1.04rem);overflow-wrap:anywhere}
+.tarjeta-cabecera b{font-size:1.15rem;color:#ffdc8a;white-space:nowrap}
+.mini-barra{height:7px;background:#0d1e20;border-radius:4px;overflow:hidden;margin:8px 0}
+.mini-barra i{display:block;height:100%}
+.mini-estadisticas{display:flex;justify-content:space-between;gap:4px;font-size:.84rem;color:#cddbd5}
+.atributos-graficos>div{display:grid;grid-template-columns:minmax(72px,1fr) minmax(80px,2fr) 28px;align-items:center;gap:8px;padding:3px 0;font-size:.88rem}
+.atributos-graficos progress{height:9px}
+.atributos-graficos strong{text-align:right;color:#f4d48b}
+.comparativa-perfil{display:grid;grid-template-columns:1fr auto;gap:7px;background:#25383a;border-radius:6px;padding:12px;margin-top:13px}
+.comparativa-perfil strong{color:#f2cf8c;font-variant-numeric:tabular-nums}
+.panel-titulo button{min-height:36px}
+@media(max-width:420px){.arquetipos-grid{gap:6px}.tarjeta-arquetipo{padding:8px 6px;min-height:84px}.mini-estadisticas{font-size:.76rem}}
