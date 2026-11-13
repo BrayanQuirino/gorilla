@@ -174,6 +174,11 @@ const descripciones = {
 };
 
 
+const iconos_suministros={
+  energizante:'⚡',botiquin:'🩹',comida:'🍲',adrenalina:'💉',
+  cascos:'🪖',escudos:'🛡️',chalecos:'🥋',barricada:'🧱',
+  bates:'🏏',red:'🕸️',cuerdas:'🪢',refuerzos:'👥',inspiracion:'🔥'
+};
 const beneficios={
  energizante:'Recupera 35 de energía a 10 combatientes cercanos. Efecto de recuperación durante 15 s.',
  botiquin:'Cura 25 PV a 5 combatientes. El recolector lleva la ayuda a sus compañeros.',
@@ -302,7 +307,8 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
       <p className="saldo">🍌 {batalla.bananas} · {batalla.entregas.length} paquetes en camino</p>
       <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id,item])=>
         <button className="suministro-descrito" key={id} disabled={batalla.bananas<item.costo}
-          onClick={()=>comprar(id)}><span><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
+          onClick={()=>comprar(id)}><span className="suministro-icono" aria-hidden="true">{iconos_suministros[id]||'📦'}</span>
+          <span className="suministro-descripcion"><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
           <b>{item.costo} 🍌</b></button>)}</div>
     </>:<>
 
