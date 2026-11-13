@@ -146,7 +146,8 @@ function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
       })}</div>
       <div className="tacticas-grafico"><h3>Tácticas en curso</h3>
         {Object.entries(batalla.plan).map(([id,valor])=><div key={id}>
-          <span>{TACTICAS[id].nombre}</span><progress value={valor} max="100"/><b>{valor}%</b>
+          <span>{TACTICAS[id].nombre}</span><progress value={valor} max={id==='rescatar'?Math.max(1,paramedicos_disponibles(batalla)):100}/>
+          <b>{valor}{id==='rescatar'?' 🩺':'%'}</b>
         </div>)}
       </div>
     </>}
@@ -426,7 +427,7 @@ function App() {
           <div className="datos-marcador"><span>⏱ <strong>{reloj}</strong></span>
             <span>🍌 <strong>{batalla.bananas}</strong></span>
             <span>👥 <strong>{activos}</strong></span></div>
-          <Barra nombre="Equipo" valor={activos} maximo={100} detalle={activos+' / 100'}/>
+          <Barra nombre="Equipo" valor={activos} maximo={Math.max(100,batalla.hombres.length)} detalle={activos+' / '+batalla.hombres.length}/>
           <Barra nombre={'🦍 Nivel '+gorila.nivel+(en_furia(gorila)?' · Furia':'')}
             valor={gorila.vida} maximo={gorila.vida_maxima}
             detalle={Math.ceil(gorila.vida/gorila.vida_maxima*100)+'%'}/>
