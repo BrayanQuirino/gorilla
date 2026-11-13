@@ -1,6 +1,6 @@
 import { arquetipos, radar_personal } from './roster.js';
 import { ARENAS, TACTICAS, SUMINISTROS, VENTAJAS_GORILA, limitar, distancia } from './rules.js';
-import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio, ruta_humano, corregir_paso_humano, agua_humano, altura_humano } from './terreno.js';
+import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio, ruta_humano, corregir_paso_humano, agua_humano, altura_humano, obstaculo_humano } from './terreno.js';
 export { ancho, alto };
 export const dificultades=['Fácil','Normal','Difícil','Extremo'];
 const niveles=[[650,1,1],[775,1.12,1.06],[900,1.24,1.12],[1050,1.38,1.15],[1200,1.53,1.20],[1350,1.68,1.25],[1500,1.84,1.29],[1675,2.02,1.35],[1850,2.20,1.40],[2050,2.40,1.44],[2275,2.63,1.50],[2500,2.85,1.56]];
@@ -293,6 +293,70 @@ export function buscar_objeto(b, h) {
   return disponibles.reduce((mejor, objeto) => puntuacion(objeto) < puntuacion(mejor) ? objeto : mejor);
 }
 
+// Scouts don't march on a single axis. Each searches a different route
+// through navigable 2-D sectors and remembers where they already looked.
+export function objetivo_exploracion(b,h,dt=1/30) {
+  const cols=8,rows=6;
+  h.exploracion ??={visitas:{},numero:0,objetivo:null,reloj:0};
+  const e=h.exploracion;
+  const pos=(n)=>{
+    const col=n%cols,row=Math.floor(n/cols);
+    const jitterX=((h.id*37+row*17)%17-8)*1.1;
+    const jitterY=((h.id*11+col*23)%17-8)*1.1;
+    return {x:limitar(62+col*(ancho-124)/(cols-1)+jitterX,24,ancho-24),
+      y:limitar(54+row*(alto-108)/(rows-1)+jitterY,28,alto-28)};
+  };
+  const vencido=e.objetivo&&(distancia(h,e.objetivo)<27 || e.reloj>9.5 || (h.atasco||0)>1.1);
+  if(vencido && e.celda!==undefined){e.visitas[e.celda]=(e.visitas[e.celda]||0)+1;e.objetivo=null;}
+  if(!e.objetivo){
+    let mejor=-Infinity,celda=0;
+    for(let n=0;n<cols*rows;n++){
+      const punto=pos(n);
+      if(obstaculo_humano(punto,b.arena,20))continue;
+      const visitado=e.visitas[n]||0;
+      // Spread the whole team over the arena, not just left and right.
+      const compañeros=b.hombres.filter(o=>o!==h&&o.orden==='buscar_armas'&&o.exploracion?.celda===n).length;
+      const puntuacion=150/(1+visitado) - compañeros*55 -
+        distancia(h,punto)*.065 +
+        (((n*17+h.id*31)%47)/47)*13 +
+        Math.min(24,(e.numero%7)*3);
+      if(puntuacion>mejor){mejor=puntuacion;celda=n;}
+    }
+    e.celda=celda;
+    e.objetivo=pos(celda);
+    e.reloj=0;
+    e.numero++;
+  }
+  e.reloj+=dt;
+  return e.objetivo;
+}
+
+// Simple collision prediction against nearby walkers. A scout or attacker
+// steers around traffic rather than waiting until separation pushes them back.
+export function desviar_peatones(h,destino,vecinos,arena) {
+  if(!destino || distancia(h,destino)<7)return destino;
+  const dx=destino.x-h.x,dy=destino.y-h.y;
+  const largo=Math.hypot(dx,dy)||1;
+  const nx=dx/largo,ny=dy/largo;
+  let lateral=0,frente=0;
+  for(const o of vecinos){
+    if(o===h||!activo(o)||o.vuelo)continue;
+    const px=o.x-h.x,py=o.y-h.y;
+    const forward=px*nx+py*ny;
+    const side=px*(-ny)+py*nx;
+    if(forward< -9||forward>75||Math.abs(side)>35)continue;
+    const prioridad=(1-Math.max(0,forward)/75)* (1-Math.abs(side)/45);
+    const giro=Math.abs(side)>2?(side>0?-1:1):(h.id<o.id?-1:1);
+    lateral+=giro*prioridad;
+    frente+=prioridad;
+  }
+  if(frente<.08)return destino;
+  const lado=limitar(lateral,-1.8,1.8);
+  const posible={x:limitar(h.x+nx*58-ny*lado*42,20,ancho-20),
+    y:limitar(h.y+ny*58+nx*lado*42,24,alto-24)};
+  return obstaculo_humano(posible,arena,7)?destino:posible;
+}
+
 function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const g = b.gorila;
   const distancia_plana = distancia(h, g);
@@ -362,6 +426,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     distancia(h,buscar_objeto(b,h))<35)) {
     const objeto = buscar_objeto(b, h);
     h.buscando = objeto?.id ?? null;
+    if(objeto) h.exploracion=null;
     if (objeto) {
       destino = objeto;
       if (distancia(h, objeto) < 48) objeto.descubierto = true;
@@ -376,10 +441,9 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
         registrar(b, 'arma_encontrada', { hombre: h.id, objeto: h.objeto.nombre });
       }
     } else {
-      // Each scout systematically sweeps a different lane of the entire arena.
-      const franja=(h.id*7)%13;
-      const fase=Math.floor(b.transcurrido/8+h.id*.37)%2;
-      destino={x:fase?75:ancho-75,y:50+franja*(alto-100)/12};
+      // There are no known improvements left: explore the map cell by cell,
+      // discover hidden equipment and re-route to fresh sectors.
+      destino=objetivo_exploracion(b,h,dt);
     }
   } else if (puesto !== undefined && !(disparo && cerca_g < alcance * .85)) {
     const angulo = (puesto % 11) * Math.PI * 2 / 11 + Math.floor(puesto / 11) * .18;
@@ -398,14 +462,10 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const delante=vecinos.filter(o=>(o.x-h.x)*(meta.x-h.x)+(o.y-h.y)*(meta.y-h.y)>0);
   const estancado=cerca_meta>24 && delante.length>=2 && Math.hypot(h.vx,h.vy)<16;
   h.atasco = estancado ? Math.min(2,(h.atasco||0)+dt) : Math.max(0,(h.atasco||0)-dt*1.5);
-  if(cerca_meta>24 && delante.length && (delante.length>=3||h.atasco>.3)) {
-    const dx=(meta.x-h.x)/Math.max(1,cerca_meta);
-    const dy=(meta.y-h.y)/Math.max(1,cerca_meta);
-    const lado=h.id%2===0?1:-1;
-    const desvio=32+Math.min(64,delante.length*13+h.atasco*30);
-    destino={x:limitar(h.x+dx*38-dy*desvio*lado,18,ancho-18),
-      y:limitar(h.y+dy*38+dx*desvio*lado,18,alto-18)};
-  }
+  destino=desviar_peatones(h,destino,vecinos,b.arena);
+  // Long-term deadlock: the scout rechecks another sector and tries again.
+  if(h.orden==='buscar_armas'&&h.atasco>1.1&&h.exploracion)
+    h.exploracion.reloj=10;
   caminar(h, destino, dt, ritmo * rendimiento.velocidad * (h.nadando ? .57 : 1), b.arena);
   if(paquete)return;
   // An armed fighter may intentionally throw an object. Stronger fighters throw farther
