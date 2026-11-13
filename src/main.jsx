@@ -47,6 +47,8 @@ function App() {
   const [arena_elegida,cambiar_arena] = useState('claro');
   const [batalla, cambiar_batalla] = useState(() => partida(0));
   const [en_pausa, cambiar_pausa] = useState(true);
+  const [panel_tacticas,cambiar_panel_tacticas] = useState('combate');
+  const [panel_tienda,cambiar_panel_tienda] = useState(false);
   const [escuadron, cambiar_escuadron] = useState(0);
   const [hombre_id, cambiar_hombre_id] = useState(1);
   const [, actualizar_panel] = useState(0);
@@ -55,6 +57,7 @@ function App() {
   const hombre = batalla.hombres[hombre_id - 1];
   const gorila = batalla.gorila;
   const activos = batalla.hombres.filter(personaje => personaje.vida > 0 && personaje.estado !== 'incapacitado' && personaje.estado !== 'eliminado').length;
+  const ultimo_evento = batalla.eventos.at(-1);
   const segundos = Math.ceil(batalla.tiempo);
   const reloj = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 
@@ -105,7 +108,7 @@ function App() {
   }
 
   function ordenar(orden, destino) {
-    if (!batalla.resultado) dar_orden(batalla, escuadron, orden, destino);
+    if (!batalla.resultado) {dar_orden(batalla, escuadron, orden, destino);actualizar_panel(v=>v+1);}
   }
 
   function mover(evento) {
@@ -142,17 +145,36 @@ function App() {
           <canvas ref={canvas} width={ancho} height={alto} onClick={mover} aria-label={ARENAS[batalla.arena].nombre} />
           <div className="estado" role="status">{batalla.resultado || (en_pausa ? 'Pausa táctica' : ARENAS[batalla.arena].nombre)}</div>
         </div>
-        <div className="ordenes">
-          <button className="principal" disabled={Boolean(batalla.resultado)}
-            onClick={() => cambiar_pausa(valor => !valor)}>{en_pausa ? 'Jugar' : 'Pausar'}</button>
-          {Object.entries(TACTICAS).filter(([id])=>id!=='mover').map(([id,t])=><button key={id} onClick={()=>ordenar(id)}>{t.nombre}</button>)}
+        <div className="controles-arcade">
+          <div className="barra-control">
+            <button className="principal" disabled={Boolean(batalla.resultado)}
+              onClick={() => cambiar_pausa(valor => !valor)}>{en_pausa ? '▶ INICIAR' : '⏸ PAUSAR'}</button>
+            <div className="tabs-retro" role="group" aria-label="Categorías de tácticas">
+              <button aria-pressed={panel_tacticas==='combate'} onClick={()=>cambiar_panel_tacticas('combate')}>⚔ Combate</button>
+              <button aria-pressed={panel_tacticas==='supervivencia'} onClick={()=>cambiar_panel_tacticas('supervivencia')}>🌿 Supervivencia</button>
+              <button aria-pressed={panel_tacticas==='exploracion'} onClick={()=>cambiar_panel_tacticas('exploracion')}>🔎 Exploración</button>
+            </div>
+            <button className="comprar-acceso" aria-pressed={panel_tienda} onClick={()=>cambiar_panel_tienda(v=>!v)}>🍌 TIENDA {panel_tienda?'▴':'▾'}</button>
+          </div>
+          <div className="ordenes">
+            {Object.entries(TACTICAS)
+              .filter(([id])=>(panel_tacticas==='combate'?['atacar','defender','mantener','emboscada']:panel_tacticas==='supervivencia'?['retirar','huir','esconder','rescatar']:['buscar_armas','distraer']).includes(id)))
+              .map(([id,t])=><button key={id} aria-pressed={escuadron===0?batalla.hombres.every(h=>h.orden===id):batalla.hombres.filter(h=>h.escuadron===escuadron).every(h=>h.orden===id)} onClick={()=>ordenar(id)}>{t.nombre}</button>)}
+          </div>
+          <div className="estado-equipo" aria-live="polite">
+            <span>ESCUADRÓN: {escuadron||'TODOS'}</span>
+            <span>EN ARENA: {batalla.armas_suelo.filter(o=>!o.recogido_por).length} OBJETOS</span>
+            <span>ÚLTIMO EVENTO: {ultimo_evento?.tipo?.replaceAll('_',' ')||'LISTOS PARA COMBATIR'}</span>
+          </div>
         </div>
-        <p className="ayuda">Elige un escuadrón y toca el campo para moverlo. La barra espaciadora activa la pausa táctica.</p>
+        <p className="ayuda">Elige un escuadrón y toca el campo para moverlo. La barra espaciadora activa la pausa táctica. Usa los paneles para cambiar órdenes y comprar suministros; los objetos ocultos no aparecen en el mapa.</p>
       </section>
       <aside>
-        <h2>Suministros · 🍌 {batalla.bananas}</h2>
-        <div className="escuadrones">{Object.entries(SUMINISTROS).map(([id,s])=><button key={id} disabled={batalla.bananas<s.costo||Boolean(batalla.resultado)} onClick={()=>comprar(id)} title={s.nombre}>{s.nombre} · {s.costo} 🍌</button>)}</div>
-        <h2>Escuadrones</h2>
+        <div className="panel-suministros" hidden={!panel_tienda}>
+          <h2>SUMINISTROS · 🍌 {batalla.bananas}</h2>
+          <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id,s])=><button key={id} disabled={batalla.bananas<s.costo||Boolean(batalla.resultado)} onClick={()=>comprar(id)} title={s.nombre}><span>{s.nombre}</span><strong>{s.costo} 🍌</strong></button>)}</div>
+        </div>
+        <h2>ESCUADRONES</h2>
         <div className="escuadrones">
           <button aria-pressed={escuadron === 0} onClick={() => seleccionar_escuadron(0)}>Todos</button>
           {Array.from({ length: 10 }, (_, indice) => {
@@ -176,7 +198,7 @@ function App() {
           </div>
           <label className="miedo">Miedo <progress value={hombre.miedo} max="100" /></label>
         </div>
-        <div className="ficha"><h2>Resumen del sorteo</h2><p>Armados: {batalla.resumen?.armados ?? '—'} · Sin armas: {batalla.resumen?.desarmados ?? '—'} · Objetos en arena: {batalla.resumen?.armas_arena ?? 0}</p><p>Las armas de la arena se deben descubrir con la táctica Buscar armas.</p></div>
+        <div className="ficha"><h2>RESUMEN DEL SORTEO</h2><p>Armados: {batalla.resumen?.armados ?? '—'} · Sin armas: {batalla.resumen?.desarmados ?? '—'} · Objetos en arena: {batalla.resumen?.armas_arena ?? 0}</p><p>Las armas de la arena se deben descubrir con la táctica Buscar armas.</p></div>
       </aside>
     </div>
     <section className="reglas"><h2>Reglas</h2>
