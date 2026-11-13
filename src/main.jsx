@@ -5,7 +5,7 @@ import { crear_sorteo_objetos, preparar_equipo, habilidades } from './roster.js'
 import { alto, ancho, avanzar_batalla, crear_batalla, activo, dar_orden, comprar_suministro, dificultades } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
-import { ARENAS, TACTICAS, SUMINISTROS, resumir_equipo } from './rules.js';
+import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import './style.css';
 
 const sortear_objeto = crear_sorteo_objetos(catalogo);
@@ -44,11 +44,6 @@ function Radar({ radar, maximo = 100 }) {
 }
 
 const formato = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
-const vistas_equipo = [
-  ['habilidades', 'Habilidades'], ['perfiles', 'Perfiles'],
-  ['equipo', 'Equipo'], ['fichas', 'Ficha individual'],
-];
-const edades = { jovenes: '18–29 años', adultos: '30–54 años', mayores: '55–69 años', ancianos: '70–100 años' };
 const categorias = {
   Combate: ['atacar', 'defender', 'mantener', 'emboscada'],
   Supervivencia: ['retirar', 'huir', 'esconder', 'rescatar'],
@@ -61,70 +56,53 @@ function Cifras({ entradas }) {
   </dl>;
 }
 
-function PanelEquipo({ batalla, activos, vista, cambiar_vista, hombre_id, cambiar_hombre_id }) {
-  const hombres = batalla.hombres;
-  const disponibles = batalla.armas_suelo.filter(objeto => !objeto.recogido_por);
-  const resumen = resumir_equipo(hombres, disponibles);
-  const hombre = hombres.find(personaje => personaje.id === hombre_id);
-  const totales = Object.fromEntries(habilidades.map(eje =>
-    [eje, hombres.reduce((total, miembro) => total + miembro.radar[eje], 0)]));
-  const estado = (nombre) => hombres.filter(miembro => miembro.estado === nombre).length;
-
+function PanelEquipo({ batalla, perfil, cambiar_perfil }) {
+  const perfiles = new Map();
+  for (const hombre of batalla.hombres) {
+    if (!perfiles.has(hombre.arquetipo)) perfiles.set(hombre.arquetipo, []);
+    perfiles.get(hombre.arquetipo).push(hombre);
+  }
+  const miembros = perfiles.get(perfil);
+  const totales = miembros && Object.fromEntries(habilidades.map(eje =>
+    [eje, miembros.reduce((total, hombre) => total + hombre.radar[eje], 0)]));
   return <aside aria-label="Resumen del equipo">
-    <h2>Resumen del equipo</h2>
-    <Cifras entradas={[
-      ['Registrados', resumen.total], ['Activos', activos],
-      ['Incapacitados', estado('incapacitado')], ['Eliminados', estado('eliminado')],
-    ]} />
-    <div className="tabs-retro vistas-equipo" role="group" aria-label="Detalles del equipo">
-      {vistas_equipo.map(([id, titulo]) => <button key={id} aria-pressed={vista === id}
-        onClick={() => cambiar_vista(id)}>{titulo}</button>)}
-    </div>
-    <div className="ficha">
-      {vista === 'habilidades' && <>
-        <h2>Habilidades acumuladas</h2>
-        <p>Suma de las habilidades de los {resumen.total} integrantes registrados.</p>
-        <Radar radar={totales} maximo={resumen.total * 100} />
-        <Cifras entradas={habilidades.map((eje, indice) => [etiquetas[indice], totales[eje]])} />
-      </>}
-      {vista === 'perfiles' && <>
-        <h2>Edades</h2>
-        <Cifras entradas={Object.entries(resumen.edades).map(([grupo, cantidad]) => [edades[grupo], cantidad])} />
-        <h2>Arquetipos</h2>
-        <Cifras entradas={Object.entries(resumen.arquetipos).sort((a, b) => b[1] - a[1])} />
-      </>}
-      {vista === 'equipo' && <>
-        <h2>Equipamiento</h2>
-        <Cifras entradas={[
-          ['Con objeto', resumen.armados], ['Sin objeto', resumen.desarmados],
-          ['Objetos en arena', resumen.armas_arena], ['Refuerzos disponibles', batalla.reservas],
-        ]} />
-        {resumen.armados > 0 && <><h2>Objetos en uso</h2>
-          <Cifras entradas={Object.entries(resumen.objetos).sort((a, b) => b[1] - a[1])} />
-        </>}
-      </>}
-      {vista === 'fichas' && <>
-        <label>Combatiente <select aria-label="Combatiente" value={hombre_id ?? ''}
-          onChange={evento => cambiar_hombre_id(Number(evento.target.value) || null)}>
-          <option value="">Selecciona un combatiente</option>
-          {hombres.map(personaje =>
-            <option key={personaje.id} value={personaje.id}>#{personaje.id} · {personaje.arquetipo}</option>)}
-        </select></label>
-        {hombre && <>
-          <h2>{hombre.arquetipo} <small>{hombre.edad} años</small></h2>
-          <p className="estado-persona">{hombre.estado}</p>
-          <Radar radar={hombre.radar} />
-          <Cifras entradas={habilidades.map((eje, indice) => [etiquetas[indice], hombre.radar[eje]])} />
-          <div className="objeto">
-            <strong>{hombre.objeto?.nombre || 'Sin objeto'}</strong>
-            {hombre.objeto && <span>+{formato.format(hombre.objeto.bono_fuerza_pb / 100)} % de fuerza · {formato.format(hombre.objeto.peso_g)} g</span>}
-          </div>
-          <label className="miedo">Miedo <progress value={hombre.miedo} max="100" /></label>
-        </>}
-      </>}
-    </div>
+    {miembros ? <>
+      <button onClick={() => cambiar_perfil(null)}>← Todos los perfiles</button>
+      <h2>{perfil}</h2>
+      <p>{miembros.filter(activo).length} activos de {miembros.length} · Habilidades acumuladas</p>
+      <Radar radar={totales} maximo={miembros.length * 100} />
+      <Cifras entradas={habilidades.map((eje, indice) => [etiquetas[indice], totales[eje]])} />
+    </> : <>
+      <h2>Perfiles del equipo</h2>
+      <div className="perfiles">
+        {[...perfiles].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es')).map(([nombre, grupo]) =>
+          <button key={nombre} onClick={() => cambiar_perfil(nombre)}><span>{nombre}</span><strong>{grupo.length}</strong></button>)}
+      </div>
+    </>}
   </aside>;
 }
+
+function Barra({ nombre, valor, maximo, detalle }) {
+  const porcentaje = Math.max(0, Math.min(100, valor / maximo * 100));
+  return <div className="barra-batalla">
+    <div><small>{nombre}</small><strong>{detalle}</strong></div>
+    <progress aria-label={nombre} value={valor} max={maximo}
+      style={{ '--color-barra': `hsl(${porcentaje * 1.2} 72% 53%)` }} />
+  </div>;
+}
+
+const descripciones = {
+  atacar: 'Avanzan hacia el gorila y atacan cuando entran en alcance.',
+  defender: 'Se protegen en el sitio y reciben un 25 % menos de daño de sus ataques.',
+  mantener: 'Se quedan en su posición y recuperan energía.',
+  emboscada: 'Se ocultan a distancia. Si el gorila se acerca, atacan con más fuerza y se retiran.',
+  retirar: 'Se alejan del gorila a ritmo normal.',
+  huir: 'Se alejan más rápido, con mayor gasto de energía.',
+  esconder: 'Se ocultan y recuperan energía. Buscan cobertura en las arenas que la ofrecen.',
+  rescatar: 'Van hacia los incapacitados y los ayudan a retirarse.',
+  buscar_armas: 'Buscan objetos en la arena y se retiran tras recoger uno.',
+  distraer: 'Rodean al gorila a distancia para atraer su atención.',
+};
 
 function MenuEstrategia({ dialogo, batalla, categoria, cambiar_categoria, ordenar, comprar, reanudar }) {
   return <dialog ref={dialogo} className="menu-estrategia" aria-labelledby="titulo-estrategia"
@@ -138,13 +116,13 @@ function MenuEstrategia({ dialogo, batalla, categoria, cambiar_categoria, ordena
         aria-pressed={categoria === nombre} onClick={() => cambiar_categoria(nombre)}>{nombre}</button>)}
     </div>
     {categoria === 'Suministros' ? <>
-      <p className="saldo">🍌 {batalla.bananas} bananas disponibles</p>
+      <p className="saldo">🍌 {batalla.bananas} bananas disponibles · {batalla.entregas.length} paquetes en camino</p>
       <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id, suministro]) =>
         <button key={id} disabled={batalla.bananas < suministro.costo || (suministro.solo_con_reservas && !batalla.reservas)}
           onClick={() => comprar(id)}><span>{suministro.nombre}</span><strong>{suministro.costo} 🍌</strong></button>)}</div>
     </> : <div className="ordenes">
       {categorias[categoria].map(id => <button key={id}
-        aria-pressed={batalla.estrategia === id} onClick={() => ordenar(id)}>{TACTICAS[id].nombre}</button>)}
+        aria-pressed={batalla.estrategia === id} onClick={() => ordenar(id)}><strong>{TACTICAS[id].nombre}</strong><span>{descripciones[id]}</span></button>)}
     </div>}
     <footer>
       <p role="status">Táctica activa · {TACTICAS[batalla.estrategia].nombre}</p>
@@ -157,19 +135,17 @@ function App() {
   const [dificultad, cambiar_dificultad] = useState(0);
   const [arena_elegida,cambiar_arena] = useState('claro');
   const [batalla, cambiar_batalla] = useState(() => partida(0));
+  const [iniciada, cambiar_inicio] = useState(false);
   const [en_pausa, cambiar_pausa] = useState(false);
   const [modo_visual, cambiar_modo_visual] = useState('3d');
   const [categoria, cambiar_categoria] = useState('Combate');
-  const [vista_equipo, cambiar_vista_equipo] = useState('habilidades');
-  const [hombre_id, cambiar_hombre_id] = useState(null);
+  const [perfil, cambiar_perfil] = useState(null);
   const [, actualizar_panel] = useState(0);
   const canvas = useRef(null);
   const dibujar = useRef(null);
   const ultimo_cuadro = useRef(null);
   const dialogo = useRef(null);
   const boton_estrategia = useRef(null);
-  const seleccionado = useRef(null);
-  seleccionado.current = vista_equipo === 'fichas' ? hombre_id : null;
   const [arte_listo, cambiar_arte_listo] = useState(false);
   const cargando_arena = modo_visual === '3d' && !arte_listo;
   const gorila = batalla.gorila;
@@ -202,30 +178,27 @@ function App() {
     let ultimo_panel = 0;
     let cuadro;
     function pintar() {
-      const listo = dibujar.current?.(batalla, seleccionado.current);
+      const listo = dibujar.current?.(batalla);
       if (modo_visual === '3d') cambiar_arte_listo(listo === true);
     }
     ultimo_cuadro.current = pintar;
+    const jugando = iniciada && !en_pausa && !cargando_arena;
     function animar(ahora) {
-      if (anterior !== undefined && !en_pausa && !cargando_arena) avanzar_batalla(batalla, Math.min(.035, (ahora - anterior) / 1000));
+      if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * .72);
       anterior = ahora;
       pintar();
       if (ahora - ultimo_panel >= 100) {
         ultimo_panel = ahora;
         actualizar_panel(valor => valor + 1);
       }
-      if (!en_pausa && !cargando_arena && !batalla.resultado) cuadro = requestAnimationFrame(animar);
+      if (jugando && !batalla.resultado) cuadro = requestAnimationFrame(animar);
     }
     cuadro = requestAnimationFrame(animar);
     return () => {
       cancelAnimationFrame(cuadro);
       ultimo_cuadro.current = null;
     };
-  }, [batalla, en_pausa, modo_visual, cargando_arena]);
-
-  useEffect(() => {
-    ultimo_cuadro.current?.();
-  }, [hombre_id, vista_equipo]);
+  }, [batalla, iniciada, en_pausa, modo_visual, cargando_arena]);
 
   function abrir_estrategia() {
     cambiar_pausa(true);
@@ -241,8 +214,8 @@ function App() {
   function nueva_partida(nivel = dificultad, arena = arena_elegida) {
     cambiar_arte_listo(false);
     cambiar_batalla(partida(nivel, arena));
-    cambiar_hombre_id(null);
-    cambiar_vista_equipo('habilidades');
+    cambiar_perfil(null);
+    cambiar_inicio(false);
     cambiar_categoria('Combate');
     cambiar_pausa(false);
   }
@@ -275,33 +248,31 @@ function App() {
     <div className="tablero">
       <section className="campo" aria-label="Campo de combate">
         <div className="marcador">
-          <div><small>Hombres activos</small><strong>{activos} <span>/ 100</span></strong></div>
-          <div><small>Tiempo</small><strong>{reloj}</strong></div>
-          <div><small>Bananas</small><strong>🍌 {batalla.bananas}</strong></div>
-          <div><small>Gorila · Nivel {gorila.nivel}</small>
-            <progress aria-label="Resistencia del gorila" value={gorila.vida} max={gorila.vida_maxima} /></div>
+          <div className="datos-marcador"><span>Tiempo <strong>{reloj}</strong></span><span>🍌 <strong>{batalla.bananas}</strong></span></div>
+          <Barra nombre="Hombres activos" valor={activos} maximo={100} detalle={`${activos} / 100`} />
+          <Barra nombre={`Gorila · Nivel ${gorila.nivel}`} valor={gorila.vida} maximo={gorila.vida_maxima}
+            detalle={`${Math.ceil(gorila.vida / gorila.vida_maxima * 100)} %`} />
         </div>
         <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} aria-label={ARENAS[batalla.arena].nombre} />
           <div className="nombre-arena">{ARENAS[batalla.arena].nombre}</div>
-          {(batalla.resultado || en_pausa || cargando_arena) && (
+          {(batalla.resultado || !iniciada || en_pausa || cargando_arena) && (
             <div className="estado" role="status">
-              {batalla.resultado || (cargando_arena ? 'Cargando arena' : 'Pausa táctica')}
+              {batalla.resultado || (cargando_arena ? 'Cargando arena' : iniciada ? 'Pausa táctica' : 'Listo para iniciar')}
             </div>
           )}
         </div>
         <div className="controles-arcade">
-          <button ref={boton_estrategia} className="principal" aria-haspopup="dialog"
-            disabled={Boolean(batalla.resultado) || cargando_arena} onClick={abrir_estrategia}>Estrategia</button>
+          {!iniciada ? <button className="principal" disabled={cargando_arena} onClick={() => cambiar_inicio(true)}>Iniciar</button> : <button ref={boton_estrategia} className="principal" aria-haspopup="dialog"
+            disabled={Boolean(batalla.resultado) || cargando_arena} onClick={abrir_estrategia}>Estrategia</button>}
           <p>Táctica activa · <strong>{TACTICAS[batalla.estrategia].nombre}</strong></p>
-          <p className="ultimo-evento">Último evento · {ultimo_evento?.tipo.replaceAll('_', ' ') || 'Inicio de la batalla'}</p>
+          <p className="ultimo-evento">Último evento · {ultimo_evento?.tipo.replaceAll('_', ' ') || 'Equipo listo'}</p>
         </div>
       </section>
-      <PanelEquipo batalla={batalla} activos={activos} vista={vista_equipo}
-        cambiar_vista={cambiar_vista_equipo} hombre_id={hombre_id} cambiar_hombre_id={cambiar_hombre_id} />
+      <PanelEquipo batalla={batalla} perfil={perfil} cambiar_perfil={cambiar_perfil} />
     </div>
     <section className="reglas"><h2>Reglas</h2>
-      <p>El equipo combate automáticamente. Abre Estrategia para pausar la batalla y cambiar la táctica de todos. Agota la resistencia del gorila en cinco minutos.
+      <p>Pulsa Iniciar para que el equipo entre en combate. Abre Estrategia para pausar la batalla y cambiar la táctica de todos. Agota la resistencia del gorila antes de que se agote el reloj.
         Si todos caen o se acaba el tiempo, gana el gorila.</p>
       <p>Cada hombre tiene ocho habilidades, una edad de 18 a 100 años y puede empezar sin objeto o con uno sorteado del catálogo de 1,000.
         La edad modifica sus habilidades físicas y el miedo puede hacerlo retroceder.</p>

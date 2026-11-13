@@ -8,14 +8,15 @@ export const encuadre = arena => arena === 'claro' ? camaraClaro : camara;
 
 // Footprints follow the bases of the painted scenery, in canvas coordinates.
 const bases = {
-  claro: [[486, 296, 70, 22], [766, 367, 88, 30], [251, 403, 82, 28], [125, 191, 49, 19], [891, 192, 53, 29], [531, 564, 81, 22]],
-  selva: [[517, 331, 74, 22], [274, 408, 78, 22], [714, 452, 74, 23], [835, 280, 55, 19], [105, 303, 81, 24], [106, 527, 64, 25], [451, 557, 87, 27]],
-  canon: [[471, 324, 112, 29], [347, 311, 52, 20], [455, 452, 69, 24], [708, 427, 49, 22], [567, 353, 45, 21], [369, 558, 73, 20], [60, 333, 75, 24]],
-  hangar: [[273, 299, 68, 23], [539, 304, 61, 21], [806, 332, 54, 22], [379, 387, 67, 21], [98, 389, 55, 22], [523, 451, 52, 22], [730, 478, 57, 23]],
+  claro: [[486, 296, 70, 22, 116], [766, 367, 88, 30, 88], [251, 403, 82, 28, 92], [125, 191, 49, 19, 78], [891, 192, 53, 29, 58], [531, 564, 81, 22, 70]],
+  selva: [[517, 331, 74, 22, 74], [274, 408, 78, 22, 72], [714, 452, 74, 23, 78], [835, 280, 55, 19, 64], [105, 303, 81, 24, 58], [106, 527, 64, 25, 117], [451, 557, 87, 27, 74]],
+  canon: [[471, 324, 112, 29, 72], [347, 311, 52, 20, 48], [455, 452, 69, 24, 49], [708, 427, 49, 22, 48], [567, 353, 45, 21, 42], [369, 558, 73, 20, 66], [60, 333, 75, 24, 57]],
+  hangar: [[273, 299, 68, 23, 71], [539, 304, 61, 21, 60], [806, 332, 54, 22, 64], [379, 387, 67, 21, 63], [98, 389, 55, 22, 156], [523, 451, 52, 22, 59], [730, 478, 57, 23, 75]],
 };
 const obstaculos = Object.fromEntries(Object.entries(bases).map(([arena, lista]) => {
   const vista = encuadre(arena);
-  return [arena, lista.map(([x, y, rx, ry]) => ({
+  return [arena, lista.map(([x, y, rx, ry, altura]) => ({
+    altura,
     x: (x - vista.x) * ancho / vista.ancho,
     y: (y - vista.y) * alto / vista.alto,
     rx: rx * ancho / vista.ancho,
@@ -38,7 +39,46 @@ export function limitar_posicion(actor, arena, margen = 0) {
   actor.y = limitar(actor.y, 10, alto - 10);
 }
 
-export function separar_personajes(hombres, arena, gorila, vueltas = 1) {
+export function altura_terreno(actor, arena) {
+  let altura = 0;
+  for (const base of obstaculos[arena]) {
+    const radio = Math.hypot((actor.x - base.x) / base.rx, (actor.y - base.y) / base.ry);
+    altura = Math.max(altura, base.altura * limitar((1.08 - radio) / .80, 0, 1));
+  }
+  return altura;
+}
+
+export function actualizar_altura(actor, arena, dt) {
+  const piso = altura_terreno(actor, arena);
+  actor.altura ??= piso;
+  actor.vz ??= 0;
+  if (piso >= actor.altura) {
+    actor.altura = piso;
+    actor.vz = 0;
+  } else {
+    actor.vz -= 340 * dt;
+    actor.altura = Math.max(piso, actor.altura + actor.vz * dt);
+    if (actor.altura === piso) actor.vz = 0;
+  }
+}
+
+export function zona_entrega(arena, azar) {
+  // Open paths on each map, jittered so two deliveries need not share a tile.
+  const zonas = {
+    claro: [[370, 240], [552, 382], [667, 232], [418, 443]],
+    selva: [[338, 238], [670, 241], [420, 430], [832, 375]],
+    canon: [[353, 215], [580, 398], [730, 311], [254, 441]],
+    hangar: [[382, 272], [662, 248], [572, 375], [637, 459]],
+  };
+  const [x, y] = zonas[arena][Math.min(3, Math.floor(azar() * 4))];
+  const vista = encuadre(arena);
+  const punto = { x: (x - vista.x) * ancho / vista.ancho + (azar() - .5) * 32,
+    y: (y - vista.y) * alto / vista.alto + (azar() - .5) * 24 };
+  limitar_posicion(punto, arena, 30);
+  return punto;
+}
+
+export function separar_personajes(hombres, gorila, vueltas = 1) {
   for (let vuelta = 0; vuelta < vueltas; vuelta++) {
     for (let i = 0; i < hombres.length; i++) {
       const a = hombres[i];
@@ -46,7 +86,7 @@ export function separar_personajes(hombres, arena, gorila, vueltas = 1) {
       const gy = a.y - gorila.y;
       const distancia_gorila = Math.hypot(gx, gy);
       const radio = gorila.radio + 5;
-      if (distancia_gorila < radio) {
+      if (distancia_gorila < radio && Math.abs((a.altura ?? 0) - (gorila.altura ?? 0)) < 22) {
         a.x = gorila.x + (distancia_gorila ? gx / distancia_gorila * radio : radio);
         a.y = gorila.y + (distancia_gorila ? gy / distancia_gorila * radio : 0);
       }
@@ -54,11 +94,11 @@ export function separar_personajes(hombres, arena, gorila, vueltas = 1) {
         const b = hombres[j];
         const dx = b.x - a.x;
         const dy = b.y - a.y;
-        if (Math.abs(dx) >= 19 || Math.abs(dy) >= 22) continue;
-        const distancia = Math.hypot(dx / 19, dy / 22);
+        if (Math.abs(dx) >= 23 || Math.abs(dy) >= 24 || Math.abs((a.altura ?? 0) - (b.altura ?? 0)) > 22) continue;
+        const distancia = Math.hypot(dx / 23, dy / 24);
         if (distancia >= 1) continue;
         const fuerza = distancia ? (1 - distancia) * .5 / distancia : 0;
-        const x = distancia ? dx * fuerza : 9.5;
+        const x = distancia ? dx * fuerza : 11.5;
         const y = dy * fuerza;
         a.x -= x;
         a.y -= y;
@@ -66,26 +106,9 @@ export function separar_personajes(hombres, arena, gorila, vueltas = 1) {
         b.y += y;
       }
     }
-    for (const hombre of hombres) limitar_posicion(hombre, arena, 6);
+    for (const hombre of hombres) {
+      hombre.x = limitar(hombre.x, 10, ancho - 10);
+      hombre.y = limitar(hombre.y, 10, alto - 10);
+    }
   }
-}
-
-export function rodear_obstaculo(actor, destino, arena, margen = 0) {
-  for (const base of obstaculos[arena]) {
-    const rx = base.rx + margen;
-    const ry = base.ry + margen;
-    const x = (actor.x - base.x) / rx;
-    const y = (actor.y - base.y) / ry;
-    const dx = (destino.x - actor.x) / rx;
-    const dy = (destino.y - actor.y) / ry;
-    const largo = dx * dx + dy * dy;
-    if (!largo) continue;
-    const avance = limitar(-(x * dx + y * dy) / largo, 0, 1);
-    const distancia = Math.hypot(x + dx * avance, y + dy * avance);
-    if (distancia >= 1 || avance === 0) continue;
-    const lado = x * dy - y * dx < 0 ? -1 : 1;
-    const angulo = Math.atan2(y, x) + lado * .65;
-    return { x: base.x + Math.cos(angulo) * rx * 1.26, y: base.y + Math.sin(angulo) * ry * 1.26 };
-  }
-  return destino;
 }

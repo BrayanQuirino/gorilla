@@ -54,6 +54,7 @@ test('un ataque acertado que agota la resistencia da la victoria a los hombres',
   const hombre = batalla.hombres[0];
   hombre.x = batalla.gorila.x - 20;
   hombre.y = batalla.gorila.y;
+  hombre.altura = batalla.gorila.altura;
   batalla.gorila.vida = 1;
   dar_orden(batalla, 'atacar');
   avanzar_batalla(batalla, 1 / 60);

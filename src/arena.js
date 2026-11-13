@@ -1,4 +1,4 @@
-import { alto, ancho } from './battle.js';
+import { alto, ancho, duracion_entrega } from './battle.js';
 import { ARENAS } from './rules.js';
 import { crear_atlas, accion_humano, accion_gorila, dibujar_sprite } from './sprites.js';
 
@@ -108,15 +108,23 @@ function terreno(id){
  }
  return canvas;
 }
-function humano(c,h,seleccionado,t,atlas){
+function humano(c,h,t,atlas,g){
+ if(h.estado==='eliminado'&&!h.vuelo)return;
  const muerto=h.vida<=0||h.estado==='eliminado'||h.estado==='incapacitado';
- if(seleccionado){elipse(c,h.x,h.y+2,13,6,'#f4e4a466');}
  if(h.oculto&&!muerto)elipse(c,h.x,h.y-3,15,5,'#4e9e6c55');
  elipse(c,h.x+2,h.y+1,11,4,'#0b151b80');
- const action=accion_humano(h);
+ const sujeto=g.fase==='agarre'&&g.sujeto===h;
+ const action=h.vuelo||sujeto?'idle':accion_humano(h);
  const frames=atlas.humano(action,(h.id-1)%10,h.id%5,h.edad>=65,Boolean(h.objeto));
  const speed=action==='run'?1.8:action==='tired'?.45:1;
- dibujar_sprite(c,frames,h.x,h.y,25,34,t*speed,h.id*.41);
+ const elevacion = h.altura || 0;
+ if(h.vuelo||sujeto){
+  c.save();
+  c.translate(h.x,h.y-elevacion);
+  c.rotate(h.vuelo ? (t-h.vuelo.inicio)/h.vuelo.duracion*Math.PI*2 : 1.05);
+  dibujar_sprite(c,frames,0,0,34,44,t*speed,h.id*.41);
+  c.restore();
+ }else dibujar_sprite(c,frames,h.x,h.y-elevacion,34,44,t*speed,h.id*.41);
  if(h.proteccion>0&&!muerto)rect(c,h.x-7,h.y-27,14,3,'#bfc2a3');
  if(h.estado==='herido')rect(c,h.x+8,h.y-34,3,5,'#ef554f');
 }
@@ -126,10 +134,10 @@ function gorila(c,g,t,atlas){
   const theta=i*Math.PI/5+t*2;
   rect(c,g.x+Math.cos(theta)*g.radio*1.45-3,g.y-36+Math.sin(theta)*25,6,7,i%2?'#eb513e':'#ffb65b');
  }}
- const action=accion_gorila(g);
+ const action=g.fase==='agarre'?'grab':accion_gorila(g);
  const frames=atlas.gorila.get(action)||atlas.gorila.get('idle');
- const scale=g.radio/30;
- dibujar_sprite(c,frames,g.x,g.y+10,Math.round(90*scale),Math.round(96*scale),t,0);
+ const scale=g.radio/39;
+ dibujar_sprite(c,frames,g.x,g.y+10-(g.altura||0),Math.round(90*scale),Math.round(96*scale),t,0);
 }
 function baliza(c,x,y,r,color){
  c.strokeStyle=color;c.lineWidth=3;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.stroke();
@@ -143,18 +151,18 @@ export function crear_dibujante(canvas){
  let visto=0;
  const chispas=[];
  let previo=null;
- return (batalla,hombre_id)=>{
+ return batalla=>{
   const id=batalla.arena||'claro';
   if(!capas.has(id))capas.set(id,terreno(id));
-  tiempo+=1/60;
+  tiempo=batalla.transcurrido;
   if(previo!==batalla){previo=batalla;visto=0;chispas.length=0;}
   const eventos=batalla.eventos||[];
   if(visto>eventos.length)visto=0;
   for(const e of eventos.slice(visto)){
-   if(['arma_encontrada','disparo','baja','rescate','furia','compra','ataque_gorila'].includes(e.tipo)){
+   if(['arma_encontrada','disparo','baja','rescate','furia','ataque_gorila'].includes(e.tipo)){
     const h=batalla.hombres.find(u=>u.id===e.hombre);
     const x=h?.x??batalla.gorila.x,y=h?.y??batalla.gorila.y;
-    const txt={arma_encontrada:'¡EQUIPO!',disparo:'BANG!',baja:'¡CAÍDO!',rescate:'¡RESCATE!',furia:'¡FURIA!',compra:'🍌 COMPRA',ataque_gorila:'¡CUIDADO!'}[e.tipo];
+    const txt={arma_encontrada:'¡EQUIPO!',disparo:'BANG!',baja:'¡CAÍDO!',rescate:'¡RESCATE!',furia:'¡FURIA!',ataque_gorila:'¡CUIDADO!'}[e.tipo];
     chispas.push({x,y,texto:txt,vida:1.0,color:e.tipo==='baja'?'#ff6960':e.tipo==='arma_encontrada'?'#f4e27a':'#fff2bd'});
    }
   }
@@ -181,15 +189,22 @@ export function crear_dibujante(canvas){
   const actores=[...batalla.hombres.map(h=>({y:h.y,tipo:'humano',h})),{y:g.y,tipo:'gorila'}].sort((a,b)=>a.y-b.y);
   for(const a of actores){
     if(a.tipo==='gorila')gorila(ctx,g,tiempo,atlas);
-    else humano(ctx,a.h,hombre_id===a.h.id,tiempo,atlas);
+    else humano(ctx,a.h,tiempo,atlas,g);
   }
-  // barras de estado discretas y contexto táctico
-  const barra=lim=>Math.max(0,Math.min(1,lim));
-  rect(ctx,g.x-34,g.y-g.radio-33,68,7,'#101a1c');
-  rect(ctx,g.x-32,g.y-g.radio-31,64*barra(g.vida/g.vida_maxima),3,g.furia>0?'#ff5c38':'#e44e42');
-  rect(ctx,g.x-32,g.y-g.radio-27,64*barra(g.energia/100),2,'#e6b85d');
-  ctx.font='bold 12px monospace';ctx.textAlign='center';
-  ctx.fillStyle='#fff0b2';ctx.fillText(g.furia>0?'¡FURIA!':'GORILA',g.x,g.y-g.radio-39);
+  for(const entrega of batalla.entregas){
+    const t=Math.min(1,(tiempo-entrega.inicio)/duracion_entrega);
+    const x=entrega.x+Math.sin(t*8)*(1-t)*23;
+    const y=entrega.y*t-15*(1-t);
+    baliza(ctx,entrega.x,entrega.y,14,'#f3cc79');
+    ctx.fillStyle='#f0c36a';
+    ctx.beginPath();
+    ctx.ellipse(x,y-20,23,16,0,Math.PI,2*Math.PI);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x-23,y-20);ctx.lineTo(x,y);ctx.lineTo(x+23,y-20);
+    ctx.strokeStyle='#fff2b8';ctx.lineWidth=1;ctx.stroke();
+    caja(ctx,x,y);
+  }
   // Impactos y eventos efímeros, nunca interfieren con la simulación.
   ctx.textAlign='center';ctx.font='bold 12px monospace';
   for(let i=chispas.length-1;i>=0;i--){const fx=chispas[i];

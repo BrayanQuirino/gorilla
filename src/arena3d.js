@@ -1,6 +1,7 @@
 // A fixed oblique camera projects the battle plane into the painted arenas.
 // Painted silhouettes supply per-pixel occlusion for upright actor billboards.
 import { ancho, alto, encuadre } from './terreno.js';
+import { duracion_entrega } from './battle.js';
 import { limitar } from './rules.js';
 import fotogramas from './art/sprites.json';
 
@@ -115,8 +116,19 @@ const spriteFragmento = `
   void main() {
     float frente = texture2D(profundidad, pantalla).r;
     float suelo = pie < 0.0 ? pantalla.y : pie;
-    if (frente > suelo + .009) discard;
-    gl_FragColor = texture2D(atlas, texel) * tono;
+    vec4 tinta = texture2D(atlas, texel);
+    if (frente > suelo + .009) {
+      if (tono.a >= 0.0) discard;
+      float pixel = 1.0 / 512.0;
+      float interior = min(min(texture2D(atlas, texel + vec2(pixel, 0.0)).a,
+        texture2D(atlas, texel - vec2(pixel, 0.0)).a),
+        min(texture2D(atlas, texel + vec2(0.0, pixel)).a,
+        texture2D(atlas, texel - vec2(0.0, pixel)).a));
+      vec3 contraste = mix(vec3(1.0, .90, .52), tinta.rgb * .9 + .21, interior);
+      gl_FragColor = vec4(contraste, tinta.a * .97);
+      return;
+    }
+    gl_FragColor = tinta * vec4(tono.rgb, abs(tono.a));
   }`;
 
 function proyectar({ x, y }, vista) {
@@ -182,6 +194,8 @@ function aro(quads, x, y, rx, ry, pie, color, tiempo, pasos = 26) {
 
 function poseGorila(g, tiempo) {
   if (g.descansando || g.vida <= 0) return 'descanso';
+  if (g.fase === 'agarre') return g.reloj > .7 ? 'agarre' : 'alzar';
+  if (g.accion === 'agarre' && g.fase === 'recuperacion' && g.reloj > .82) return 'soltar';
   if (g.fase === 'embestida') return poses.embestida[Math.floor(tiempo * 12) % 4];
   if (g.fase === 'aviso' || g.fase === 'recuperacion') {
     const secuencia = poses[g.accion] ?? poses.barrido;
@@ -197,35 +211,37 @@ function poseGorila(g, tiempo) {
   return 'reposo';
 }
 
-function dibujarHumano(quads, h, x, y, tiempo, seleccionado, g, mirando) {
-  if (h.estado === 'eliminado') return;
+function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
+  if (h.estado === 'eliminado' && !h.vuelo) return;
   const caido = h.estado === 'incapacitado' || h.vida <= 0;
   const moviendo = Math.abs(h.vx) + Math.abs(h.vy) > 10;
   if (Math.abs(h.vx) > 7) mirando.set(h.id, h.vx < 0);
   const paso = moviendo ? Math.sin(tiempo * 16 + h.id * .7) : 0;
   const tono = h.oculto ? oculto : h.estado === 'herido' ? herido : blanco;
-  const escala = (.65 + h.y / alto * .14) * (h.edad >= 75 ? .92 : 1);
-  sprite(quads, 'sombra', x, y + 4, caido ? .51 : .67, y);
-  if (seleccionado && !caido) {
-    aro(quads, x, y - 1, 10, 4, y, oro, 0, 10);
-  }
+  const escala = (.96 + h.y / alto * .16) * (h.edad >= 75 ? .92 : 1);
+  sprite(quads, 'sombra', x, y + 4, caido ? .51 : .77, y);
   const retrato = retratos[h.arquetipo] ?? 'estudiante';
-  const objetivo = g.x;
-  sprite(quads, caido ? 'caido' : retrato, x, y - Math.abs(paso) * 2,
-    escala, y, tono, paso * .11, mirando.get(h.id) ?? objetivo < h.x);
+  const altura = h.altura || 0;
+  const vuelo = h.vuelo ? (tiempo - h.vuelo.inicio) / h.vuelo.duracion : 0;
+  const sujeto = g.fase === 'agarre' && g.sujeto === h;
+  sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x, y - altura - Math.abs(paso) * 2,
+    escala, y + altura * .35, [tono[0], tono[1], tono[2], -tono[3]],
+    h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : paso * .11,
+    mirando.get(h.id) ?? g.x < h.x);
 }
 
 function dibujarGorila(quads, g, x, y, tiempo, espejo) {
-  const escala = limitar(g.radio / 27, .92, 1.48) * (1.12 + g.y / alto * .19);
+  const escala = limitar(g.radio / 27, .92, 1.48) * (.83 + g.y / alto * .15);
   const pose = poseGorila(g, tiempo);
   sprite(quads, 'sombra', x, y + 15, escala * 2.75, y);
   const region = fotogramas[pose];
   const respiracion = pose === 'reposo' ? 1 + Math.sin(tiempo * 3.1) * .024 : 1;
-  quads.quad(x, y, region[2] * escala, region[3] * escala * respiracion, y, region, blanco, 0, espejo);
+  const altura = g.altura || 0;
+  quads.quad(x, y - altura, region[2] * escala, region[3] * escala * respiracion, y + altura * .35, region, [1, 1, 1, -1], 0, espejo);
 
 }
 
-function cuadro(quads, batalla, hombre_id, mirando) {
+function cuadro(quads, batalla, mirando) {
   const g = batalla.gorila;
   const tiempo = batalla.transcurrido;
   const vista = encuadre(batalla.arena);
@@ -247,14 +263,22 @@ function cuadro(quads, batalla, hombre_id, mirando) {
     if (actor === g) {
       const avance = (g.destino?.x ?? ancho / 2) - g.x;
       if (Math.abs(avance) > 4) mirando.set(g, avance < 0);
-      dibujarGorila(quads, g, x, y, tiempo, mirando.get(g) ?? true);
+      dibujarGorila(quads, g, x, y, tiempo, g.accion === 'agarre' ? g.mira_izquierda : (mirando.get(g) ?? true));
     } else if (actor.arquetipo) {
-      dibujarHumano(quads, actor, x, y, tiempo, hombre_id === actor.id, g, mirando);
+      dibujarHumano(quads, actor, x, y, tiempo, g, mirando);
     } else if (actor.tipo === 'barricada') {
-      for (let i = -2; i <= 2; i++) sprite(quads, 'caja', x + i * 11, y, 1.2, y, oro);
+      for (let i = -2; i <= 2; i++) sprite(quads, 'caja', x + i * 11, y, 1.2, y, [1, .81, .41, -.91]);
     } else {
-      sprite(quads, 'caja', x, y, .82, y, actor.tipo ? oro : blanco);
+      sprite(quads, 'caja', x, y, .82, y, actor.tipo ? [1, .81, .41, -.91] : [1, 1, 1, -1]);
     }
+  }
+  for (const entrega of batalla.entregas) {
+    const { x, y } = proyectar(entrega, vista);
+    const t = limitar((tiempo - entrega.inicio) / duracion_entrega, 0, 1);
+    aro(quads, x, y, 22, 10, -1, oro, 0, 14);
+    sprite(quads, 'sombra', x, y + 4, 1.35, y);
+    sprite(quads, 'paracaidas', x + Math.sin(t * 8) * (1 - t) * 23,
+      y * t - 15 * (1 - t), 1, y, [1, 1, 1, -1]);
   }
 }
 
@@ -297,7 +321,7 @@ export function crear_dibujante_3d(canvas, actualizar, fallo) {
     actualizar();
   }).catch(error => { if (!destruido) fallo(error); });
 
-  function dibujar(batalla, hombre_id) {
+  function dibujar(batalla) {
     if (destruido || gl.isContextLost()) return false;
     const id = batalla.arena;
     if (partida !== batalla) {
@@ -328,7 +352,7 @@ export function crear_dibujante_3d(canvas, actualizar, fallo) {
     if (!atlas) return false;
 
     quads.vaciar();
-    cuadro(quads, batalla, hombre_id, mirando);
+    cuadro(quads, batalla, mirando);
     gl.enable(gl.BLEND);
     gl.useProgram(actores);
     gl.bindTexture(gl.TEXTURE_2D, atlas);
