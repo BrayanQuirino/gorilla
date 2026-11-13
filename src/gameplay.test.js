@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,condiciones_combate,en_furia,reanudar_segunda_vida} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -340,4 +340,22 @@ test('un paquete conserva su existencia hasta que un humano lo recoge',()=>{
   // No expiry while the collector is walking from across the arena.
   for(let i=0;i<150&&!batalla.resultado;i++)avanzar_batalla(batalla,.016);
   assert.ok(batalla.eventos.filter(e=>e.tipo==='suministro_recogido').length<=1);
+});
+
+test('medicos asignados reducen el porcentaje real del equipo disponible para atacar',()=>{
+  const {batalla}=partida('claro');
+  for(let i=0;i<batalla.hombres.length;i++){
+    const h=batalla.hombres[i];
+    h.arquetipo=i<4?'Paramédico':'Oficinista';
+    if(i>=92){h.estado='eliminado';h.vida=0;}
+  }
+  assert.equal(paramedicos_disponibles(batalla),4);
+  assert.equal(aplicar_plan(batalla,{atacar:100,rescatar:4}),true);
+  const reparto=distribucion_equipo(batalla);
+  assert.equal(reparto.total,92);
+  assert.equal(reparto.medicos,4);
+  assert.equal(reparto.cuotas.atacar,88);
+  assert.ok(Math.abs(reparto.porcentaje('atacar')-88/92*100)<.00001);
+  assert.ok(reparto.porcentaje('atacar')<100);
+  assert.equal(batalla.hombres.filter(h=>h.orden==='rescatar'&&h.vida>0).length,4);
 });
