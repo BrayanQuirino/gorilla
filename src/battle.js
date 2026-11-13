@@ -277,7 +277,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     if(distancia(h,paquete)<23) {
       paquete.recogido=true;
       aplicar_suministro(b,paquete.entrega);
-      registrar(b,'suministro_recogido',{hombre:h.id,tipo:paquete.entrega.tipo});
+      registrar(b,'suministro_recogido',{hombre:h.id,suministro:paquete.entrega.tipo});
     }
   } else if (h.orden === 'huir' || (h.orden === 'atacar' && panico)) {
     destino = { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
