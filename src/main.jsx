@@ -189,7 +189,7 @@ const beneficios={
  refuerzos:'Llegan 5 hombres nuevos de arquetipos aleatorios, en cualquier momento.',
  inspiracion:'Inspira al equipo y eleva su valentía durante 20 segundos.'
 };
-function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambiar_plan,comprar,reanudar,cancelar}){
+function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambiar_plan,comprar,reanudar,cancelar}){
   const maxRescate=paramedicos_disponibles(batalla);
   const rescatar=plan.rescatar||0;
   const entradas=Object.entries(TACTICAS).filter(([id])=>id!=='rescatar');
@@ -259,9 +259,9 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
     :energiaEquipo<42?'El equipo está agotado: conviene reducir la presión y reagruparse.'
     :coraje<45?'La valentía es baja: distraer y esconderse puede evitar bajas.'
     :'El equipo tiene recursos para presionar; ajusta los porcentajes según el terreno.';
-  return <dialog ref={dialogo} className="menu-estrategia" aria-labelledby="titulo-estrategia"
-    onCancel={e=>{e.preventDefault();cancelar();}}
-    onClick={e=>{if(e.target===e.currentTarget)cancelar();}}>
+  if(!abierto)return null;
+  return <div className="estrategia-cortina" onMouseDown={e=>{if(e.target===e.currentTarget)cancelar();}}>
+    <section className="menu-estrategia" role="dialog" aria-modal="true" aria-labelledby="titulo-estrategia">
     <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Suministros'?'📦 Suministros':'⚔️ Tácticas'}</h2>
       <button type="button" onClick={cancelar} aria-label="Cerrar menú y volver al campo">✕</button></header>
     <div className="tabs-retro">
@@ -336,7 +336,8 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
     </div></div>
     <footer><button onClick={cancelar}>Cancelar</button>
       <button className="principal" onClick={reanudar} disabled={suma!==100}>Aplicar y jugar</button></footer>
-  </dialog>;
+    </section>
+  </div>;
 }
 function App() {
   const [dificultad, cambiar_dificultad] = useState(0);
@@ -359,7 +360,7 @@ function App() {
   const [volumen_musica, cambiar_volumen_musica] = useState(27);
   const [volumen_efectos, cambiar_volumen_efectos] = useState(70);
   const ultimo_cuadro = useRef(null);
-  const dialogo = useRef(null);
+  const [menu_abierto,cambiar_menu_abierto] = useState(false);
   const boton_estrategia = useRef(null);
   const [arte_listo, cambiar_arte_listo] = useState(false);
   const cargando_arena = modo_visual === '3d' && !arte_listo;
@@ -459,11 +460,20 @@ function App() {
     return () => clearTimeout(aviso);
   }, [batalla, anuncio, pausa_activa]);
 
+  useEffect(() => {
+    if(!menu_abierto)return;
+    function tecla(evento){
+      if(evento.key==='Escape'){evento.preventDefault();cerrar_estrategia();}
+    }
+    window.addEventListener('keydown',tecla);
+    return ()=>window.removeEventListener('keydown',tecla);
+  },[menu_abierto]);
+
   function abrir_estrategia(seccion='Combate') {
     cambiar_categoria(seccion);
     cambiar_plan({ ...batalla.plan });
     cambiar_pausa(true);
-    dialogo.current.showModal();
+    cambiar_menu_abierto(true);
   }
 
   function reanudar() {
@@ -472,7 +482,7 @@ function App() {
   }
 
   function cerrar_estrategia() {
-    dialogo.current.close();
+    cambiar_menu_abierto(false);
     cambiar_pausa(false);
     boton_estrategia.current?.focus();
   }
@@ -484,6 +494,7 @@ function App() {
     cambiar_batalla(partida(nivel, arena));
     cambiar_panel_movil(null);
     cambiar_arquetipo_abierto(null);
+    cambiar_menu_abierto(false);
     cambiar_inicio(false);
     cambiar_categoria('Combate');
     cambiar_pausa(false);
@@ -561,7 +572,7 @@ function App() {
           <button className="principal reiniciar-partida" onClick={()=>{nueva_partida();cambiar_panel_movil(null);}}>↻ Nueva partida</button>
         </div>}
       </section></div>}
-    <MenuEstrategia dialogo={dialogo} batalla={batalla} categoria={categoria}
+    <MenuEstrategia abierto={menu_abierto} batalla={batalla} categoria={categoria}
       cambiar_categoria={cambiar_categoria} plan={plan} cambiar_plan={cambiar_plan}
       comprar={comprar} reanudar={reanudar} cancelar={cerrar_estrategia}/>
   </main>;
