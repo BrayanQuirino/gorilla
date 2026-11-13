@@ -118,7 +118,7 @@ function App() {
 
   return <main>
     <header className="cabecera">
-      <div><h1>Gorilla<span>.</span></h1><p>100 hombres contra un gorila</p></div>
+      <div><h1>Gorilla<span>.</span></h1><p>100 hombres contra un gorila · Arcade retro 2D</p></div>
       <div className="configuracion">
         <label>Arena <select value={arena_elegida} onChange={evento=>{const id=evento.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>{Object.entries(ARENAS).map(([id,a])=><option value={id} key={id}>{a.nombre}</option>)}</select></label>
         <label>Dificultad <select value={dificultad} onChange={evento => {
@@ -139,7 +139,7 @@ function App() {
             <progress aria-label="Resistencia del gorila" value={gorila.vida} max={gorila.vida_maxima} /></div>
         </div>
         <div className="arena">
-          <canvas ref={canvas} width={ancho} height={alto} onClick={mover} aria-label="Claro del bosque" />
+          <canvas ref={canvas} width={ancho} height={alto} onClick={mover} aria-label={ARENAS[batalla.arena].nombre} />
           <div className="estado" role="status">{batalla.resultado || (en_pausa ? 'Pausa táctica' : ARENAS[batalla.arena].nombre)}</div>
         </div>
         <div className="ordenes">
