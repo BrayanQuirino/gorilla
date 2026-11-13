@@ -735,6 +735,7 @@ function actualizar_gorila(b,activos,dt) {
   g.fase = 'aviso';
   g.energia=limitar(g.energia-7,0,100);
   for(const h of activos)h.reaccion=(100-h.radar.agilidad)*.008;
+  if(g.accion==='rugido')g.reloj=3.1; // match the full recorded animal roar
   registrar(b,'ataque_gorila',{accion:g.accion});
 }
 export function avanzar_batalla(b,dt) {
