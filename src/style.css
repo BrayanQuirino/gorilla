@@ -318,3 +318,44 @@ html,body,#root{min-height:100%;margin:0}
 
 .comando-emblema{overflow:hidden;position:relative;background:#132423;box-shadow:inset 0 0 12px #b7ad6b33}
 .comando-retrato{display:block;width:100%;height:100%;object-fit:cover;object-position:center 39%;image-rendering:auto;filter:contrast(1.15) saturate(1.1)}
+
+/* Settings are a genuine game-screen overlay, not a vertically stacked page. */
+.hoja-fondo{position:fixed!important;inset:0!important;display:grid!important;place-items:center!important;overflow:hidden!important;padding:clamp(6px,1.4vh,18px)!important}
+.hoja-ajustes{width:min(920px,calc(100vw - 24px))!important;max-width:100%!important;max-height:min(85dvh,680px)!important;height:auto!important;min-height:0!important;overflow:hidden!important;display:flex;flex-direction:column;gap:15px;padding:clamp(14px,2vw,24px)!important}
+.hoja-ajustes .hoja-cabecera{flex-shrink:0}
+.hoja-ajustes .ajustes-cuadricula{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:stretch;min-height:0}
+.hoja-ajustes .ajustes-cuadricula>label{display:flex;flex-direction:column;justify-content:space-between;gap:12px;padding:15px;background:linear-gradient(130deg,#203735,#192627);border:1px solid #5e746d;border-radius:10px;font-size:1.03rem;font-weight:800;color:#f6d68d;min-width:0}
+.hoja-ajustes .ajustes-cuadricula select{width:100%;min-width:0}
+.hoja-ajustes .ajustes-cuadricula input[type=range]{width:100%;margin:auto 0 4px;accent-color:#f1c56b}
+.hoja-ajustes .reiniciar-partida{grid-column:1/-1;justify-self:stretch}
+.menu-estrategia{width:min(1180px,calc(100vw - 24px))!important;max-width:1180px!important;height:min(92dvh,820px);max-height:calc(100dvh - 22px)!important;padding:14px 18px!important;overflow:hidden!important;display:flex;flex-direction:column}
+.menu-estrategia .menu-cabecera,.menu-estrategia .tabs-retro,.menu-estrategia>footer{flex:0 0 auto}
+.panel-tactico-layout{display:grid;grid-template-columns:minmax(295px,.89fr) minmax(350px,1.11fr);gap:14px;align-items:stretch;min-height:0;flex:1;overflow:hidden;margin-top:8px}
+.panel-tactico-layout .comando-compartido{margin:0;min-height:0;align-content:start;overflow:auto;scrollbar-width:thin}
+.panel-tactico-acciones{min-height:0;overflow:auto;scrollbar-width:thin;padding:1px 4px 3px 1px;display:flex;flex-direction:column}
+.panel-tactico-acciones .lista-suministros{max-height:none;overflow:visible;grid-template-columns:repeat(2,minmax(0,1fr))}
+.panel-tactico-acciones .saldo{margin:0 0 7px;padding:9px 12px;border:1px solid #596b59;border-radius:7px;background:#263b32;font-weight:800;color:#f5d38b}
+.panel-tactico-acciones .tacticas-todas{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.menu-estrategia>footer{margin-top:8px!important;padding:8px 0 0!important;position:static!important}
+.menu-estrategia .comando-graficas{gap:10px;padding:8px}
+.menu-estrategia .comando-dona{width:100px;height:100px}.menu-estrategia .comando-dona>span{width:72px;height:72px}
+.menu-estrategia .comando-indicadores{grid-template-columns:repeat(2,minmax(0,1fr))}
+.menu-estrategia .comando-panel{gap:9px}
+@media(max-width:800px){
+ .hoja-ajustes .ajustes-cuadricula{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .hoja-ajustes .ajustes-cuadricula>label{padding:10px}
+ .menu-estrategia{height:min(94dvh,800px);padding:10px!important}
+ .panel-tactico-layout{grid-template-columns:minmax(0,1fr);overflow:auto;gap:9px;align-content:start}
+ .panel-tactico-layout .comando-compartido,.panel-tactico-acciones{overflow:visible}
+ .panel-tactico-acciones .lista-suministros{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .panel-tactico-acciones .tacticas-todas{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+ .hoja-ajustes{width:calc(100vw - 12px)!important;padding:9px!important;gap:7px}
+ .hoja-ajustes .ajustes-cuadricula{gap:6px}
+ .hoja-ajustes .ajustes-cuadricula>label{padding:7px;font-size:.88rem;gap:4px}
+ .hoja-ajustes .reiniciar-partida{grid-column:1/-1}
+ .panel-tactico-acciones .tacticas-todas{grid-template-columns:1fr}
+ .menu-estrategia .comando-indicadores{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .menu-estrategia .comando-graficas{gap:10px}
+}
