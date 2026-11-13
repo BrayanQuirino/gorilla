@@ -334,6 +334,23 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   if (amenazado && h.defensa > 0 && h.orden === 'atacar') destino = { x: 2 * h.x - g.destino.x, y: 2 * h.y - g.destino.y };
   if (h.defensa > 0) destino = { x: limitar(destino.x, 14, ancho - 14), y: limitar(destino.y, 14, alto - 14) };
   const ritmo = h.orden === 'huir' ? 1.3 : h.orden === 'esconder' ? .83 : 1;
+  // Crowd navigation: move tangentially around dense clusters, rather than
+  // repeatedly pushing through the same allies and oscillating in place.
+  const meta = destino;
+  const cerca_meta = distancia(h, meta);
+  const vecinos=b.hombres.filter(o=>o!==h&&activo(o)&&!o.vuelo&&
+    Math.abs((o.altura||0)-(h.altura||0))<28&&distancia(h,o)<47);
+  const delante=vecinos.filter(o=>(o.x-h.x)*(meta.x-h.x)+(o.y-h.y)*(meta.y-h.y)>0);
+  const estancado=cerca_meta>24 && delante.length>=2 && Math.hypot(h.vx,h.vy)<16;
+  h.atasco = estancado ? Math.min(2,(h.atasco||0)+dt) : Math.max(0,(h.atasco||0)-dt*1.5);
+  if(cerca_meta>24 && delante.length && (delante.length>=3||h.atasco>.3)) {
+    const dx=(meta.x-h.x)/Math.max(1,cerca_meta);
+    const dy=(meta.y-h.y)/Math.max(1,cerca_meta);
+    const lado=h.id%2===0?1:-1;
+    const desvio=32+Math.min(64,delante.length*13+h.atasco*30);
+    destino={x:limitar(h.x+dx*38-dy*desvio*lado,18,ancho-18),
+      y:limitar(h.y+dy*38+dx*desvio*lado,18,alto-18)};
+  }
   caminar(h, destino, dt, ritmo * rendimiento.velocidad * (altura_terreno(h, b.arena) > 8 ? .7 : 1));
   if(paquete)return;
   // An armed fighter may intentionally throw an object. Stronger fighters throw farther
