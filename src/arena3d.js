@@ -289,8 +289,8 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
     const altoCaido=cuerpo[3]*grande;
     // A horizontal silhouette occupies the ground plane and keeps the entire
     // original gorilla texture (face, torso, arms, legs) visible.
-    quads.quad(x+altoCaido*.46,y+anchoCaido*.48,
-      anchoCaido,altoCaido,y+anchoCaido*.48,
+    quads.quad(x+altoCaido*.46,y+8,
+      anchoCaido,altoCaido,y+10,
       cuerpo,[.86,.83,.80,-3],-Math.PI/2,espejo);
   }else{
     quads.quad(x, y - altura, region[2] * escala, region[3] * escala,
