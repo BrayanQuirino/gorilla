@@ -40,6 +40,8 @@ export function crear_audio_arcade() {
       else if(tipo==='segunda_vida'){[110,146.83,196,293.66].forEach((n,i)=>nota(n,.26,'sawtooth',.06,i*.14));}
       else if(tipo==='suministro_recogido'||tipo==='arma_encontrada'){nota(440,.08,'square',.035);nota(660,.12,'square',.03,.09);}
       else if(tipo==='objeto_soltado'){nota(260,.065,'triangle',.025);}
+      else if(tipo==='objeto_lanzado'){nota(310,.15,'sawtooth',.025);}
+      else if(tipo==='impacto_objeto'){nota(90,.17,'triangle',.065);}
     },
     cerrar(){if(timer)clearInterval(timer);timer=null;if(ctx)ctx.close().catch(()=>{});ctx=null;}
   };
