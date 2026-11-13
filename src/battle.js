@@ -116,6 +116,13 @@ function actualizar_hombre(b,h,dt,puesto) {
   h.oculto=h.orden==='esconder'||(h.orden==='emboscada'&&cerca_g>120);
   let destino=h;
   if(h.orden==='mover'&&h.destino)destino=h.destino;
+  else if(h.orden==='rescatar') {
+    const caido=b.hombres.filter(p=>p.estado==='incapacitado').sort((a,z)=>distancia(h,a)-distancia(h,z))[0];
+    if(caido){destino=caido;if(distancia(h,caido)<18&&h.recarga===0){
+      caido.estado='herido';caido.vida=Math.max(8,caido.vida_maxima*.15);caido.orden='retirar';
+      h.recarga=8;registrar(b,'rescate',{hombre:caido.id,paramedico:h.id});
+    }}else h.orden='mantener';
+  }
   else if(h.orden==='retirar'||h.orden==='huir'||(h.orden==='atacar'&&pánico))destino={x:h.x+(h.x-g.x),y:h.y+(h.y-g.y)};
   else if(h.orden==='buscar_armas'){
     const objeto=buscar_objeto(b,h);h.buscando=objeto?.id||null;
@@ -148,7 +155,8 @@ function actualizar_hombre(b,h,dt,puesto) {
     if(golpe){
       const apertura=g.fase==='recuperacion'?1.45:1;
       const arma=h.objeto?1+(h.objeto.bono_fuerza_pb||0)/10000:1;
-      const danio=(1+h.fuerza_efectiva*.065)*apertura*arma*(1+h.bono_dano)*(emboscando?1.35:1);
+      const cuerdas=b.suministros.some(s=>s.tipo==='cuerdas')?1.12:1;
+      const danio=(1+h.fuerza_efectiva*.065)*apertura*arma*(1+h.bono_dano)*(emboscando?1.35*cuerdas:1);
       const aplicado=Math.min(g.vida,danio);g.vida=Math.max(0,g.vida-aplicado);recompensa(b,aplicado);
     }
     if(emboscando)h.orden='retirar';
@@ -157,7 +165,8 @@ function actualizar_hombre(b,h,dt,puesto) {
 function danar_hombre(b,h,multiplicador=1) {
   if(!activo(h))return;
   const g=b.gorila;
-  const impacto=(70+azar_normalizado(b.azar)*55)*g.fuerza*multiplicador*(1-h.proteccion);
+  const cobertura=b.suministros.some(s=>s.tipo==='barricada'&&distancia(h,s)<80)?0.65:1;
+  const impacto=(70+azar_normalizado(b.azar)*55)*g.fuerza*multiplicador*(1-h.proteccion)*cobertura;
   h.vida=Math.max(0,h.vida-impacto);h.miedo=limitar(h.miedo+45,0,100);
   if(h.vida<=0) {
     h.estado=azar_normalizado(b.azar)<.22?'incapacitado':'eliminado';
@@ -173,7 +182,7 @@ function resolver_ataque(b,activos) {
     if(!g.destino||distancia(h,g.destino)>radio)continue;
     if(g.accion==='rugido'){h.miedo=limitar(h.miedo+38,0,100);continue;}
     const factor=g.accion==='golpe_area'?.82:g.accion==='embestida'?1.12:1;
-    danar_hombre(b,h,factor);
+    danar_hombre(b,h,factor*(h.orden==='defender'?.75:1));
   }
   g.fase='recuperacion';g.reloj=g.vida<g.vida_maxima*.3?.65:1.15;
 }
@@ -203,9 +212,16 @@ function actualizar_gorila(b,activos,dt) {
     if(g.accion==='embestida')g.fase='embestida';else resolver_ataque(b,activos);
     return;
   }
+  const trampa=b.suministros.find(s=>s.tipo==='trampa'&&distancia(g,s)<45);
+  if(trampa){g.fase='recuperacion';g.reloj=3;trampa.restante=0;registrar(b,'trampa_activada');return;}
+  const señuelo=b.suministros.find(s=>s.tipo==='senuelos');
   const amenazas=activos.filter(h=>!h.oculto||distancia(h,g)<70);
   const candidatos=amenazas.length?amenazas:activos;
   const objetivo=candidatos.reduce((m,h)=>distancia(h,g)<distancia(m,g)?h:m);
+  if(señuelo&&azar_normalizado(b.azar)<.55){
+    g.accion='embestida';g.destino={x:señuelo.x,y:señuelo.y};g.fase='aviso';g.reloj=.8;
+    señuelo.restante=0;registrar(b,'gorila_distraido');return;
+  }
   const d=distancia(g,objetivo),cercanos=activos.filter(h=>cerca(h,g,g.radio+80)).length;
   const táctica=Object.entries(b.tacticas_usadas).sort((a,z)=>z[1]-a[1])[0];
   if(táctica&&táctica[1]>=3)g.memoria[táctica[0]]=true;
