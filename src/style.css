@@ -378,3 +378,10 @@ html,body,#root{min-height:100%;margin:0}
 .estrategia-cortina .menu-estrategia>footer{display:flex!important;position:relative!important;bottom:auto!important;flex-shrink:0}
 .estrategia-cortina .menu-estrategia>.menu-cabecera button{min-width:44px;min-height:44px;position:relative;z-index:5}
 @media(max-width:800px){.estrategia-cortina{padding:6px}.estrategia-cortina .menu-estrategia{height:calc(100dvh - 12px);max-height:calc(100dvh - 12px)!important}}
+
+/* Quick recognition cards for the 13 distinct supply types. */
+.suministro-descrito{display:grid!important;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px!important;text-align:left}
+.suministro-descrito .suministro-icono{display:flex!important;align-items:center;justify-content:center;flex-shrink:0;width:44px;height:44px;border-radius:9px;border:1px solid #778765;background:linear-gradient(145deg,#405641,#213833);box-shadow:inset 0 1px #ffffff28,0 2px #0b1413;font-size:1.65rem;line-height:1}
+.suministro-descrito .suministro-descripcion{display:grid;gap:4px;min-width:0}
+.suministro-descrito:disabled .suministro-icono{opacity:.48;filter:grayscale(.75)}
+@media(max-width:560px){.suministro-descrito{grid-template-columns:34px minmax(0,1fr) auto;gap:6px!important;padding:7px!important}.suministro-descrito .suministro-icono{height:32px;width:32px;font-size:1.2rem}.suministro-descrito b{font-size:.85rem}}
