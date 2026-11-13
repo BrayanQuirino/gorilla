@@ -120,7 +120,7 @@ const spriteFragmento = `
     vec4 tinta = texture2D(atlas, texel);
     float valiente = step(1.5, abs(tono.a));
     float opacidad = abs(tono.a) - valiente;
-    if (frente > suelo + .009 || valiente > .0) {
+    if ((frente > suelo + .009 && abs(tono.a) < 2.5) || valiente > .0) {
       if (tono.a >= 0.0) discard;
       float pixel = 1.0 / 512.0;
       float interior = min(min(texture2D(atlas, texel + vec2(pixel, 0.0)).a,
@@ -217,8 +217,8 @@ function poseGorila(g, tiempo) {
 }
 
 function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
-  if (h.estado === 'eliminado' && !h.vuelo) return;
-  const caido = h.estado === 'incapacitado' || h.vida <= 0;
+  // Eliminated humans remain visible as fallen bodies.
+  const caido = h.estado === 'incapacitado' || h.estado === 'eliminado' || h.vida <= 0;
   const moviendo = Math.abs(h.vx) + Math.abs(h.vy) > 10;
   if (Math.abs(h.vx) > 7) mirando.set(h.id, h.vx < 0);
   const paso = moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
@@ -260,7 +260,7 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
       rectangulo(quads, x + dx, py, 3 + (1 - fase) * 4, 4 + (1 - fase) * 5, y, fuego, fase * .7);
     }
   }
-  quads.quad(x, y - altura, region[2] * escala, region[3] * escala, y + altura * .35, region, [1, 1, 1, -1], 0, espejo);
+  quads.quad(x, y - altura, region[2] * escala, region[3] * escala, y + altura * .35, region, [1, 1, 1, -3], 0, espejo);
 
 }
 
@@ -292,7 +292,7 @@ function cuadro(quads, batalla, mirando) {
     } else if (actor.tipo === 'barricada') {
       for (let i = -2; i <= 2; i++) sprite(quads, 'caja', x + i * 11, y, 1.2, y, [1, .81, .41, -.91]);
     } else {
-      sprite(quads, 'caja', x, y, .82, y, actor.tipo ? [1, .81, .41, -.91] : [1, 1, 1, -1]);
+      sprite(quads, 'caja', x, y, actor.tipo==='paquete' ? 1.45 : .82, y, actor.tipo ? [1, .81, .41, -.91] : [1, 1, 1, -1]);
     }
   }
   for (const entrega of batalla.entregas) {
