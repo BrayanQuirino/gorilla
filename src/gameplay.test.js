@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,crear_sorteo_objetos,preparar_equipo} from './roster.js';
+import {limitar_posicion} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS} from './rules.js';
 import {crear_batalla,dar_orden,avanzar_batalla,comprar_suministro} from './battle.js';
 
@@ -27,16 +28,20 @@ test('inventario inicial y reserva de arena comparten presupuesto sin duplicarlo
     assert.ok(equipo.armas_suelo.every(o=>ARENAS[id].categorias.includes(o.objeto.categoria)||(id==='hangar'&&o.objeto.categoria==='armas_fuego')));
   }
 });
-test('las tácticas se pueden asignar por escuadrón sin afectar a otros',()=>{
+test('una estrategia se aplica a todo el equipo activo',()=>{
   const {batalla}=partida();
+  const caido=batalla.hombres.at(-1);
+  caido.estado='incapacitado';
   assert.ok(Object.hasOwn(TACTICAS,'buscar_armas'));
-  assert.equal(dar_orden(batalla,1,'buscar_armas'),true);
-  assert.ok(batalla.hombres.filter(h=>h.escuadron===1).every(h=>h.orden==='buscar_armas'));
-  assert.ok(batalla.hombres.filter(h=>h.escuadron===2).every(h=>h.orden==='mantener'));
+  assert.equal(dar_orden(batalla,'buscar_armas'),true);
+  assert.equal(batalla.estrategia,'buscar_armas');
+  assert.ok(batalla.hombres.slice(0,-1).every(h=>h.orden==='buscar_armas'));
+  assert.equal(caido.orden,'atacar');
+  assert.equal(dar_orden(batalla,'mover'),false);
 });
 test('el combate avanza y el gorila actúa automáticamente',()=>{
   const {batalla}=partida();
-  dar_orden(batalla,0,'atacar');
+  assert.equal(batalla.estrategia,'atacar');
   for(let i=0;i<900&&!batalla.resultado;i++)avanzar_batalla(batalla,1/30);
   assert.ok(batalla.transcurrido>0);
   assert.ok(batalla.eventos.some(e=>e.tipo==='ataque_gorila'));
@@ -57,7 +62,7 @@ test('buscar armas las recoge del suelo sin clonar el objeto',()=>{
   hombre.objeto=null;
   const colocada=batalla.armas_suelo[0];
   colocada.x=hombre.x;colocada.y=hombre.y;colocada.visible=true;
-  dar_orden(batalla,hombre.escuadron,'buscar_armas');
+  dar_orden(batalla,'buscar_armas');
   avanzar_batalla(batalla,.033);
   assert.ok(batalla.armas_suelo.some(a=>a.recogido_por));
 });
@@ -70,4 +75,20 @@ test('las pistolas del hangar usan munición finita y no alteran el catálogo or
   h.miedo=0;h.recarga=0;
   for(let i=0;i<150&&arma.municion>0;i++)avanzar_batalla(batalla,.033);
   assert.ok(arma.municion>=0&&arma.municion<2);
+});
+
+test('los personajes arrancan separados y el movimiento respeta las bases del escenario',()=>{
+  for(const arena of Object.keys(ARENAS)){
+    const {batalla}=partida(arena);
+    const hombres=batalla.hombres;
+    assert.equal(new Set(hombres.map(h=>h.x+','+h.y)).size,hombres.length);
+    for(let paso=0;paso<180;paso++){
+      avanzar_batalla(batalla,1/60);
+      for(const actor of [...hombres.filter(h=>h.vida>0),batalla.gorila]){
+        const corregido={x:actor.x,y:actor.y};
+        limitar_posicion(corregido,arena,actor===batalla.gorila?12:6);
+        assert.ok(Math.hypot(actor.x-corregido.x,actor.y-corregido.y)<.5, JSON.stringify({arena,paso,id:actor.id,x:actor.x,y:actor.y,corregido}));
+      }
+    }
+  }
 });

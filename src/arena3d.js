@@ -1,6 +1,6 @@
 // A fixed oblique camera projects the battle plane into the painted arenas.
 // Painted silhouettes supply per-pixel occlusion for upright actor billboards.
-import { ancho, alto } from './battle.js';
+import { ancho, alto, encuadre } from './terreno.js';
 import { limitar } from './rules.js';
 import fotogramas from './art/sprites.json';
 
@@ -8,9 +8,6 @@ const archivos = import.meta.glob('./art/*.{webp,png}', {
   eager: true, query: '?url', import: 'default',
 });
 const imagenes = new Map();
-const camara = { x: 75, y: 121, ancho: 850, alto: 460 };
-const camaraClaro = { ...camara, x: 100, y: 86 };
-const encuadre = arena => arena === 'claro' ? camaraClaro : camara;
 const lados = [0, 1, 2, 0, 2, 3];
 const poses = {
   embestida: ['carga1', 'carga2', 'carga3', 'carga4'],
@@ -117,20 +114,13 @@ const spriteFragmento = `
   varying float pie;
   void main() {
     float frente = texture2D(profundidad, pantalla).r;
-    if (frente > pie + .009) discard;
+    float suelo = pie < 0.0 ? pantalla.y : pie;
+    if (frente > suelo + .009) discard;
     gl_FragColor = texture2D(atlas, texel) * tono;
   }`;
 
 function proyectar({ x, y }, vista) {
   return { x: vista.x + x * vista.ancho / ancho, y: vista.y + y * vista.alto / alto };
-}
-
-export function punto_terreno_3d(nx, ny, arena) {
-  const vista = encuadre(arena);
-  return {
-    x: limitar((nx * ancho - vista.x) * ancho / vista.ancho, 12, ancho - 12),
-    y: limitar((ny * alto - vista.y) * alto / vista.alto, 12, alto - 12),
-  };
 }
 
 function lote() {
@@ -220,7 +210,7 @@ function dibujarHumano(quads, h, x, y, tiempo, seleccionado, g, mirando) {
     aro(quads, x, y - 1, 10, 4, y, oro, 0, 10);
   }
   const retrato = retratos[h.arquetipo] ?? 'estudiante';
-  const objetivo = h.destino?.x ?? g.x;
+  const objetivo = g.x;
   sprite(quads, caido ? 'caido' : retrato, x, y - Math.abs(paso) * 2,
     escala, y, tono, paso * .11, mirando.get(h.id) ?? objetivo < h.x);
 }
@@ -232,14 +222,10 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
   const region = fotogramas[pose];
   const respiracion = pose === 'reposo' ? 1 + Math.sin(tiempo * 3.1) * .024 : 1;
   quads.quad(x, y, region[2] * escala, region[3] * escala * respiracion, y, region, blanco, 0, espejo);
-  if (g.vida <= 0) return;
-  const arriba = y - region[3] * escala * respiracion - 9;
-  rectangulo(quads, x, arriba, 58, 6, y, [.08, .08, .09, .96]);
-  const vida = limitar(g.vida / g.vida_maxima, 0, 1) * 54;
-  rectangulo(quads, x - 27 + vida / 2, arriba, vida, 2, y, [1, .33, .22, 1]);
+
 }
 
-function cuadro(quads, batalla, escuadron, mirando, orden) {
+function cuadro(quads, batalla, hombre_id, mirando) {
   const g = batalla.gorila;
   const tiempo = batalla.transcurrido;
   const vista = encuadre(batalla.arena);
@@ -248,13 +234,7 @@ function cuadro(quads, batalla, escuadron, mirando, orden) {
     const rugido = g.accion === 'rugido';
     const radio = rugido ? 145 : g.accion === 'golpe_area' ? g.radio + 75 : g.radio + 28;
     aro(quads, destino.x, destino.y, radio * vista.ancho / ancho, radio * vista.alto / alto,
-      destino.y, rugido ? oro : [1, .39, .21, .95], tiempo * 1.1);
-  }
-  if (orden && tiempo - orden.inicio < 3.5) {
-    const destino = proyectar(orden, vista);
-    const radio = 13 + Math.sin((tiempo - orden.inicio) * 5) * 3;
-    aro(quads, destino.x, destino.y, radio, radio * .54, destino.y, oro, 0, 12);
-    rectangulo(quads, destino.x, destino.y, 5, 2, destino.y, oro);
+      -1, rugido ? oro : [1, .39, .21, .95], tiempo * 1.1);
   }
   const actores = [
     ...batalla.armas_suelo.filter(objeto => objeto.visible && !objeto.recogido_por),
@@ -269,7 +249,7 @@ function cuadro(quads, batalla, escuadron, mirando, orden) {
       if (Math.abs(avance) > 4) mirando.set(g, avance < 0);
       dibujarGorila(quads, g, x, y, tiempo, mirando.get(g) ?? true);
     } else if (actor.arquetipo) {
-      dibujarHumano(quads, actor, x, y, tiempo, escuadron === actor.escuadron, g, mirando);
+      dibujarHumano(quads, actor, x, y, tiempo, hombre_id === actor.id, g, mirando);
     } else if (actor.tipo === 'barricada') {
       for (let i = -2; i <= 2; i++) sprite(quads, 'caja', x + i * 11, y, 1.2, y, oro);
     } else {
@@ -317,7 +297,7 @@ export function crear_dibujante_3d(canvas, actualizar, fallo) {
     actualizar();
   }).catch(error => { if (!destruido) fallo(error); });
 
-  function dibujar(batalla, escuadron, orden) {
+  function dibujar(batalla, hombre_id) {
     if (destruido || gl.isContextLost()) return false;
     const id = batalla.arena;
     if (partida !== batalla) {
@@ -348,7 +328,7 @@ export function crear_dibujante_3d(canvas, actualizar, fallo) {
     if (!atlas) return false;
 
     quads.vaciar();
-    cuadro(quads, batalla, escuadron, mirando, orden);
+    cuadro(quads, batalla, hombre_id, mirando);
     gl.enable(gl.BLEND);
     gl.useProgram(actores);
     gl.bindTexture(gl.TEXTURE_2D, atlas);

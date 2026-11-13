@@ -18,7 +18,6 @@ export const TACTICAS = {
   defender: {nombre:'Defender', energia:.6},
   distraer: {nombre:'Distraer', energia:1.4},
   rescatar: {nombre:'Rescatar heridos', energia:1.0},
-  mover: {nombre:'Mover', energia:1.0},
 };
 export const SUMINISTROS = {
   energizante: {nombre:'Energizantes', costo:30, cantidad:10, energia:35, efecto:'fatiga', efecto_duracion:15},

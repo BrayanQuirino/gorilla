@@ -3,36 +3,48 @@
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 45% -10%,#384f39,#142123 58%,#0c141a);min-height:100vh}main{width:min(1550px,100%);margin:auto;padding:clamp(12px,2vw,30px)}h1,h2,p{margin:0}
 h1{font-family:'Press Start 2P',monospace;font-size:clamp(1.4rem,3.5vw,2.8rem);line-height:1.5;letter-spacing:-.05em;text-shadow:4px 4px #412e29;color:#f0c363}h1 span{color:#f57556}h2{font-family:'Press Start 2P',monospace;font-size:.75rem;line-height:1.8;color:#efcd79}
 p,small{color:var(--texto-secundario)}.cabecera{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:center;margin-bottom:19px}.cabecera p{font-size:1.18rem;letter-spacing:.08em;text-transform:uppercase}
-.configuracion,.ordenes{display:flex;flex-wrap:wrap;gap:8px;align-items:end}button,select{font:700 1rem Rajdhani,system-ui,sans-serif;letter-spacing:.025em;border:2px solid #625b4e;background:#2c3839;color:#f3eacb;border-radius:3px;min-height:40px;padding:7px 10px;box-shadow:inset 0 2px #ffffff12,2px 3px #0d1518}
+.configuracion{display:flex;flex-wrap:wrap;gap:8px;align-items:end}button,select{font:700 1rem Rajdhani,system-ui,sans-serif;letter-spacing:.025em;border:2px solid #625b4e;background:#2c3839;color:#f3eacb;border-radius:3px;min-height:40px;padding:7px 10px;box-shadow:inset 0 2px #ffffff12,2px 3px #0d1518}
 button{cursor:pointer}button:hover,button[aria-pressed=true]{border-color:var(--acento);background:#455347;color:#fff1a1}button:focus-visible,select:focus-visible{outline:2px solid var(--acento);outline-offset:3px}button:disabled{cursor:default;opacity:.5}.principal{background:#e8b95b;border-color:#f6da94;color:#22261e;font-weight:900}.principal:hover{color:#1a231e;background:#f8d07a}
 label{display:grid;gap:4px;color:var(--texto-secundario);font-size:.95rem}.tablero{display:grid;grid-template-columns:minmax(0,1fr) minmax(275px,325px);gap:15px;align-items:start}
 .campo,aside,.reglas{background:var(--panel);border:3px solid #665e48;border-radius:5px;box-shadow:0 0 0 3px #111a20,0 8px 25px #0008;overflow:hidden}
 .marcador{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:12px;background:linear-gradient(#2c363a,#19252a);border-bottom:3px solid #786a46}.marcador>div{display:grid;align-content:start;gap:4px}.marcador small{text-transform:uppercase;letter-spacing:.06em;font-weight:700}.marcador strong{font-variant-numeric:tabular-nums;font-size:1.5rem;color:#f5cb64}.marcador strong span{color:#bbb5a4;font-size:.8rem}
-progress{width:100%;height:.75rem;accent-color:#e7b95b}.arena{position:relative;background:#192824}.arena canvas{display:block;width:100%;aspect-ratio:1000/640;image-rendering:pixelated;cursor:crosshair;touch-action:manipulation}
-.ordenes{padding:13px;background:#1d292e;border-top:3px solid #4d554b}.ordenes button{font-size:.98rem}.ayuda{padding:0 13px 14px;font-size:.95rem;line-height:1.5}
-aside,.reglas{padding:14px}aside h2{margin:9px 0}.escuadrones{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:10px 0 18px}.escuadrones button{font-size:.84rem;padding:5px 3px;line-height:1.1;overflow-wrap:anywhere}.escuadrones button:first-child{grid-column:1/-1}.escuadrones small{display:block;font-size:.7rem}.ficha{padding-top:7px;border-top:2px solid #414a45;margin-top:10px}.ficha select{width:100%}.ficha h2{display:flex;justify-content:space-between;gap:8px;margin:14px 0}.ficha h2 small{font:600 1rem Rajdhani,sans-serif}.radar{width:100%;display:block}.radar text{font-size:9px;fill:var(--texto-secundario)}.objeto{display:grid;gap:5px;padding:10px;background:#2e3837;border:1px solid #59604e;font-size:.95rem}.objeto span{color:var(--texto-secundario)}.miedo{margin-top:12px}.miedo progress{accent-color:#ec875c}.reglas{margin-top:16px}.reglas p{margin-top:8px;max-width:84ch;line-height:1.55}
-@media(max-width:970px){.tablero{grid-template-columns:1fr}.cabecera{align-items:start}.marcador{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:480px){main{padding:9px}.ordenes button{flex:1 1 30%}.marcador strong{font-size:1.2rem}aside,.reglas{padding:9px}}
-
-/* Arcade tactics dock and expandable store */
-.controles-arcade{background:linear-gradient(180deg,#202b30,#172329);border-top:3px solid #9b7b40;padding:10px 12px}
-.barra-control{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
-.barra-control .principal{font-family:'Press Start 2P',monospace;font-size:.62rem;min-height:43px;min-width:125px}
+progress{width:100%;height:.75rem;accent-color:#e7b95b}.arena{position:relative;background:#192824}.arena canvas{display:block;width:100%;aspect-ratio:1000/640;image-rendering:pixelated;}
+aside,.reglas{padding:14px}
+aside h2{margin:9px 0}
+.ficha{padding-top:9px;border-top:2px solid #414a45;margin-top:12px}
+.ficha select{width:100%}
+.ficha h2{display:flex;justify-content:space-between;gap:8px;margin:14px 0}
+.ficha h2 small{font:600 1rem Rajdhani,sans-serif;flex-shrink:0}
+.radar{width:100%;display:block}
+.radar text{font-size:9px;fill:var(--texto-secundario)}
+.objeto{display:grid;gap:5px;padding:10px;background:#2e3837;border:1px solid #59604e;font-size:.95rem}
+.objeto span{color:var(--texto-secundario)}
+.miedo{margin-top:12px}.miedo progress{accent-color:#ec875c}
+.reglas{margin-top:16px}.reglas p{margin-top:8px;max-width:84ch;line-height:1.55}
+.cifras{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:8px 0 12px}
+.cifras div{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:4px 6px;background:#233133;border:1px solid #3a4843;font-size:.92rem}
+.cifras dt{overflow-wrap:anywhere}
+.cifras dd{margin:0;color:var(--acento);font-weight:700;font-variant-numeric:tabular-nums}
+.estado-persona{text-transform:capitalize}
+.controles-arcade{display:flex;flex-wrap:wrap;align-items:center;gap:10px 15px;background:linear-gradient(#202b30,#172329);border-top:3px solid #9b7b40;padding:10px 12px}
+.controles-arcade .principal{min-width:125px}
+.ultimo-evento{margin-left:auto;text-transform:capitalize}
 .tabs-retro{display:flex;flex-wrap:wrap;gap:5px}
-.tabs-retro button{font-size:.9rem;background:#2f3b3c;min-height:38px}
-.tabs-retro button[aria-pressed=true]{background:#a17d3e;color:#171e22;border-color:#f4cd76}
-.comprar-acceso{background:#4d4330;border-color:#c49b4e;color:#ffe4a3}
-.controles-arcade .ordenes{padding:10px 0 8px;border:0;background:transparent;display:flex;gap:7px}
-.controles-arcade .ordenes button{flex:1 1 115px;max-width:230px}
-.controles-arcade .ordenes button[aria-pressed=true]{background:#556849;border-color:#f9d17a}
-.estado-equipo{display:flex;flex-wrap:wrap;gap:8px 20px;padding:8px 0 2px;color:#d2ba86;font-size:.83rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-top:1px solid #576058}
-.panel-suministros{padding-bottom:10px;border-bottom:2px solid #74603e}
-.panel-suministros[hidden]{display:none}
-.lista-suministros{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px;max-height:250px;overflow-y:auto}
-.lista-suministros button{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:4px;min-height:36px;padding:5px 7px;font-size:.84rem}
+.tabs-retro button{font-size:.9rem;flex:1 1 auto}
+.tabs-retro button[aria-pressed=true]{background:#b88d43;color:#171e22;border-color:#f4cd76}
+.vistas-equipo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.menu-estrategia{width:min(560px,calc(100% - 24px));max-height:calc(100dvh - 32px);padding:18px;background:#202c2f;color:#f5edcf;border:2px solid #ac925b;box-shadow:0 16px 45px #000b;border-radius:5px}
+.menu-estrategia::backdrop{background:#0b1317ad}
+.menu-estrategia header{margin-bottom:12px}
+.menu-estrategia header p{margin-top:5px}
+.menu-estrategia .ordenes{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr));margin:12px 0}
+.menu-estrategia footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;border-top:1px solid #59604e;padding-top:12px}
+.saldo{margin-top:12px}
+.lista-suministros{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px;max-height:250px;overflow-y:auto;padding:2px}
+.lista-suministros button{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:4px;font-size:.84rem}
 .lista-suministros strong{color:#ecc775;white-space:nowrap}
-.ayuda{padding:6px 12px 13px;background:#182429}
-@media(max-width:640px){.tabs-retro{width:100%}.tabs-retro button{flex:1}.barra-control .principal{flex:1}.comprar-acceso{flex:1}.lista-suministros{grid-template-columns:1fr}}
+@media(max-width:970px){.tablero{grid-template-columns:1fr}.cabecera{align-items:start}.marcador{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){main{padding:9px}.marcador strong{font-size:1.2rem}aside,.reglas{padding:9px}.lista-suministros{grid-template-columns:1fr}.ultimo-evento{margin-left:0;flex-basis:100%}}
 
 /* Keep the HUD on the frame so the arena art stays legible. */
 .arena{isolation:isolate}

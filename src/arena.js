@@ -114,7 +114,7 @@ function humano(c,h,seleccionado,t,atlas){
  if(h.oculto&&!muerto)elipse(c,h.x,h.y-3,15,5,'#4e9e6c55');
  elipse(c,h.x+2,h.y+1,11,4,'#0b151b80');
  const action=accion_humano(h);
- const frames=atlas.humano(action,h.escuadron-1,h.id%5,h.edad>=65,Boolean(h.objeto));
+ const frames=atlas.humano(action,(h.id-1)%10,h.id%5,h.edad>=65,Boolean(h.objeto));
  const speed=action==='run'?1.8:action==='tired'?.45:1;
  dibujar_sprite(c,frames,h.x,h.y,25,34,t*speed,h.id*.41);
  if(h.proteccion>0&&!muerto)rect(c,h.x-7,h.y-27,14,3,'#bfc2a3');
@@ -143,7 +143,7 @@ export function crear_dibujante(canvas){
  let visto=0;
  const chispas=[];
  let previo=null;
- return (batalla,escuadron)=>{
+ return (batalla,hombre_id)=>{
   const id=batalla.arena||'claro';
   if(!capas.has(id))capas.set(id,terreno(id));
   tiempo+=1/60;
@@ -181,7 +181,7 @@ export function crear_dibujante(canvas){
   const actores=[...batalla.hombres.map(h=>({y:h.y,tipo:'humano',h})),{y:g.y,tipo:'gorila'}].sort((a,b)=>a.y-b.y);
   for(const a of actores){
     if(a.tipo==='gorila')gorila(ctx,g,tiempo,atlas);
-    else humano(ctx,a.h,Boolean(escuadron&&escuadron===a.h.escuadron),tiempo,atlas);
+    else humano(ctx,a.h,hombre_id===a.h.id,tiempo,atlas);
   }
   // barras de estado discretas y contexto táctico
   const barra=lim=>Math.max(0,Math.min(1,lim));

@@ -11,7 +11,7 @@ test('genera 100 hombres con ocho habilidades, edades válidas y objetos del cat
   for (const azar of [() => 0, () => .5, () => .99999]) {
     const hombres = generar_hombres(sortear_objeto, azar);
     assert.equal(hombres.length, 100);
-    assert.equal(new Set(hombres.map(hombre => hombre.escuadron)).size, 10);
+    assert.equal(new Set(hombres.map(hombre => hombre.id)).size, 100);
     for (const hombre of hombres) {
       assert.ok(hombre.edad >= 18 && hombre.edad <= 100);
       assert.equal(Object.keys(hombre.radar).length, 8);
@@ -37,13 +37,12 @@ test('cada dificultad sortea solo sus tres niveles', () => {
   }
 });
 
-test('una orden afecta al escuadrón seleccionado y el tiempo tiene un desenlace', () => {
+test('el equipo avanza automáticamente y el tiempo tiene un desenlace', () => {
   const batalla = crear_batalla(generar_hombres(sortear_objeto), 0);
-  dar_orden(batalla, 1, 'mover', { x: 700, y: 250 });
-  assert.equal(batalla.hombres.filter(hombre => hombre.orden === 'mover').length, 10);
-  const inicio = batalla.hombres[0].x;
+  assert.ok(batalla.hombres.every(hombre => hombre.orden === 'atacar'));
+  const inicio = batalla.hombres.reduce((total, hombre) => total + hombre.x, 0);
   for (let i = 0; i < 60; i++) avanzar_batalla(batalla, 1 / 60);
-  assert.ok(batalla.hombres[0].x > inicio);
+  assert.ok(batalla.hombres.reduce((total, hombre) => total + hombre.x, 0) > inicio);
   // El motor limita dt a 0.1 segundos para evitar saltos físicos. Simular el reloj completo.
   batalla.tiempo = 0.05;
   avanzar_batalla(batalla, 0.1);
@@ -56,7 +55,7 @@ test('un ataque acertado que agota la resistencia da la victoria a los hombres',
   hombre.x = batalla.gorila.x - 20;
   hombre.y = batalla.gorila.y;
   batalla.gorila.vida = 1;
-  dar_orden(batalla, 1, 'atacar');
+  dar_orden(batalla, 'atacar');
   avanzar_batalla(batalla, 1 / 60);
   assert.equal(batalla.resultado, 'Victoria de los hombres');
 });

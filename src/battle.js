@@ -1,11 +1,11 @@
 import { ARENAS, TACTICAS, SUMINISTROS, VENTAJAS_GORILA, limitar, distancia } from './rules.js';
-export const ancho=1000, alto=640;
+import { ancho, alto, limitar_posicion, rodear_obstaculo, separar_personajes } from './terreno.js';
+export { ancho, alto };
 export const dificultades=['Fácil','Normal','Difícil','Extremo'];
 const niveles=[[650,1,1],[775,1.12,1.06],[900,1.24,1.12],[1050,1.38,1.15],[1200,1.53,1.20],[1350,1.68,1.25],[1500,1.84,1.29],[1675,2.02,1.35],[1850,2.20,1.40],[2050,2.40,1.44],[2275,2.63,1.50],[2500,2.85,1.56]];
 const efecto_vigente=(batalla,nombre)=>batalla.efectos.some(e=>e.nombre===nombre&&e.restante>0);
 const armados=h=>Boolean(h.objeto);
-const vivo=h=>h.estado!=='eliminado'&&h.estado!=='incapacitado'&&h.vida>0;
-const activo=h=>vivo(h);
+export const activo=h=>h.estado!=='eliminado'&&h.estado!=='incapacitado'&&h.vida>0;
 const azar_normalizado=(azar)=>limitar(azar(),0,0.999999);
 const cerca=(h,g,r)=>distancia(h,g)<r;
 function registrar(batalla,tipo,datos={}) {batalla.eventos.push({tipo,tiempo:300-batalla.tiempo,...datos});if(batalla.eventos.length>300)batalla.eventos.shift();}
@@ -13,7 +13,8 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   const n=limitar(Math.floor(dificultad),0,3)*3+1+Math.floor(azar_normalizado(azar)*3);
   const [vida,fuerza,tamano]=niveles[n-1];
   const arena=ARENAS[opciones.arena]?opciones.arena:'claro';
-  return {
+  const batalla = {
+    estrategia: 'atacar',
     tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:0,bananas_ganadas:0,eventos:[],
     resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a})),
     suministros:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
@@ -22,29 +23,30 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
       furia:0,atrapado:0,reduccion_velocidad:0,descansando:false},
     hombres:personajes.map(personaje=>{
       const indice=personaje.id-1;
-      const x=65+Math.floor(indice/10)%5*72+(indice%5)*10;
-      const y=210+Math.floor(indice/50)*150+Math.floor(indice%10/5)*14;
+      const x = 62 + indice % 10 * 30;
+      const y = 154 + Math.floor(indice / 10) * 36;
       const vida_maxima=35+(personaje.radar.estrategia||50)*.65;
       return {...personaje,x,y,vida:vida_maxima,vida_maxima,energia:100,vx:0,vy:0,miedo:0,
-        recarga:0,reaccion:0,orden:'mantener',estado:'normal',proteccion:0,bono_dano:0,
-        mejoras:[],destino:null,buscando:null,oculto:false};
+        recarga:0,reaccion:0,orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,
+        mejoras:[],buscando:null,oculto:false};
     }),
   };
+  limitar_posicion(batalla.gorila, arena, 12);
+  for (const objeto of batalla.armas_suelo) limitar_posicion(objeto, arena, 8);
+  separar_personajes(batalla.hombres, arena, batalla.gorila, 4);
+  return batalla;
 }
-export function dar_orden(batalla,escuadron,orden,destino) {
-  if(!TACTICAS[orden])return false;
-  for(const hombre of batalla.hombres){
-    if(!activo(hombre)||(escuadron&&hombre.escuadron!==escuadron))continue;
-    hombre.orden=orden;
-    hombre.buscando=null;
-    if(destino) {
-      const i=hombre.id-1,col=escuadron?i%5:i%10,fila=escuadron?Math.floor(i%10/5):Math.floor(i/10);
-      hombre.destino={x:limitar(destino.x+(col-(escuadron?2:4.5))*12,12,ancho-12),
-        y:limitar(destino.y+(fila-(escuadron?.5:4.5))*12,12,alto-12)};
-    }
+
+export function dar_orden(batalla, orden) {
+  if (batalla.resultado || !Object.hasOwn(TACTICAS, orden)) return false;
+  batalla.estrategia = orden;
+  for (const hombre of batalla.hombres) {
+    if (!activo(hombre)) continue;
+    hombre.orden = orden;
+    hombre.buscando = null;
   }
-  batalla.tacticas_usadas[orden]=(batalla.tacticas_usadas[orden]||0)+1;
-  registrar(batalla,'orden',{escuadron,orden});
+  batalla.tacticas_usadas[orden] = (batalla.tacticas_usadas[orden] || 0) + 1;
+  registrar(batalla, 'orden', { orden });
   return true;
 }
 export function comprar_suministro(batalla,id) {
@@ -65,17 +67,21 @@ export function comprar_suministro(batalla,id) {
   if(item.efecto)batalla.efectos.push({nombre:item.efecto,restante:item.efecto_duracion||0});
   if(id==='red'){batalla.gorila.reduccion_velocidad=Math.max(batalla.gorila.reduccion_velocidad,8);}
   if(id==='refuerzos'){
-    const bajas=batalla.hombres.filter(h=>h.estado==='eliminado');
     // Refuerzos son personas de reserva, nunca reviven una baja.
     const capacidad=Math.min(100-batalla.hombres.filter(activo).length,batalla.reservas,item.cantidad);
     for(let i=0;i<capacidad;i++){
       const modelo=batalla.hombres[i%batalla.hombres.length];
-      batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:40,y:100+i*18,orden:'mantener'});
+      batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:40,y:100+i*25,orden:batalla.estrategia,
+        vx:0,vy:0,miedo:0,recarga:0,reaccion:0,mejoras:[],buscando:null,oculto:false,proteccion:0,bono_dano:0,
+        fuerza_efectiva:modelo.radar.fuerza,velocidad_efectiva:modelo.radar.velocidad});
     }
     batalla.reservas-=capacidad;
   }
   if(id==='barricada')batalla.suministros.push({tipo:'barricada',x:500,y:320,vida:100,restante:25});
   if(id==='senuelos'||id==='humo'||id==='trampa'||id==='cuerdas')batalla.suministros.push({tipo:id,x:500,y:320,restante:item.efecto_duracion||30});
+  if (['barricada', 'senuelos', 'humo', 'trampa', 'cuerdas'].includes(id)) {
+    limitar_posicion(batalla.suministros.at(-1), batalla.arena, 8);
+  }
   registrar(batalla,'compra',{id,costo:item.costo});
   return true;
 }
@@ -115,8 +121,7 @@ function actualizar_hombre(b,h,dt,puesto) {
   h.estado=h.vida<h.vida_maxima*.35?'herido':h.energia<20?'cansado':pánico?'panico':'normal';
   h.oculto=h.orden==='esconder'||(h.orden==='emboscada'&&cerca_g>120);
   let destino=h;
-  if(h.orden==='mover'&&h.destino)destino=h.destino;
-  else if(h.orden==='rescatar') {
+  if(h.orden==='rescatar') {
     const caido=b.hombres.filter(p=>p.estado==='incapacitado').sort((a,z)=>distancia(h,a)-distancia(h,z))[0];
     if(caido){destino=caido;if(distancia(h,caido)<18&&h.recarga===0){
       caido.estado='herido';caido.vida=Math.max(8,caido.vida_maxima*.15);caido.orden='retirar';
@@ -124,6 +129,14 @@ function actualizar_hombre(b,h,dt,puesto) {
     }}else h.orden='mantener';
   }
   else if(h.orden==='retirar'||h.orden==='huir'||(h.orden==='atacar'&&pánico))destino={x:h.x+(h.x-g.x),y:h.y+(h.y-g.y)};
+  else if(h.orden==='distraer'){
+    const distancia = Math.max(cerca_g, 1);
+    const lado = h.id % 2 ? 1 : -1;
+    const ajuste = limitar((105 - cerca_g) / 35, -2, 2);
+    const dx = (h.x - g.x) / distancia;
+    const dy = (h.y - g.y) / distancia;
+    destino = { x: h.x + 45 * (dx * ajuste - dy * lado), y: h.y + 45 * (dy * ajuste + dx * lado) };
+  }
   else if(h.orden==='buscar_armas'){
     const objeto=buscar_objeto(b,h);h.buscando=objeto?.id||null;
     if(objeto){destino=objeto;if(distancia(h,objeto)<15){
@@ -145,7 +158,7 @@ function actualizar_hombre(b,h,dt,puesto) {
     destino={x:h.x*2-g.destino.x,y:h.y*2-g.destino.y};
   }
   const mov=h.orden==='huir'?1.4:h.orden==='esconder'?.5:1;
-  caminar(h,destino,dt,mov);
+  caminar(h, rodear_obstaculo(h, destino, b.arena, 6), dt, mov);
   const emboscando=h.orden==='emboscada'&&cerca_g<g.radio+35;
   const disparo=h.objeto?.tipo==='fuego'&&h.objeto.municion>0;
   const alcance=disparo?h.objeto.alcance:g.radio+24;
@@ -206,17 +219,27 @@ function actualizar_gorila(b,activos,dt) {
   }
   g.reloj-=dt;
   if(g.fase==='embestida'){
-    const recorrido=distancia(g,g.destino),lento=g.reduccion_velocidad>0?.6:1;
+    const ruta = rodear_obstaculo(g, g.destino, b.arena, 12);
+    const recorrido = distancia(g, ruta);
+    const lento=g.reduccion_velocidad>0?.6:1;
     const fatiga=g.energia<20?.6:1;
     const furia=g.furia>0?VENTAJAS_GORILA.furia.velocidad:1;
     const paso=Math.min(1,620*dt*lento*fatiga*furia/Math.max(recorrido,1));
-    g.x+=(g.destino.x-g.x)*paso;g.y+=(g.destino.y-g.y)*paso;
-    if(paso===1)resolver_ataque(b,activos);
+    g.x += (ruta.x - g.x) * paso;
+    g.y += (ruta.y - g.y) * paso;
+    limitar_posicion(g, b.arena, 12);
+    if ((paso === 1 && ruta === g.destino) || g.reloj <= 0) {
+      g.destino = { x: g.x, y: g.y };
+      resolver_ataque(b, activos);
+    }
     return;
   }
   if(g.reloj>0)return;
   if(g.fase==='aviso'){
-    if(g.accion==='embestida')g.fase='embestida';else resolver_ataque(b,activos);
+    if(g.accion==='embestida'){
+      g.fase = 'embestida';
+      g.reloj = 2;
+    } else resolver_ataque(b,activos);
     return;
   }
   const trampa=b.suministros.find(s=>s.tipo==='trampa'&&distancia(g,s)<45);
@@ -224,7 +247,8 @@ function actualizar_gorila(b,activos,dt) {
   const señuelo=b.suministros.find(s=>s.tipo==='senuelos');
   const memoria_escondite=Boolean(g.memoria.esconder||g.memoria.emboscada);
   const amenazas=activos.filter(h=>!h.oculto||distancia(h,g)<(memoria_escondite?125:70));
-  const candidatos=amenazas.length?amenazas:activos;
+  const distracciones = amenazas.filter(h => h.orden === 'distraer' && cerca(h, g, 145));
+  const candidatos = distracciones.length ? distracciones : amenazas.length ? amenazas : activos;
   const objetivo=candidatos.reduce((m,h)=>distancia(h,g)<distancia(m,g)?h:m);
   if(señuelo&&azar_normalizado(b.azar)<.55){
     g.accion='embestida';g.destino={x:señuelo.x,y:señuelo.y};g.fase='aviso';g.reloj=.8;
@@ -253,7 +277,7 @@ export function avanzar_batalla(b,dt) {
   b.efectos=b.efectos.filter(e=>e.restante>0);
   for(const s of b.suministros)s.restante-=dt;
   b.suministros=b.suministros.filter(s=>s.restante>0);
-  let activos=b.hombres.filter(activo);
+  const activos=b.hombres.filter(activo);
   if(!activos.length||b.tiempo===0){b.resultado='Victoria del gorila';return;}
   actualizar_gorila(b,activos,dt);
   let puesto=0;
@@ -262,6 +286,7 @@ export function avanzar_batalla(b,dt) {
     const dispuesto=h.orden==='atacar'&&h.miedo<=12+h.radar.temple*.76;
     actualizar_hombre(b,h,dt,dispuesto?puesto++:undefined);
   }
+  separar_personajes(activos.filter(activo), b.arena, b.gorila);
   if(b.gorila.vida<=0)b.resultado='Victoria de los hombres';
   else if(!b.hombres.some(activo))b.resultado='Victoria del gorila';
 }

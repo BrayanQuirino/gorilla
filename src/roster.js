@@ -98,7 +98,6 @@ export function generar_hombres(sortear_objeto, azar = Math.random, equipados = 
     const objeto = indice < equipados ? sortear_objeto(azar) : null;
     return {
       id: indice + 1,
-      escuadron: Math.floor(indice / 10) + 1,
       edad,
       arquetipo: elegir_arquetipo(base, radar, edad),
       radar,
@@ -115,7 +114,7 @@ export function preparar_equipo(sortear_objeto,catalogo,arena='claro',azar=Math.
   const disponibles=100-armas_suelo.length;
   const equipados=Array.from({length:disponibles},()=>azar()<.7).filter(Boolean).length;
   const hombres=generar_hombres(sortear_objeto,azar,equipados);
-  // Barajar evita que un escuadrón entero tenga todos los objetos.
+  // Distribuir los objetos por todo el equipo.
   for(let i=hombres.length-1;i>0;i--){const j=Math.floor(azar()*(i+1));
     const obj=hombres[i].objeto;hombres[i].objeto=hombres[j].objeto;hombres[j].objeto=obj;
     for(const h of [hombres[i],hombres[j]]){
