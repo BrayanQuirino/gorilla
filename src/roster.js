@@ -2,32 +2,13 @@ import { ARENAS, sortear_inventario, resumir_equipo } from './rules.js';
 export const habilidades = ['fuerza','velocidad','inteligencia','temple','precision','agilidad','estrategia','tecnica'];
 
 // Se conservan los 19 arquetipos del repositorio original, sin inventar otros.
-const perfiles = [
-  ['Entrenador',{fuerza:85,temple:82,estrategia:82,inteligencia:28}],
-  ['Campista',{velocidad:22,agilidad:30}],
-  ['Estudiante',{agilidad:22,tecnica:25}],
-  ['Boxeador',{fuerza:88,tecnica:82,temple:32}],
-  ['Científico',{inteligencia:88,precision:78,temple:35}],
-  ['Acróbata',{temple:90,velocidad:80,inteligencia:30}],
-  ['Oficinista',{temple:20,agilidad:30}],
-  ['Aficionado',{precision:22,tecnica:30}],
-  ['Turista',{inteligencia:25,agilidad:35}],
-  ['Repartidor',{estrategia:22,temple:30}],
-  ['Musculoso',{fuerza:88,temple:22,estrategia:80}],
-  ['Adolescente',{fuerza:34,estrategia:36},18,19],
-  ['Paramédico',{inteligencia:85,estrategia:78,precision:35}],
-  ['Velocista',{velocidad:90,agilidad:27,inteligencia:31,precision:33}],
-  ['Atleta',{inteligencia:78,agilidad:88,estrategia:35}],
-  ['Beisbolista',{fuerza:85,precision:82,velocidad:30,tecnica:33}],
-  ['Malabarista',{tecnica:90,precision:82,fuerza:32}],
-  ['Corredor',{velocidad:30,inteligencia:29,temple:30}],
-  ['Anciano',{velocidad:28,agilidad:28,estrategia:30,temple:30},65,100],
-];
-
-export const radar_arquetipo = Object.fromEntries(
-  [...perfiles, ['Tarzán', Object.fromEntries(habilidades.map(eje => [eje, 90]))]]
-    .map(([nombre, rasgos]) => [nombre, Object.fromEntries(habilidades.map(eje => [eje, rasgos[eje] ?? 50]))]),
-);
+export const tipos_hombre=['Young','Adult','Older'];
+export const tipo_por_edad=edad=>edad<30?'Young':edad<60?'Adult':'Older';
+export const radar_arquetipo = {
+  Young:{fuerza:55,velocidad:70,inteligencia:53,temple:49,precision:52,agilidad:72,estrategia:48,tecnica:49},
+  Adult:{fuerza:66,velocidad:61,inteligencia:69,temple:65,precision:64,agilidad:60,estrategia:70,tecnica:67},
+  Older:{fuerza:42,velocidad:38,inteligencia:78,temple:78,precision:59,agilidad:35,estrategia:81,tecnica:73},
+};
 
 const edades = [
   [18, .95, 1], [24, .95, 1], [25, 1, 1], [34, 1, 1],
@@ -51,19 +32,6 @@ export function ajustar_edad(base, edad) {
   };
 }
 
-function elegir_arquetipo(base, radar, edad) {
-  if (habilidades.every(habilidad => base[habilidad] > 85)) return 'Tarzán';
-
-  let mejor = { nombre: perfiles[0][0], distancia: Infinity };
-  for (const [nombre, objetivo, minimo = 18, maximo = 100] of perfiles) {
-    if (edad < minimo || edad > maximo) continue;
-    const ejes = Object.entries(objetivo);
-    const distancia = ejes.reduce((total, [eje, valor]) =>
-      total + ((nombre === 'Anciano' ? radar : base)[eje] - valor) ** 2, 0) / ejes.length;
-    if (distancia < mejor.distancia) mejor = { nombre, distancia };
-  }
-  return mejor.nombre;
-}
 
 function sortear_ponderado(entradas, azar) {
   const total = entradas.reduce((suma, [, peso]) => suma + peso, 0);
@@ -104,7 +72,7 @@ export function generar_hombres(sortear_objeto, azar = Math.random, equipados = 
     return {
       id: indice + 1,
       edad,
-      arquetipo: elegir_arquetipo(base, radar, edad),
+      arquetipo: tipo_por_edad(edad),
       radar,
       objeto,
       fuerza_efectiva: radar.fuerza * (1 + (objeto?.bono_fuerza_pb || 0) / 10000),
