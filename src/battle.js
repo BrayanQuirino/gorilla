@@ -777,8 +777,10 @@ export function avanzar_batalla(b,dt) {
   const previoGorila={x:b.gorila.x,y:b.gorila.y};
   actualizar_gorila(b,activos,dt);
   const recorrido=distancia(previoGorila,b.gorila);
-  b.gorila.pasos_acumulados=(b.gorila.pasos_acumulados||0)+recorrido;
-  if(b.gorila.pasos_acumulados>=23){
+  // Sound giant dirt footsteps only while running (pursuit, charge or escape).
+  const corriendo=['persecucion','embestida','repliegue'].includes(b.gorila.fase)&&recorrido>1.3;
+  b.gorila.pasos_acumulados=corriendo?(b.gorila.pasos_acumulados||0)+recorrido:0;
+  if(corriendo&&b.gorila.pasos_acumulados>=23){
     b.gorila.pasos_acumulados%=23;
     registrar(b,'pisada_gorila',{fuerza:b.gorila.fuerza});
   }
