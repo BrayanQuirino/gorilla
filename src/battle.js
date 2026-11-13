@@ -30,8 +30,8 @@ function puede_actuar(h, g) {
 // retain their own stopping power. No artificial instant kills from fists.
 export function danio_humano(h, disparo = false, apertura = 1, cercania = 0) {
   const armado=Boolean(h.objeto);
-  const penetracion=disparo?2.6:!armado?.075:
-    h.objeto.peso_g>1200?.72:.40;
+  const penetracion = disparo ? 2.6 : !armado ? 0.075 :
+    h.objeto.peso_g > 1200 ? 0.72 : 0.40;
   return (1 + h.fuerza_efectiva * .112 + h.radar.tecnica * .014) * condiciones_combate(h).potencia * apertura
     * penetracion * (1 + (h.bono_dano ?? 0)) * (1 - .30 * limitar(cercania, 0, 1));
 }
