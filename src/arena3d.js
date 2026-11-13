@@ -271,7 +271,7 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
   sprite(quads, 'sombra', x, y + 15, escala * 2.75, y);
   const region = fotogramas[pose];
   const altura = g.altura || 0;
-  if (en_furia(g)) {
+  if (en_furia(g) && !derrotado) {
     for (let i = 0; i < 11; i++) {
       const fase = (tiempo * (1.3 + i % 3 * .25) + i * .37) % 1;
       const dx = ((i * 23 % 41) - 20) * escala + Math.sin(fase * 5 + i) * 6;
@@ -284,13 +284,13 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
     // Full-body prone pose: rotate the intact full gorilla sprite around its
     // geometric centre, not around its feet. Previous pivot hid half its torso.
     const cuerpo=fotogramas.reposo;
-    const grande=escala*1.72;
-    const anchoCaido=cuerpo[2]*grande;
-    const altoCaido=cuerpo[3]*grande;
-    // A horizontal silhouette occupies the ground plane and keeps the entire
-    // original gorilla texture (face, torso, arms, legs) visible.
-    quads.quad(x+altoCaido*.46,y+8,
-      anchoCaido,altoCaido,y+10,
+    // Rotate the full source image sideways and lay its long dimension
+    // across the ground. Correct the pivot: the old bottom-left pivot
+    // clipped most of the gorilla. No separate body parts or square decals.
+    const anchoCaido=cuerpo[2]*escala*.78;
+    const largoCaido=cuerpo[3]*escala*2.05;
+    quads.quad(x+largoCaido*.5,y+8,
+      anchoCaido,largoCaido,y+11,
       cuerpo,[.86,.83,.80,-3],-Math.PI/2,espejo);
   }else{
     quads.quad(x, y - altura, region[2] * escala, region[3] * escala,
