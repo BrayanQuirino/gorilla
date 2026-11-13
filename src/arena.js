@@ -184,6 +184,11 @@ export function crear_dibujante(canvas){
     if(s.tipo==='barricada'){for(let i=0;i<5;i++)rect(ctx,s.x-40+i*17,s.y-13,16,26,'#b78b5a');}
     else caja(ctx,s.x,s.y,s.tipo==='trampa'?'#ae574e':'#799a70');
   }
+  for(const p of batalla.proyectiles||[]) {
+    const color=p.objeto?.tipo==='fuego'?'#f7d477':'#eb935b';
+    elipse(ctx,p.x,p.y+3,9,3,'#11182077');
+    rect(ctx,p.x-5,p.y-(p.altura||0)-3,10,6,color);
+  }
   const g=batalla.gorila;
   if((g.fase==='aviso'||g.fase==='embestida')&&g.destino){
     const r=radio_ataque(g);
