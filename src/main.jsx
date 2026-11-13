@@ -378,6 +378,16 @@ function App() {
     audio.current?.configurarArena(batalla.arena);
     audio.current?.activar(sonido && iniciada && !pausa_activa && !Boolean(batalla.resultado), anuncio);
   },[sonido,iniciada,pausa_activa,batalla.resultado,anuncio,batalla.arena]);
+  // The transformation pauses the simulation: trigger its approved roar
+  // from the announcement lifecycle, rather than relying on later frame events.
+  const anuncio_sonorizado = useRef(false);
+  useEffect(() => {
+    if (!anuncio) { anuncio_sonorizado.current=false; return; }
+    if (sonido && !pausa_activa && !anuncio_sonorizado.current) {
+      anuncio_sonorizado.current=true;
+      audio.current?.efecto('segunda_vida');
+    }
+  },[anuncio,sonido,pausa_activa]);
   useEffect(() => {
     audio.current?.volumenMusica(volumen_musica / 100);
     audio.current?.volumenEfectos(volumen_efectos / 100);
@@ -424,7 +434,7 @@ function App() {
       for(const evento of eventos){
         if(evento.id <= indice_sonido.current)continue;
         indice_sonido.current=evento.id;
-        if(sonido && iniciada && !pausa_activa)audio.current?.efecto(evento.tipo,evento);
+        if(sonido && iniciada && !pausa_activa && evento.tipo!=='segunda_vida')audio.current?.efecto(evento.tipo,evento);
       }
       if (ahora - ultimo_panel >= 100) {
         ultimo_panel = ahora;
