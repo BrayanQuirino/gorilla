@@ -60,6 +60,21 @@ export function rango_golpe_gorila(g) {
 }
 
 export const paramedicos_disponibles=b=>b.hombres.filter(h=>activo(h)&&h.arquetipo==='Paramédico').length;
+export function distribucion_equipo(b,plan=b.plan) {
+  const total=b.hombres.filter(activo).length;
+  const medicos=Math.min(plan.rescatar||0,paramedicos_disponibles(b));
+  const restantes=Math.max(0,total-medicos);
+  const entradas=Object.entries(plan).filter(([id])=>id!=='rescatar');
+  const cuotas=entradas.map(([id,porcentaje])=>{
+    const exactos=restantes*porcentaje/100;
+    return {id,cantidad:Math.floor(exactos),resto:exactos%1};
+  });
+  const pendientes=restantes-cuotas.reduce((n,g)=>n+g.cantidad,0);
+  [...cuotas].sort((a,z)=>z.resto-a.resto).slice(0,pendientes).forEach(g=>g.cantidad++);
+  return {total,medicos,restantes,cuotas:Object.fromEntries(cuotas.map(g=>[g.id,g.cantidad])),
+    porcentaje:(id)=>total?((id==='rescatar'?medicos:(cuotas.find(g=>g.id===id)?.cantidad||0))*100/total):0};
+}
+
 function asignar_plan(b) {
   const hombres=b.hombres.filter(activo);
   const medicos=hombres.filter(h=>h.arquetipo==='Paramédico');
@@ -411,6 +426,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     const aplicado = Math.min(g.vida, danio);
     g.vida -= aplicado;
     recompensa(b, aplicado);
+    registrar(b,'golpe_humano',{hombre:h.id,disparo});
   }
 }
 
@@ -426,6 +442,7 @@ function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
   if(h.objeto&&impacto>8&&b.azar()<limitar((impacto/h.vida_maxima-.12)*.5+
     (1-h.radar.fuerza/100)*.15,0,.83))soltar_objeto(b,h,20+Math.min(70,impacto));
   aplicar_danio_humano(b, h, impacto, 45);
+  registrar(b,'golpe_gorila',{hombre:h.id});
 }
 
 function aplicar_danio_humano(b, h, impacto, miedo) {
@@ -544,6 +561,7 @@ function agarrar(b, h, forzado = false) {
   const g = b.gorila;
   g.sujeto = h;
   g.fase = 'agarre';
+  g.estrujon_en=b.transcurrido;
   g.accion = 'agarre';
   g.reloj = 1.1;
   g.mira_izquierda = h.x < g.x;
@@ -599,6 +617,10 @@ function actualizar_gorila(b,activos,dt) {
   }
   if (g.fase === 'agarre') {
     const h = g.sujeto;
+    if(g.reloj>0 && b.transcurrido-(g.estrujon_en??0)>.34){
+      registrar(b,'estrujon',{hombre:h?.id});
+      g.estrujon_en=b.transcurrido;
+    }
     if (g.reloj <= 0 || !h || !activo(h)) {
       if (h && activo(h)) {
         lanzar(b, h, g, 145);
@@ -752,7 +774,14 @@ export function avanzar_batalla(b,dt) {
   const activos=b.hombres.filter(activo);
   if(!activos.length||b.tiempo===0){b.resultado='Victoria del gorila';return;}
   for (const h of activos) h.oculto = h.orden === 'esconder' && tiene_cobertura(h, b.gorila, b.arena);
+  const previoGorila={x:b.gorila.x,y:b.gorila.y};
   actualizar_gorila(b,activos,dt);
+  const recorrido=distancia(previoGorila,b.gorila);
+  b.gorila.pasos_acumulados=(b.gorila.pasos_acumulados||0)+recorrido;
+  if(b.gorila.pasos_acumulados>=23){
+    b.gorila.pasos_acumulados%=23;
+    registrar(b,'pisada_gorila',{fuerza:b.gorila.fuerza});
+  }
   const disponibles = activos.filter(activo);
   if (disponibles.length !== b.activos_asignados || (b.plan.buscar_armas && b.transcurrido >= b.busqueda_en)) {
     asignar_plan(b);
