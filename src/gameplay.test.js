@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,objetivo_exploracion,desviar_peatones,conducta_gorila} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -389,4 +389,40 @@ test('puños desarmados apenas dañan al gorila; las armas importan',()=>{
   assert.ok(punio>0 && punio<zapato*.25);
   assert.ok(zapato<bate && bate<disparo);
   assert.ok(punio<1.5,'golpe de puño casi sin efecto');
+});
+
+test('búsqueda independiente recorre sectores en dos dimensiones',()=>{
+  const {batalla}=partida('claro');
+  const hombres=batalla.hombres.slice(0,12);
+  batalla.hombres=hombres;
+  for(const h of hombres)h.orden='buscar_armas';
+  const metas=hombres.map(h=>objetivo_exploracion(batalla,h,.033));
+  assert.ok(new Set(metas.map(p=>Math.round(p.x/15))).size>2,'exploran diferentes columnas');
+  assert.ok(new Set(metas.map(p=>Math.round(p.y/15))).size>2,'exploran diferentes filas');
+  const primero=hombres[0];
+  const anterior=primero.exploracion.celda;
+  Object.assign(primero,{x:metas[0].x,y:metas[0].y});
+  objetivo_exploracion(batalla,primero,.033);
+  assert.equal(primero.exploracion.visitas[anterior],1);
+  assert.notEqual(primero.exploracion.celda,anterior);
+});
+
+test('los exploradores giran para evitar a un compañero frontal',()=>{
+  const h={id:1,x:200,y:200};
+  const destino={x:500,y:200};
+  const vecino={id:2,x:228,y:202,vida:100,estado:'normal'};
+  const desvio=desviar_peatones(h,destino,[h,vecino],'hangar');
+  assert.notEqual(desvio.y,200,'se aparta de la trayectoria');
+  assert.ok(desvio.x>h.x,'mantiene avance');
+});
+
+test('el gorila se libera de una zona muerta y persigue humanos ocultos',()=>{
+  const {batalla}=partida('hangar');
+  const g=batalla.gorila;
+  g.fase='espera';g.reloj=100;
+  for(const h of batalla.hombres){h.orden='esconder';h.oculto=true;}
+  const x=g.x,y=g.y;
+  for(let i=0;i<170&&!batalla.resultado;i++)avanzar_batalla(batalla,1/30);
+  assert.ok(Math.hypot(g.x-x,g.y-y)>25,'no permanece inmóvil');
+  assert.ok(['persecucion','repliegue','embestida','aviso','recuperacion','agarre','espera'].includes(g.fase));
 });
