@@ -4,6 +4,7 @@ import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades } from './roster.js';
 import { alto, ancho, avanzar_batalla, crear_batalla, dar_orden, comprar_suministro, dificultades } from './battle.js';
 import { crear_dibujante } from './arena.js';
+import { crear_dibujante_3d, punto_terreno_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import './style.css';
 
@@ -47,6 +48,7 @@ function App() {
   const [arena_elegida,cambiar_arena] = useState('claro');
   const [batalla, cambiar_batalla] = useState(() => partida(0));
   const [en_pausa, cambiar_pausa] = useState(true);
+  const [modo_visual, cambiar_modo_visual] = useState('3d');
   const [panel_tacticas,cambiar_panel_tacticas] = useState('combate');
   const [panel_tienda,cambiar_panel_tienda] = useState(false);
   const [escuadron, cambiar_escuadron] = useState(0);
@@ -62,8 +64,9 @@ function App() {
   const reloj = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 
   useEffect(() => {
-    dibujar.current = crear_dibujante(canvas.current);
-  }, []);
+    try {dibujar.current = modo_visual === '3d' ? crear_dibujante_3d(canvas.current) : crear_dibujante(canvas.current);}
+    catch (error) {console.warn('WebGL no disponible; activando modo 2D:',error); cambiar_modo_visual('2d');}
+  }, [modo_visual]);
 
   useEffect(() => {
     let anterior;
@@ -72,7 +75,7 @@ function App() {
     function animar(ahora) {
       if (anterior !== undefined && !en_pausa) avanzar_batalla(batalla, Math.min(.035, (ahora - anterior) / 1000));
       anterior = ahora;
-      dibujar.current(batalla, escuadron);
+      dibujar.current?.(batalla, escuadron);
       if (ahora - ultimo_panel >= 100) {
         ultimo_panel = ahora;
         actualizar_panel(valor => valor + 1);
@@ -81,7 +84,7 @@ function App() {
     }
     cuadro = requestAnimationFrame(animar);
     return () => cancelAnimationFrame(cuadro);
-  }, [batalla, en_pausa, escuadron]);
+  }, [batalla, en_pausa, escuadron, modo_visual]);
 
   useEffect(() => {
     function pausar(evento) {
@@ -113,16 +116,16 @@ function App() {
 
   function mover(evento) {
     const rect = evento.currentTarget.getBoundingClientRect();
-    ordenar('mover', {
-      x: (evento.clientX - rect.left) * ancho / rect.width,
-      y: (evento.clientY - rect.top) * alto / rect.height,
-    });
+    const nx = (evento.clientX - rect.left) / rect.width;
+    const ny = (evento.clientY - rect.top) / rect.height;
+    ordenar('mover', modo_visual==='3d' ? punto_terreno_3d(nx,ny) : {x:nx*ancho,y:ny*alto});
   }
 
   return <main>
     <header className="cabecera">
-      <div><h1>Gorilla<span>.</span></h1><p>100 hombres contra un gorila · Arcade retro 2D</p></div>
+      <div><h1>Gorilla<span>.</span></h1><p>100 hombres contra un gorila · Arcade 2.5D</p></div>
       <div className="configuracion">
+        <label>Vista <select value={modo_visual} onChange={e=>cambiar_modo_visual(e.target.value)}><option value="3d">2.5D · WebGL</option><option value="2d">2D · Retro</option></select></label>
         <label>Arena <select value={arena_elegida} onChange={evento=>{const id=evento.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>{Object.entries(ARENAS).map(([id,a])=><option value={id} key={id}>{a.nombre}</option>)}</select></label>
         <label>Dificultad <select value={dificultad} onChange={evento => {
           const nivel = Number(evento.target.value);
@@ -142,7 +145,7 @@ function App() {
             <progress aria-label="Resistencia del gorila" value={gorila.vida} max={gorila.vida_maxima} /></div>
         </div>
         <div className="arena">
-          <canvas ref={canvas} width={ancho} height={alto} onClick={mover} aria-label={ARENAS[batalla.arena].nombre} />
+          <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} onClick={mover} aria-label={ARENAS[batalla.arena].nombre} />
           <div className="estado" role="status">{batalla.resultado || (en_pausa ? 'Pausa táctica' : ARENAS[batalla.arena].nombre)}</div>
         </div>
         <div className="controles-arcade">
