@@ -30,13 +30,13 @@ export function danio_humano(h, disparo = false, apertura = 1, cercania = 0) {
     * (disparo ? 2.6 : 1) * (1 + (h.bono_dano ?? 0)) * (1 - .30 * limitar(cercania, 0, 1));
 }
 
-export const duracion_segunda_vida = 2300;
+export const duracion_segunda_vida = 5200;
 export const en_furia = g => g.furia > 0 || g.segunda_vida === 'activa';
 
 export function reanudar_segunda_vida(b) {
   if (b.gorila.segunda_vida !== 'anuncio') return false;
   b.gorila.segunda_vida = 'activa';
-  b.gorila.vida = b.gorila.vida_maxima;
+  b.gorila.vida = Math.min(b.gorila.vida_maxima, b.gorila.vida + b.gorila.vida_maxima * .15);
   registrar(b, 'segunda_vida');
   return true;
 }
@@ -81,13 +81,14 @@ function asignar_plan(b) {
     }
     disponibles = disponibles.slice(cantidad).sort((a, z) => a.id - z.id);
   }
+  for (const h of disponibles) h.orden = reparto[0]?.[0] || 'atacar';
   b.activos_asignados = hombres.length;
 }
 
 export function aplicar_plan(b, plan) {
   if (b.resultado) return false;
   const entradas = Object.entries(plan);
-  if (entradas.length > 3 || entradas.some(([orden, valor]) =>
+  if (entradas.length > Object.keys(TACTICAS).length || entradas.some(([orden, valor]) =>
     !Object.hasOwn(TACTICAS, orden) || !Number.isInteger(valor) || valor < 5 || valor > 100 || valor % 5) ||
     entradas.reduce((total, [, valor]) => total + valor, 0) !== 100) return false;
   b.plan = { ...plan };
@@ -171,7 +172,7 @@ function aplicar_suministro(batalla, entrega) {
     const capacidad=Math.min(100-batalla.hombres.filter(activo).length,batalla.reservas,item.cantidad);
     for(let i=0;i<capacidad;i++){
       const modelo=batalla.hombres[i%batalla.hombres.length];
-      batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:x+(i-2)*22,y,altura:0,vz:0,vuelo:null,orden:'guardia',
+      batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:x+(i-2)*22,y,altura:0,vz:0,vuelo:null,orden:'atacar',
         vx:0,vy:0,miedo:0,recarga:0,reaccion:0,defensa:0,valentia:40+modelo.radar.temple*.48,mejoras:[],buscando:null,oculto:false,proteccion:0,bono_dano:0,
         fuerza_efectiva:modelo.radar.fuerza,velocidad_efectiva:modelo.radar.velocidad});
     }
@@ -291,7 +292,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       if (distancia(h, caido) < 38 && h.recarga <= 0) {
         caido.estado = 'herido';
         caido.vida = Math.max(8, caido.vida_maxima * .15);
-        caido.orden = 'guardia';
+        caido.orden = b.plan.atacar ? 'atacar' : Object.keys(b.plan)[0];
         h.recarga = 8;
         registrar(b, 'rescate', { hombre: caido.id, paramedico: h.id });
       }
