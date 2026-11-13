@@ -26,7 +26,19 @@ const obstaculos = Object.fromEntries(Object.entries(bases).map(([arena, lista])
 
 // Human routes are constrained by ground-level cliffs and large rock masses.
 // Rivers and bridges stay traversable. Gorilla height/climbing is unchanged.
+// Painted west-side walkway, steps and riverbank on the wooded arenas.
+// Bridge / stairs are walkable even when their supporting rocks overlap a
+// broad mountain footprint. Coordinates are in the painted canvas space.
+export function paso_construido(p, arena) {
+  if(arena!=='claro'&&arena!=='selva')return false;
+  const vista=encuadre(arena);
+  const x=vista.x+p.x*vista.ancho/ancho,y=vista.y+p.y*vista.alto/alto;
+  return arena==='claro'
+    ? x>=108&&x<=280&&y>=401&&y<=542
+    : x>=90&&x<=255&&y>=420&&y<=554;
+}
 export function obstaculo_humano(p, arena, margen=13) {
+  if(paso_construido(p,arena))return false;
   return (obstaculos[arena]||[]).some(o =>
     ((p.x-o.x)/(o.rx+margen))**2+((p.y-o.y)/(o.ry+margen))**2 < 1);
 }
@@ -37,7 +49,7 @@ export function ruta_humano(actor, destino, arena) {
   for(const o of obstaculos[arena]||[]){
     const nx=(actor.x-o.x)/(o.rx+17),ny=(actor.y-o.y)/(o.ry+18);
     const d=Math.hypot(nx,ny);
-    if(d<1){
+    if(d<1 && !paso_construido(actor,arena)){
       const angle=d>0.001?Math.atan2(ny,nx):actor.id%2?0:Math.PI;
       return {x:limitar(o.x+Math.cos(angle)*(o.rx+29),14,ancho-14),
         y:limitar(o.y+Math.sin(angle)*(o.ry+32),22,alto-22)};
@@ -56,7 +68,11 @@ export function ruta_humano(actor, destino, arena) {
     const d=b*b-4*a*c;
     if(d<0)continue;
     const t=(-b-Math.sqrt(d))/(2*a);
-    if(t>=0&&t<=1&&t<tPrimero){bloque=o;tPrimero=t;}
+    if(t>=0&&t<=1&&t<tPrimero){
+      const interseccion={x:actor.x+dx*Math.min(1,t+.04),y:actor.y+dy*Math.min(1,t+.04)};
+      if(paso_construido(interseccion,arena))continue;
+      bloque=o;tPrimero=t;
+    }
   }
   if(!bloque)return destino;
   // Go around the mountain on the shorter tangent side; stick to the same
@@ -76,7 +92,7 @@ export function ruta_humano(actor, destino, arena) {
   return candidate(lado);
 }
 export function corregir_paso_humano(actor, antes, arena){
-  if(!obstaculo_humano(actor,arena,12))return;
+  if(paso_construido(actor,arena)||!obstaculo_humano(actor,arena,12))return;
   // Try sliding along the cliff rather than snapping through the mountain.
   const x={x:actor.x,y:antes.y},y={x:antes.x,y:actor.y};
   if(!obstaculo_humano(x,arena,12)){actor.y=antes.y;actor.vy=0;return;}
