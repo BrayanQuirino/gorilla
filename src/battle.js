@@ -1,3 +1,4 @@
+import { arquetipos, radar_personal } from './roster.js';
 import { ARENAS, TACTICAS, SUMINISTROS, VENTAJAS_GORILA, limitar, distancia } from './rules.js';
 import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio } from './terreno.js';
 export { ancho, alto };
@@ -58,44 +59,47 @@ export function rango_golpe_gorila(g) {
   return [36 * fuerza, 60 * fuerza];
 }
 
+export const paramedicos_disponibles=b=>b.hombres.filter(h=>activo(h)&&h.arquetipo==='Paramédico').length;
 function asignar_plan(b) {
-  const hombres = b.hombres.filter(activo);
-  const reparto = [...Object.entries(b.plan)];
-  // No unassigned humans: tactics always total 100%.
-  const grupos = reparto.map(([orden, porcentaje]) => {
-    const exactos = hombres.length * porcentaje / 100;
-    return { orden, cantidad: Math.floor(exactos), resto: exactos % 1 };
+  const hombres=b.hombres.filter(activo);
+  const medicos=hombres.filter(h=>h.arquetipo==='Paramédico');
+  const numero=Math.min(b.plan.rescatar||0,medicos.length);
+  const rescatadores=medicos.slice(0,numero);
+  for(const h of rescatadores){h.orden='rescatar';h.buscando=null;}
+  const reservados=new Set(rescatadores);
+  const disponibles=hombres.filter(h=>!reservados.has(h));
+  const reparto=Object.entries(b.plan).filter(([orden])=>orden!=='rescatar');
+  const grupos=reparto.map(([orden,porcentaje])=>{
+    const exactos=disponibles.length*porcentaje/100;
+    return {orden,cantidad:Math.floor(exactos),resto:exactos%1};
   });
-  const pendientes = hombres.length - grupos.reduce((total, grupo) => total + grupo.cantidad, 0);
-  [...grupos].sort((a, z) => z.resto - a.resto).slice(0, pendientes).forEach(grupo => grupo.cantidad++);
-  grupos.sort((a, z) => Number(z.orden === 'buscar_armas') - Number(a.orden === 'buscar_armas'));
-  let disponibles = [...hombres].sort((a, z) => a.id - z.id);
-  for (const { orden, cantidad } of grupos) {
-    if (orden === 'buscar_armas') disponibles.sort((a, z) =>
-      distancia(z, b.gorila) - distancia(a, b.gorila) || a.id - z.id);
-    for (const h of disponibles.slice(0, cantidad)) {
-      if (h.orden !== orden) {
-        h.orden = orden;
-        h.buscando = null;
-      }
+  const pendientes=disponibles.length-grupos.reduce((n,g)=>n+g.cantidad,0);
+  [...grupos].sort((a,z)=>z.resto-a.resto).slice(0,pendientes).forEach(g=>g.cantidad++);
+  grupos.sort((a,z)=>Number(z.orden==='buscar_armas')-Number(a.orden==='buscar_armas'));
+  let libres=[...disponibles].sort((a,z)=>a.id-z.id);
+  for(const {orden,cantidad} of grupos){
+    if(orden==='buscar_armas')libres.sort((a,z)=>distancia(z,b.gorila)-distancia(a,b.gorila)||a.id-z.id);
+    for(const h of libres.slice(0,cantidad)){
+      if(h.orden!==orden){h.orden=orden;h.buscando=null;}
     }
-    disponibles = disponibles.slice(cantidad).sort((a, z) => a.id - z.id);
+    libres=libres.slice(cantidad).sort((a,z)=>a.id-z.id);
   }
-  for (const h of disponibles) h.orden = reparto[0]?.[0] || 'atacar';
-  b.activos_asignados = hombres.length;
+  for(const h of libres)h.orden=reparto[0]?.[0]||'atacar';
+  b.activos_asignados=hombres.length;
+  b.rescatadores_asignados=numero;
 }
-
-export function aplicar_plan(b, plan) {
-  if (b.resultado) return false;
-  const entradas = Object.entries(plan);
-  if (entradas.length > Object.keys(TACTICAS).length || entradas.some(([orden, valor]) =>
-    !Object.hasOwn(TACTICAS, orden) || !Number.isInteger(valor) || valor < 5 || valor > 100 || valor % 5) ||
-    entradas.reduce((total, [, valor]) => total + valor, 0) !== 100) return false;
-  b.plan = { ...plan };
-  asignar_plan(b);
-  b.busqueda_en = b.transcurrido + 2;
-  for (const orden of Object.keys(plan)) b.tacticas_usadas[orden] = (b.tacticas_usadas[orden] || 0) + 1;
-  registrar(b, 'estrategia_actualizada');
+export function aplicar_plan(b,plan) {
+  if(b.resultado)return false;
+  const rescatar=plan.rescatar||0;
+  if(!Number.isInteger(rescatar)||rescatar<0||rescatar>paramedicos_disponibles(b))return false;
+  const entradas=Object.entries(plan).filter(([orden])=>orden!=='rescatar');
+  if(!entradas.length||entradas.length>Object.keys(TACTICAS).length-1||
+    entradas.some(([orden,valor])=>!Object.hasOwn(TACTICAS,orden)||!Number.isInteger(valor)||valor<5||valor>100||valor%5)||
+    entradas.reduce((total,[,valor])=>total+valor,0)!==100)return false;
+  b.plan={...Object.fromEntries(entradas),...(rescatar?{rescatar}:{})};
+  asignar_plan(b);b.busqueda_en=b.transcurrido+2;
+  for(const orden of Object.keys(plan))b.tacticas_usadas[orden]=(b.tacticas_usadas[orden]||0)+1;
+  registrar(b,'estrategia_actualizada');
   return true;
 }
 
@@ -104,7 +108,7 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   const [vida,fuerza,tamano]=niveles[n-1];
   const arena=ARENAS[opciones.arena]?opciones.arena:'claro';
   const batalla = {
-    plan: { atacar: 100 }, activos_asignados: personajes.length, busqueda_en: 0, golpes_disponibles: 2,
+    plan: { atacar: 100 }, activos_asignados: personajes.length, rescatadores_asignados:0, busqueda_en: 0, golpes_disponibles: 2,
     tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:0,bananas_ganadas:0,eventos:[],
     resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}, reserva:true})),
     entregas:[], parpadeos:[], suministros:[],proyectiles:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
@@ -130,17 +134,12 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
 }
 
 export function comprar_suministro(batalla,id) {
-  if (!Object.hasOwn(SUMINISTROS, id) || batalla.resultado) return false;
-  const item = SUMINISTROS[id];
-  if (batalla.bananas < item.costo) return false;
-  if (item.solo_con_reservas) {
-    const pendientes = batalla.entregas.filter(entrega => entrega.tipo === id).length;
-    const vacantes = 100 - batalla.hombres.filter(activo).length;
-    if (pendientes * item.cantidad >= Math.min(batalla.reservas, vacantes)) return false;
-  }
-  batalla.bananas -= item.costo;
-  batalla.entregas.push({ ...zona_entrega(batalla.arena, batalla.azar), tipo: id, inicio: batalla.transcurrido });
-  registrar(batalla, 'paquete_en_camino', { id });
+  if(!Object.hasOwn(SUMINISTROS,id)||batalla.resultado)return false;
+  const item=SUMINISTROS[id];
+  if(batalla.bananas<item.costo)return false;
+  batalla.bananas-=item.costo;
+  batalla.entregas.push({...zona_entrega(batalla.arena,batalla.azar),tipo:id,inicio:batalla.transcurrido});
+  registrar(batalla,'paquete_en_camino',{id});
   return true;
 }
 
@@ -150,40 +149,59 @@ export const duracion_parpadeo = 6 * intervalo_parpadeo;
 export const paracaidas_visible = (tiempo, aterrizaje) =>
   Math.floor((tiempo - aterrizaje) / intervalo_parpadeo) % 2 === 1;
 
-function aplicar_suministro(batalla, entrega) {
-  const { tipo: id, x, y } = entrega;
-  const item = SUMINISTROS[id];
+function aplicar_suministro(batalla,entrega,recolector) {
+  const {tipo:id,x,y}=entrega;
+  const item=SUMINISTROS[id];
+  if(!item)return;
   const humanos=batalla.hombres.filter(activo);
-  const sujetos=[...humanos].sort((a,b)=>(a.energia+a.vida)-(b.energia+b.vida)).slice(0,item.cantidad||0);
-  if(item.energia||item.curacion||item.proteccion||item.dano_extra||item.efecto==='adrenalina'||item.efecto==='camuflaje') {
+  const sujetos=[...humanos].sort((a,b)=>{
+    const score=h=>distancia(h,recolector||entrega)*.45+(h.energia+h.vida)*.5;
+    return score(a)-score(b);
+  }).slice(0,item.cantidad||0);
+  if(item.energia||item.curacion||item.proteccion||item.dano_extra||item.efecto==='adrenalina'){
     for(const h of sujetos){
       h.energia=limitar(h.energia+(item.energia||0),0,100);
       h.vida=limitar(h.vida+(item.curacion||0),0,h.vida_maxima);
-      h.proteccion=Math.max(h.proteccion,item.proteccion||0);
+      if(item.proteccion) {
+        h.proteccion=Math.max(h.proteccion,item.proteccion);
+        if(id==='cascos')h.cascondo=true;
+        if(id==='escudos')h.escudo=true;
+        if(id==='chalecos')h.chaleco=true;
+      }
       h.bono_dano=Math.max(h.bono_dano,item.dano_extra||0);
       if(item.efecto)h.mejoras.push({nombre:item.efecto,restante:item.efecto_duracion||0});
     }
   }
   if(item.efecto)batalla.efectos.push({nombre:item.efecto,restante:item.efecto_duracion||0});
-  if(id==='red'){batalla.gorila.reduccion_velocidad=Math.max(batalla.gorila.reduccion_velocidad,8);}
+  if(id==='red'||id==='cuerdas'){
+    const duracion=id==='red'?8:4;
+    batalla.gorila.reduccion_velocidad=Math.max(batalla.gorila.reduccion_velocidad,duracion);
+    batalla.gorila.ataduras={tipo:id,restante:duracion,maximo:duracion};
+    registrar(batalla,'captura_desplegada',{tipo:id});
+  }
   if(id==='refuerzos'){
-    // Refuerzos son personas de reserva, nunca reviven una baja.
-    const capacidad=Math.min(100-batalla.hombres.filter(activo).length,batalla.reservas,item.cantidad);
-    for(let i=0;i<capacidad;i++){
-      const modelo=batalla.hombres[i%batalla.hombres.length];
-      batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:x+(i-2)*22,y,altura:0,vz:0,vuelo:null,orden:'atacar',
-        vx:0,vy:0,miedo:0,recarga:0,reaccion:0,defensa:0,valentia:40+modelo.radar.temple*.48,mejoras:[],buscando:null,oculto:false,proteccion:0,bono_dano:0,
-        fuerza_efectiva:modelo.radar.fuerza,velocidad_efectiva:modelo.radar.velocidad});
+    // Five genuinely new random adults, even while the full starting team is alive.
+    const base=batalla.hombres.length;
+    for(let i=0;i<5;i++){
+      const arquetipo=arquetipos[Math.floor(azar_normalizado(batalla.azar)*arquetipos.length)];
+      const radar=radar_personal(arquetipo,batalla.azar);
+      const vida_maxima=37+radar.estrategia*.47+radar.fuerza*.22;
+      const posicion={x:x+(i-2)*25,y:y+35+Math.floor(i/3)*25};
+      limitar_posicion(posicion,batalla.arena,6);
+      batalla.hombres.push({id:base+i+1,arquetipo,radar,vida:vida_maxima,vida_maxima,
+        objeto:null,energia:100,x:posicion.x,y:posicion.y,altura:altura_terreno(posicion,batalla.arena),
+        vx:0,vy:0,vz:0,vuelo:null,recarga:0,reaccion:0,defensa:0,valentia:40+radar.temple*.48,
+        orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,cascondo:false,chaleco:false,escudo:false,
+        mejoras:[],buscando:null,oculto:false,fuerza_efectiva:radar.fuerza,velocidad_efectiva:radar.velocidad});
     }
-    batalla.reservas-=capacidad;
+    registrar(batalla,'refuerzos_llegaron',{cantidad:5});
   }
-  if (['barricada', 'senuelos', 'humo', 'trampa', 'cuerdas'].includes(id)) {
-    batalla.suministros.push({ tipo: id, x, y, restante: id === 'barricada' ? 25 : item.efecto_duracion || 30 });
-  } else {
-    // Ground package remains until picked up.
+  if(id==='barricada'){
+    batalla.suministros.push({tipo:'barricada',x,y,restante:30,vida:150,vida_maxima:150,
+      construccion:3,proteccion:.40,constructor:recolector?.id||null});
   }
-  batalla.parpadeos.push({ x, y, aterrizaje: batalla.transcurrido });
-  registrar(batalla, 'paquete_entregado', { id });
+  batalla.parpadeos.push({x,y,aterrizaje:batalla.transcurrido});
+  registrar(batalla,'paquete_entregado',{id});
 }
 function recompensa(batalla,danio,dt=0) {
   const multiplicador=efecto_vigente(batalla,'multiplicador')?1.5:1;
@@ -229,7 +247,7 @@ export function buscar_objeto(b, h) {
   const inteligencia = limitar(h.radar.inteligencia * condiciones_combate(h).potencia / 100, 0, 1);
   const disponibles = b.armas_suelo.filter(objeto => !objeto.recogido_por && (objeto.disponible_en ?? 0) <= b.transcurrido &&
     valor_objeto(objeto.objeto) > valor_objeto(h.objeto)+1 &&
-    (objeto.visible || distancia(h, objeto) <= 65 + 340 * inteligencia));
+    (h.orden==='buscar_armas' || objeto.visible || distancia(h,objeto)<=110+450*inteligencia));
   const actual = disponibles.find(objeto => objeto.id === h.buscando);
   if (actual) return actual;
   if (!disponibles.length) return null;
@@ -276,14 +294,14 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     destino=paquete;
     if(distancia(h,paquete)<23) {
       paquete.recogido=true;
-      aplicar_suministro(b,paquete.entrega);
+      aplicar_suministro(b,paquete.entrega,h);
       registrar(b,'suministro_recogido',{hombre:h.id,suministro:paquete.entrega.tipo});
     }
   } else if (h.orden === 'huir' || (h.orden === 'atacar' && panico)) {
     destino = { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
   } else if (h.orden === 'esconder' && !h.oculto) {
     destino = refugio(h, g, b.arena) ?? { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
-  } else if (h.orden === 'rescatar') {
+  } else if (h.orden === 'rescatar' && h.arquetipo==='Paramédico') {
     const caido = b.hombres.filter(p => p.estado === 'incapacitado' && !p.vuelo)
       .sort((a, z) => distancia(h, a) - distancia(h, z))[0];
     if (caido) {
@@ -322,8 +340,10 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
         registrar(b, 'arma_encontrada', { hombre: h.id, objeto: h.objeto.nombre });
       }
     } else {
-      const angulo = h.id * 2.4 + b.transcurrido * .16;
-      destino = { x: ancho / 2 + Math.cos(angulo) * 330, y: alto / 2 + Math.sin(angulo) * 214 };
+      // Each scout systematically sweeps a different lane of the entire arena.
+      const franja=(h.id*7)%13;
+      const fase=Math.floor(b.transcurrido/8+h.id*.37)%2;
+      destino={x:fase?75:ancho-75,y:50+franja*(alto-100)/12};
     }
   } else if (puesto !== undefined && !(disparo && cerca_g < alcance * .85)) {
     const angulo = (puesto % 11) * Math.PI * 2 / 11 + Math.floor(puesto / 11) * .18;
@@ -537,6 +557,13 @@ function alcanza_agarre(g, h) {
 
 function actualizar_gorila(b,activos,dt) {
   const g=b.gorila;
+  if(g.ataduras){
+    g.ataduras.restante-=dt;
+    if(g.ataduras.restante<=0){registrar(b,'captura_rota',{tipo:g.ataduras.tipo});g.ataduras=null;}
+  }
+  const barrera=b.suministros.find(s=>s.tipo==='barricada'&&s.construccion<=0&&distancia(s,g)<95);
+  if(barrera&&g.vida>0){barrera.vida-=dt*(en_furia(g)?54:32)*g.fuerza;
+    if(barrera.vida<=0)registrar(b,'barricada_destruida');}
   for(const key of Object.keys(g.recargas))g.recargas[key]=Math.max(0,g.recargas[key]-dt);
   g.furia=Math.max(0,g.furia-dt);g.reduccion_velocidad=Math.max(0,g.reduccion_velocidad-dt);
   g.energia=limitar(g.energia+(g.fase==='recuperacion'?dt*5:dt*.6),0,100);
@@ -688,7 +715,8 @@ export function avanzar_batalla(b,dt) {
   for(const e of b.efectos)e.restante-=dt;
   b.efectos=b.efectos.filter(e=>e.restante>0);
   for(const s of b.suministros)if(s.tipo!=='paquete'||s.recogido)s.restante-=dt;
-  b.suministros=b.suministros.filter(s=>s.restante>0);
+  for(const s of b.suministros.filter(s=>s.tipo==='barricada'&&s.construccion>0))s.construccion=Math.max(0,s.construccion-dt);
+  b.suministros=b.suministros.filter(s=>s.restante>0&&!(s.tipo==='barricada'&&s.vida<=0));
   for(const p of b.suministros.filter(s=>s.tipo==='paquete'&&!s.recogido)) {
     if(!b.hombres.some(h=>h.id===p.recolector&&activo(h)))
       p.recolector=b.hombres.filter(activo).sort((a,z)=>distancia(a,p)-distancia(z,p))[0]?.id;
@@ -696,7 +724,7 @@ export function avanzar_batalla(b,dt) {
   b.entregas = b.entregas.filter(entrega => {
     if (b.transcurrido - entrega.inicio < duracion_entrega) return true;
     const cercano=b.hombres.filter(activo).sort((a,z)=>distancia(a,entrega)-distancia(z,entrega))[0];
-    b.suministros.push({tipo:'paquete',x:entrega.x,y:entrega.y,restante:2,recogido:false,
+    b.suministros.push({tipo:'paquete',x:entrega.x,y:entrega.y,restante:Infinity,recogido:false,
       recolector:cercano?.id,entrega});
     registrar(b,'paquete_aterrizado',{id:entrega.tipo});
     return false;
@@ -748,6 +776,6 @@ export function avanzar_batalla(b,dt) {
     g.sujeto.y = g.y + 2;
     g.sujeto.altura = Math.max(altura_terreno(g.sujeto, b.arena), g.altura + (g.reloj > .7 ? 20 : 36));
   }
-  if(b.gorila.vida<=0)b.resultado='Victoria de los hombres';
+  if(b.gorila.vida<=0){b.resultado='Victoria de los hombres';b.celebracion=0;}
   else if(!b.hombres.some(activo))b.resultado='Victoria del gorila';
 }
