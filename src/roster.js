@@ -1,37 +1,37 @@
 import { ARENAS, sortear_inventario, resumir_equipo } from './rules.js';
 export const habilidades = ['fuerza','velocidad','inteligencia','temple','precision','agilidad','estrategia','tecnica'];
 
-// Se conservan los 19 arquetipos del repositorio original, sin inventar otros.
-export const tipos_hombre=['Young','Adult','Older'];
-export const tipo_por_edad=edad=>edad<30?'Young':edad<60?'Adult':'Older';
-export const radar_arquetipo = {
-  Young:{fuerza:55,velocidad:70,inteligencia:53,temple:49,precision:52,agilidad:72,estrategia:48,tecnica:49},
-  Adult:{fuerza:66,velocidad:61,inteligencia:69,temple:65,precision:64,agilidad:60,estrategia:70,tecnica:67},
-  Older:{fuerza:42,velocidad:38,inteligencia:78,temple:78,precision:59,agilidad:35,estrategia:81,tecnica:73},
+// Arquetipos originales: todos son adultos. Sin modificadores por edad.
+export const perfiles = {
+  Entrenador:{fuerza:85,temple:82,estrategia:82,inteligencia:28},
+  Campista:{velocidad:22,agilidad:30},
+  Estudiante:{agilidad:22,tecnica:25},
+  Boxeador:{fuerza:88,tecnica:82,temple:32},
+  'Científico':{inteligencia:88,precision:78,temple:35},
+  'Acróbata':{temple:90,velocidad:80,inteligencia:30},
+  Oficinista:{temple:20,agilidad:30},
+  Aficionado:{precision:22,tecnica:30},
+  Turista:{inteligencia:25,agilidad:35},
+  Repartidor:{estrategia:22,temple:30},
+  Musculoso:{fuerza:88,temple:22,estrategia:80},
+  Adolescente:{fuerza:34,estrategia:36},
+  'Paramédico':{inteligencia:85,estrategia:78,precision:35},
+  Velocista:{velocidad:90,agilidad:27,inteligencia:31,precision:33},
+  Atleta:{inteligencia:78,agilidad:88,estrategia:35},
+  Beisbolista:{fuerza:85,precision:82,velocidad:30,tecnica:33},
+  Malabarista:{tecnica:90,precision:82,fuerza:32},
+  Corredor:{velocidad:30,inteligencia:29,temple:30},
+  Anciano:{velocidad:28,agilidad:28,estrategia:30,temple:30},
+  'Tarzán':{fuerza:90,velocidad:90,inteligencia:90,temple:90,precision:90,agilidad:90,estrategia:90,tecnica:90},
 };
-
-const edades = [
-  [18, .95, 1], [24, .95, 1], [25, 1, 1], [34, 1, 1],
-  [42, .95, .90], [57, .85, .78], [72, .72, .63],
-  [90, .58, .45], [100, .52, .37],
-];
-
-export function ajustar_edad(base, edad) {
-  const siguiente = edades.findIndex(([limite]) => edad <= limite);
-  const [fin, fuerza_fin, movimiento_fin] = edades[siguiente];
-  const [inicio, fuerza_inicio, movimiento_inicio] = edades[Math.max(0, siguiente - 1)];
-  const avance = fin === inicio ? 0 : (edad - inicio) / (fin - inicio);
-  const fuerza = fuerza_inicio + avance * (fuerza_fin - fuerza_inicio);
-  const movimiento = movimiento_inicio + avance * (movimiento_fin - movimiento_inicio);
-
-  return {
-    ...base,
-    fuerza: base.fuerza * fuerza,
-    velocidad: base.velocidad * movimiento,
-    agilidad: base.agilidad * movimiento,
-  };
+export const radar_arquetipo=Object.fromEntries(Object.entries(perfiles).map(([nombre,rasgos])=>
+  [nombre,Object.fromEntries(habilidades.map(eje=>[eje,rasgos[eje]??50]))]));
+export const arquetipos=Object.keys(perfiles);
+export function radar_personal(arquetipo, azar=Math.random) {
+  const base=radar_arquetipo[arquetipo];
+  return Object.fromEntries(habilidades.map(eje=>[eje,Math.max(5,Math.min(100,
+    Math.round(base[eje]+(azar()+azar()-1)*18)))]));
 }
-
 
 function sortear_ponderado(entradas, azar) {
   const total = entradas.reduce((suma, [, peso]) => suma + peso, 0);
@@ -61,26 +61,18 @@ export function crear_sorteo_objetos(catalogo) {
   };
 }
 
-export function generar_hombres(sortear_objeto, azar = Math.random, equipados = 100) {
-  return Array.from({ length: 100 }, (_, indice) => {
-    const edad = 18 + Math.floor(azar() * 83);
-    // Independent draws favor middle values and leave both extremes possible.
-    const base = Object.fromEntries(habilidades.map(habilidad =>
-      [habilidad, Math.round((azar() + azar()) * 50)]));
-    const radar = ajustar_edad(base, edad);
-    const objeto = indice < equipados ? sortear_objeto(azar) : null;
-    return {
-      id: indice + 1,
-      edad,
-      arquetipo: tipo_por_edad(edad),
-      radar,
-      objeto,
-      fuerza_efectiva: radar.fuerza * (1 + (objeto?.bono_fuerza_pb || 0) / 10000),
-      velocidad_efectiva: radar.velocidad * (1 - (objeto?.penalizacion_velocidad_pb || 0) / 10000),
-    };
+export function generar_hombres(sortear_objeto, azar=Math.random, equipados=100) {
+  // Guarantee all archetypes are represented, then distribute remaining slots.
+  return Array.from({length:100},(_,indice)=>{
+    const arquetipo=indice<arquetipos.length?arquetipos[indice]:
+      arquetipos[Math.floor(azar()*arquetipos.length)];
+    const radar=radar_personal(arquetipo,azar);
+    const objeto=indice<equipados?sortear_objeto(azar):null;
+    return {id:indice+1,arquetipo,radar,objeto,
+      fuerza_efectiva:radar.fuerza*(1+(objeto?.bono_fuerza_pb||0)/10000),
+      velocidad_efectiva:radar.velocidad*(1-(objeto?.penalizacion_velocidad_pb||0)/10000)};
   });
 }
-
 
 export function preparar_equipo(sortear_objeto,catalogo,arena='claro',azar=Math.random) {
   const armas_suelo=sortear_inventario(catalogo,arena,azar);
