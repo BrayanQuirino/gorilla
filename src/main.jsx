@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades, arquetipos } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, paramedicos_disponibles, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, distribucion_equipo, paramedicos_disponibles, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
@@ -145,10 +145,11 @@ function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
         </button>;
       })}</div>
       <div className="tacticas-grafico"><h3>Tácticas en curso</h3>
-        {Object.entries(batalla.plan).map(([id,valor])=><div key={id}>
-          <span>{TACTICAS[id].nombre}</span><progress value={valor} max={id==='rescatar'?Math.max(1,paramedicos_disponibles(batalla)):100}/>
-          <b>{valor}{id==='rescatar'?' 🩺':'%'}</b>
-        </div>)}
+        {Object.entries(batalla.plan).map(([id,valor])=>{
+          const porcentaje=distribucion_equipo(batalla).porcentaje(id);
+          return <div key={id}><span>{TACTICAS[id].nombre}</span><progress value={porcentaje} max="100"/>
+            <b>{porcentaje.toFixed(1)}% {id==='rescatar'?'🩺':''}</b></div>;
+        })}
       </div>
     </>}
   </aside>;
@@ -194,6 +195,8 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
   const entradas=Object.entries(TACTICAS).filter(([id])=>id!=='rescatar');
   const suma=Object.entries(plan).filter(([id])=>id!=='rescatar')
     .reduce((a,[,v])=>a+v,0);
+  const distribucion=distribucion_equipo(batalla,plan);
+  const porcentajeDisponible=distribucion.total?100*distribucion.restantes/distribucion.total:0;
   function porcentaje(id,valor){
     const siguiente={...plan},actual=siguiente[id]||0;
     if(valor===actual)return;
@@ -245,7 +248,7 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
           <b>{item.costo} 🍌</b></button>)}</div>
     </>:<>
       <div className="tactica-medicos">
-        <div><strong>🩺 Paramédicos de rescate</strong><small>Solo paramédicos pueden rescatar. No se asignan por porcentaje.</small></div>
+        <div><strong>🩺 Paramédicos de rescate</strong><small>Cada paramédico asignado resta un combatiente de las demás tácticas.</small></div>
         <div className="contador-paramedicos">
           <button aria-label="Asignar un paramédico menos" disabled={rescatar<=0}
             onClick={()=>cambiar_rescate(rescatar-1)}>−</button>
@@ -254,16 +257,17 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
             onClick={()=>cambiar_rescate(rescatar+1)}>+</button>
         </div>
       </div>
-      <div className="total-tactico"><span>Distribución del resto del equipo</span>
-        <strong>{suma}%</strong></div>
-      <div className="reparto-real">Rescatando: {rescatar} · En otras tácticas: {Math.max(0,batalla.hombres.filter(activo).length-rescatar)}</div>
+      <div className="total-tactico"><span>Equipo distribuido</span><strong>{distribucion.total?100:0}%</strong></div>
+      <div className="reparto-real">🩺 Rescate: {rescatar} ({distribucion.porcentaje('rescatar').toFixed(1)}%) · Otras tácticas: {distribucion.restantes} ({porcentajeDisponible.toFixed(1)}%)</div>
+      <div className="progreso-total-tactico" aria-label="Distribución total del equipo"><span style={{width:distribucion.porcentaje('rescatar')+'%'}}/><span style={{width:porcentajeDisponible+'%'}}/></div>
       <div className="tacticas-todas">{entradas.map(([id,t])=>{
         const valor=plan[id]||0;
         return <div className="tactica-fila" key={id}>
-          <div className="tactica-cabecera"><strong>{t.nombre}</strong><b>{valor}%</b></div>
+          <div className="tactica-cabecera"><strong>{t.nombre}</strong><b>{distribucion.porcentaje(id).toFixed(1)}% <small>({distribucion.cuotas[id]||0})</small></b></div>
           <div className="tactica-ajuste">
             <input type="range" aria-label={t.nombre} min="0" max="100" step="5"
-              value={valor} onChange={e=>porcentaje(id,Number(e.target.value))}/>
+              value={valor*porcentajeDisponible/100} max={porcentajeDisponible||100} step="any"
+              onChange={e=>porcentaje(id,Math.max(0,Math.min(100,Math.round(Number(e.target.value)*100/Math.max(1,porcentajeDisponible)/5)*5)))}/>
             <button onClick={()=>porcentaje(id,valor?0:10)}>{valor?'✕':'+'}</button>
           </div>
         </div>;
@@ -351,7 +355,7 @@ function App() {
       pintar();
       if(sonido && iniciada && !pausa_activa) {
         const eventos=batalla.eventos;
-        while(indice_sonido.current<eventos.length)audio.current?.efecto(eventos[indice_sonido.current++].tipo);
+        while(indice_sonido.current<eventos.length){const evento=eventos[indice_sonido.current++];audio.current?.efecto(evento.tipo,evento);}
       }
       if (ahora - ultimo_panel >= 100) {
         ultimo_panel = ahora;
@@ -416,7 +420,7 @@ function App() {
     <header className="cabecera movil-cabecera">
       <div className="marca"><img className="gorila-logo" src={retrato_furia} alt="Gorila furioso"/><h1>Gorilla<span>.</span></h1><p>100 vs 1 · ARCADE</p></div>
       <div className="cabecera-acciones">
-        <button onClick={()=>{cambiar_pausa(true);cambiar_sonido(v=>!v);}} aria-label={sonido?'Silenciar':'Activar audio'}>{sonido?'♫':'♪̸'}</button>
+        <button onClick={()=>cambiar_sonido(v=>!v)} aria-label={sonido?'Silenciar':'Activar audio'}>{sonido?'♫':'♪̸'}</button>
         <button onClick={()=>{cambiar_arquetipo_abierto(null);cambiar_panel_movil('ajustes');}} aria-label="Ajustes">⚙</button>
         {iniciada&&!batalla.resultado&&<button onClick={()=>cambiar_pausa(v=>!v)} aria-label={en_pausa?'Continuar':'Pausar'}>{en_pausa?'▶':'Ⅱ'}</button>}
       </div>
@@ -448,7 +452,7 @@ function App() {
         <div className="controles-arcade botones-juego">
           {!iniciada?
             <button className="principal" disabled={cargando_arena}
-              onClick={()=>{audio.current?.activar(sonido);cambiar_inicio(true);}}>▶ Iniciar batalla</button>:
+              onClick={()=>{audio.current?.activar(sonido);if(sonido)audio.current?.efecto('inicio_batalla');cambiar_inicio(true);}}>▶ Iniciar batalla</button>:
             <button className="principal" ref={boton_estrategia}
               disabled={Boolean(batalla.resultado)||cargando_arena||anuncio}
               onClick={()=>abrir_estrategia('Combate')}>⚔️ Tácticas</button>}
