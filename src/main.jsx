@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades, arquetipos } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, paramedicos_disponibles, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
+import { encuadre } from './terreno.js';
 import retrato_furia from './art/gorila-segunda-vida.webp';
 import { crear_audio_arcade } from './audio.js';
 import './style.css';
@@ -171,36 +172,60 @@ const descripciones = {
 };
 
 
-function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambiar_plan,comprar,reanudar,cancelar}) {
-  const entradas=Object.entries(TACTICAS);
-  const suma=Object.values(plan).reduce((a,b)=>a+b,0);
-  function porcentaje(id,valor) {
-    const siguiente={...plan};
-    const actual=siguiente[id]||0;
+const beneficios={
+ energizante:'Recupera 35 de energía a 10 combatientes cercanos. Efecto de recuperación durante 15 s.',
+ botiquin:'Cura 25 PV a 5 combatientes. El recolector lleva la ayuda a sus compañeros.',
+ comida:'Recupera 15 de energía a 15 combatientes.',
+ adrenalina:'Impulso de combate para 8 hombres durante 15 segundos.',
+ cascos:'10 cascos visibles. Cada uno reduce un 20% del daño.',
+ escudos:'6 escudos visibles. Reducen un 35% del daño.',
+ chalecos:'8 chalecos visibles. Reducen un 25% del daño.',
+ barricada:'Construye cobertura visible en 3 s. 150 PV, 30 s de duración, protege del 40% del daño.',
+ bates:'10 bates de combate. Aumentan 15% el daño.',
+ red:'Red visible sobre el gorila: lo ralentiza durante 8 s hasta que la rompe.',
+ cuerdas:'6 cuerdas para sujetar al gorila durante 4 s; se tensan y finalmente se rompen.',
+ refuerzos:'Llegan 5 hombres nuevos de arquetipos aleatorios, en cualquier momento.',
+ inspiracion:'Inspira al equipo y eleva su valentía durante 20 segundos.'
+};
+function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambiar_plan,comprar,reanudar,cancelar}){
+  const maxRescate=paramedicos_disponibles(batalla);
+  const rescatar=plan.rescatar||0;
+  const entradas=Object.entries(TACTICAS).filter(([id])=>id!=='rescatar');
+  const suma=Object.entries(plan).filter(([id])=>id!=='rescatar')
+    .reduce((a,[,v])=>a+v,0);
+  function porcentaje(id,valor){
+    const siguiente={...plan},actual=siguiente[id]||0;
     if(valor===actual)return;
-    if(valor===0) {
-      if(Object.keys(siguiente).length===1)return;
+    const otros=Object.keys(siguiente).filter(k=>k!=='rescatar');
+    if(valor===0){
+      if(otros.length===1)return;
       delete siguiente[id];
-      const destino=Object.keys(siguiente).sort((a,b)=>siguiente[b]-siguiente[a])[0];
+      const destino=otros.filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])[0];
       siguiente[destino]+=actual;
-    } else if(!actual) {
-      const donante=Object.keys(siguiente).sort((a,b)=>siguiente[b]-siguiente[a])[0];
+    }else if(!actual){
+      const donante=otros.sort((a,b)=>siguiente[b]-siguiente[a])[0];
       const cantidad=Math.min(valor,Math.max(0,siguiente[donante]-5));
       if(cantidad<5)return;
       siguiente[donante]-=cantidad;siguiente[id]=cantidad;
-    } else if(valor>actual) {
+    }else if(valor>actual){
       let falta=valor-actual;
-      for(const otro of Object.keys(siguiente).filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])) {
+      for(const otro of otros.filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])){
         const mover=Math.min(falta,siguiente[otro]-5);
         siguiente[otro]-=mover;falta-=mover;
         if(!falta)break;
       }
       siguiente[id]=valor-falta;
-    } else {
-      const destino=Object.keys(siguiente).filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])[0];
+    }else{
+      const destino=otros.filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])[0];
       if(!destino)return;
       siguiente[destino]+=actual-valor;siguiente[id]=valor;
     }
+    cambiar_plan(siguiente);
+  }
+  function cambiar_rescate(n){
+    const nuevo=Math.max(0,Math.min(maxRescate,n));
+    const siguiente={...plan};
+    if(nuevo)siguiente.rescatar=nuevo;else delete siguiente.rescatar;
     cambiar_plan(siguiente);
   }
   return <dialog ref={dialogo} className="menu-estrategia" aria-labelledby="titulo-estrategia"
@@ -211,29 +236,42 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
       <button aria-pressed={categoria!=='Suministros'} onClick={()=>cambiar_categoria('Combate')}>⚔️ Tácticas</button>
       <button aria-pressed={categoria==='Suministros'} onClick={()=>cambiar_categoria('Suministros')}>📦 Suministros</button>
     </div>
-    {categoria==='Suministros'?
-      <><p className="saldo">🍌 {batalla.bananas} · {batalla.entregas.length} en camino</p>
+    {categoria==='Suministros'?<>
+      <p className="saldo">🍌 {batalla.bananas} · {batalla.entregas.length} paquetes en camino</p>
       <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id,item])=>
-        <button key={id} disabled={batalla.bananas<item.costo||(item.solo_con_reservas&&!batalla.reservas)}
-          onClick={()=>comprar(id)}><span>{item.nombre}</span><strong>{item.costo} 🍌</strong></button>)}</div></>
-      :<><div className="total-tactico"><span>Equipo asignado</span><strong>{suma}%</strong></div>
+        <button className="suministro-descrito" key={id} disabled={batalla.bananas<item.costo}
+          onClick={()=>comprar(id)}><span><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
+          <b>{item.costo} 🍌</b></button>)}</div>
+    </>:<>
+      <div className="tactica-medicos">
+        <div><strong>🩺 Paramédicos de rescate</strong><small>Solo paramédicos pueden rescatar. No se asignan por porcentaje.</small></div>
+        <div className="contador-paramedicos">
+          <button aria-label="Asignar un paramédico menos" disabled={rescatar<=0}
+            onClick={()=>cambiar_rescate(rescatar-1)}>−</button>
+          <strong>{rescatar} / {maxRescate}</strong>
+          <button aria-label="Asignar un paramédico más" disabled={rescatar>=maxRescate}
+            onClick={()=>cambiar_rescate(rescatar+1)}>+</button>
+        </div>
+      </div>
+      <div className="total-tactico"><span>Distribución del resto del equipo</span>
+        <strong>{suma}%</strong></div>
+      <div className="reparto-real">Rescatando: {rescatar} · En otras tácticas: {Math.max(0,batalla.hombres.filter(activo).length-rescatar)}</div>
       <div className="tacticas-todas">{entradas.map(([id,t])=>{
         const valor=plan[id]||0;
         return <div className="tactica-fila" key={id}>
           <div className="tactica-cabecera"><strong>{t.nombre}</strong><b>{valor}%</b></div>
           <div className="tactica-ajuste">
-            <input type="range" aria-label={t.nombre} min="0" max="100" step="5" value={valor}
-              onChange={e=>porcentaje(id,Number(e.target.value))}/>
-            <button disabled={valor===0&&Math.max(...Object.values(plan))<=5}
-              onClick={()=>porcentaje(id,valor?0:10)}>{valor?'✕':'+'}</button>
+            <input type="range" aria-label={t.nombre} min="0" max="100" step="5"
+              value={valor} onChange={e=>porcentaje(id,Number(e.target.value))}/>
+            <button onClick={()=>porcentaje(id,valor?0:10)}>{valor?'✕':'+'}</button>
           </div>
         </div>;
-      })}</div></>}
+      })}</div>
+    </>}
     <footer><button onClick={cancelar}>Cancelar</button>
       <button className="principal" onClick={reanudar} disabled={suma!==100}>Aplicar y jugar</button></footer>
   </dialog>;
 }
-
 function App() {
   const [dificultad, cambiar_dificultad] = useState(0);
   const [arena_elegida,cambiar_arena] = useState('claro');
@@ -245,6 +283,7 @@ function App() {
   const [plan, cambiar_plan] = useState({});
   const [panel_movil, cambiar_panel_movil] = useState(null);
   const [arquetipo_abierto, cambiar_arquetipo_abierto]=useState(null);
+  const [rayos_x, cambiar_rayos_x]=useState(false);
   const [, actualizar_panel] = useState(0);
   const canvas = useRef(null);
   const dibujar = useRef(null);
@@ -258,9 +297,10 @@ function App() {
   const cargando_arena = modo_visual === '3d' && !arte_listo;
   const gorila = batalla.gorila;
   const anuncio = gorila.segunda_vida === 'anuncio';
-  const pausa_activa = en_pausa || panel_movil !== null;
+  const pausa_activa = en_pausa || panel_movil !== null || rayos_x;
   const activos = batalla.hombres.filter(activo).length;
   const segundos = Math.ceil(batalla.tiempo);
+  const victoria = batalla.resultado==='Victoria de los hombres';
   const reloj = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 
   useEffect(() => {
@@ -299,8 +339,13 @@ function App() {
     }
     ultimo_cuadro.current = pintar;
     const jugando = iniciada && !pausa_activa && !cargando_arena && !anuncio;
+    let ultimaCelebracion;
     function animar(ahora) {
-      if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * 1.25);
+      if (anterior !== undefined && jugando && !batalla.resultado) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * 1.25);
+      if(batalla.resultado==='Victoria de los hombres'){
+        if(ultimaCelebracion===undefined)ultimaCelebracion=ahora;
+        if(!pausa_activa)batalla.celebracion=Math.min(6,(ahora-ultimaCelebracion)/1000);
+      }
       anterior = ahora;
       pintar();
       if(sonido && iniciada && !pausa_activa) {
@@ -312,7 +357,7 @@ function App() {
         actualizar_panel(valor => valor + 1);
       }
       if (jugando && batalla.gorila.segunda_vida === 'anuncio') actualizar_panel(valor => valor + 1);
-      else if (jugando && !batalla.resultado) cuadro = requestAnimationFrame(animar);
+      else if (jugando && (!batalla.resultado || (batalla.resultado==='Victoria de los hombres' && (batalla.celebracion||0)<6))) cuadro = requestAnimationFrame(animar);
     }
     cuadro = requestAnimationFrame(animar);
     return () => {
@@ -348,6 +393,7 @@ function App() {
   }
 
   function nueva_partida(nivel = dificultad, arena = arena_elegida) {
+    cambiar_rayos_x(false);
     indice_sonido.current=0;
     cambiar_arte_listo(false);
     cambiar_batalla(partida(nivel, arena));
@@ -367,7 +413,7 @@ function App() {
 
   return <main className="juego-app">
     <header className="cabecera movil-cabecera">
-      <div className="marca"><h1>Gorilla<span>.</span></h1><p>100 vs 1 · ARCADE</p></div>
+      <div className="marca"><img className="gorila-logo" src={retrato_furia} alt="Gorila furioso"/><h1>Gorilla<span>.</span></h1><p>100 vs 1 · ARCADE</p></div>
       <div className="cabecera-acciones">
         <button onClick={()=>{cambiar_pausa(true);cambiar_sonido(v=>!v);}} aria-label={sonido?'Silenciar':'Activar audio'}>{sonido?'♫':'♪̸'}</button>
         <button onClick={()=>{cambiar_arquetipo_abierto(null);cambiar_panel_movil('ajustes');}} aria-label="Ajustes">⚙</button>
@@ -391,6 +437,8 @@ function App() {
           {(batalla.resultado||!iniciada||pausa_activa||cargando_arena)&&
             <div className="estado" role="status">{batalla.resultado||
               (cargando_arena?'Cargando arena':iniciada?'Pausa':'Listos')}</div>}
+          {victoria&&<div className="celebracion-victoria" aria-label="Victoria: los hombres celebran">🏆 ¡VICTORIA! <span>Los supervivientes celebran</span></div>}
+          {rayos_x&&<div className="visor-rayos-x"><div className="visor-titulo">⌖ RAYOS X · {batalla.armas_suelo.filter(o=>!o.recogido_por).length} objetos</div><svg viewBox="0 0 1000 640" preserveAspectRatio="none" aria-label="Mapa de armas en la arena">{batalla.armas_suelo.filter(o=>!o.recogido_por).map(o=>{const vista=encuadre(batalla.arena);const x=vista.x+o.x*vista.ancho/ancho;const y=vista.y+o.y*vista.alto/alto;return <g key={o.id}><circle cx={x} cy={y} r={o.objeto?.tipo==='fuego'?19:13} fill="#6efae622" stroke="#60ffe8" strokeWidth="3"/><circle cx={x} cy={y} r="4" fill="#fff3a0"/></g>;})}</svg></div>}
           {anuncio&&<div className="segunda-vida" role="status" aria-label="Segunda vida del gorila">
             <img src={retrato_furia} alt=""/>
             <strong>SEGUNDA VIDA</strong><span>+15% de vida · Furia permanente</span>
@@ -406,13 +454,14 @@ function App() {
           <button disabled={!iniciada||Boolean(batalla.resultado)||cargando_arena||anuncio}
             onClick={()=>abrir_estrategia('Suministros')}>📦 Suministros</button>
           <button onClick={()=>{cambiar_arquetipo_abierto(null);cambiar_panel_movil('equipo');}}>📊 Equipo</button>
+          <button aria-pressed={rayos_x} onClick={()=>cambiar_rayos_x(v=>!v)}>{rayos_x?'✕ Cerrar rayos X':'⌖ Rayos X'}</button>
         </div>
       </section>
-      <div className="panel-escritorio"><PanelEquipo batalla={batalla} onAbrir={nombre=>{cambiar_arquetipo_abierto(nombre);cambiar_panel_movil('equipo');}}/></div>
+
     </div>
     {panel_movil&&<div className="hoja-fondo" onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}}>
       <section role="dialog" aria-modal="true" aria-label={panel_movil==='ajustes'?'Ajustes':'Equipo'}
-        className="hoja-movil" onClick={e=>e.stopPropagation()}>
+        className="hoja-movil hoja-superpuesta" onClick={e=>e.stopPropagation()}>
         <div className="hoja-cabecera"><h2>{panel_movil==='ajustes'?'⚙ Ajustes':'📊 Equipo'}</h2>
           <button onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}} aria-label="Cerrar">✕</button></div>
         {panel_movil==='equipo'?<PanelEquipo batalla={batalla} seleccionInicial={arquetipo_abierto}/>:<div className="ajustes-panel">
