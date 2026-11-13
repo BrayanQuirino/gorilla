@@ -33,9 +33,12 @@ npm run build
 - `src/roster.js`: generación de personajes, efectos de edad, asignación inicial y reserva de armas por arena.
 - `src/battle.js`: motor determinista con generador de azar inyectable, estado de combate, compras, IA y eventos.
 - `src/gameplay.test.js`: pruebas de inventario, tácticas, compras y simulación.
-- `src/arena.js`: nueva capa Canvas 2D pixel-art con cuatro escenarios, personajes, señales de ataque, objetos y barra de salud del gorila. Los sprites definitivos ilustrados todavía no se han convertido en spritesheets ni se ha migrado a Phaser.
-- `src/main.jsx`: panel de control temporal para las reglas, sin rediseño visual.
+- `src/arena.js`: capa de escenarios por arena, profundidad por eje Y, indicadores de peligro, objetos y efectos de combate.
+- `src/sprites.js`: atlas de sprites pixel-art generado a resolución nativa, cacheado y animado (cuatro fotogramas por estado) para gorila y humanos, sin bibliotecas externas.
+- `src/sprites.test.js`: pruebas de atlas, fotogramas y decisiones de animación.
+- `.github/workflows/ci.yml`: ejecuta pruebas y build Vite en cada push.
+- `src/main.jsx`: HUD retro renovado con pestañas de combate, supervivencia, exploración y tienda desplegable.
 
 ## Balance pendiente
 
-Las probabilidades y cantidades actuales son **parámetros de videojuego** sujetos a pruebas, no estadísticas de ataques reales de gorilas. Algunas habilidades declaradas, efectos de suministros y nuevos tipos de arena requerirán iteraciones de comportamiento y balance; la integración de spritesheets profesionales, animaciones detalladas, efectos sonoros y la posible migración a Phaser se realizarán en etapas posteriores.
+Las probabilidades y cantidades actuales son **parámetros de videojuego** sujetos a pruebas, no estadísticas de ataques reales de gorilas. Algunas habilidades declaradas, efectos de suministros y nuevos tipos de arena requerirán iteraciones de comportamiento y balance; la incorporación de spritesheets ilustrados profesionalmente, sonidos y la posible migración a Phaser siguen pendientes. El atlas actual está dibujado en código y no reproduce de manera exacta la ilustración conceptual aprobada.
