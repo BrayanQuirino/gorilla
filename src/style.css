@@ -192,3 +192,46 @@ aside h2{margin:9px 0}
 .comparativa-perfil strong{color:#f2cf8c;font-variant-numeric:tabular-nums}
 .panel-titulo button{min-height:36px}
 @media(max-width:420px){.arquetipos-grid{gap:6px}.tarjeta-arquetipo{padding:8px 6px;min-height:84px}.mini-estadisticas{font-size:.76rem}}
+
+/* Fullscreen overlays: the field is never squeezed by a permanent side panel. */
+.juego-app .tablero{display:block}
+.juego-app .campo{width:100%}
+.juego-app .panel-escritorio{display:none}
+.juego-app .marca{display:flex;align-items:center;gap:10px}
+.gorila-logo{width:clamp(38px,5vw,61px);height:clamp(38px,5vw,61px);object-fit:cover;object-position:center;border-radius:50%;border:2px solid #da8e50;box-shadow:0 0 17px #da693d77;flex-shrink:0}
+.juego-app .botones-juego{grid-template-columns:repeat(4,minmax(0,1fr))}
+.hoja-fondo{justify-items:center;align-items:center;z-index:10;backdrop-filter:blur(6px)}
+.hoja-superpuesta{width:min(860px,calc(100% - 22px));max-height:calc(100dvh - 28px);border:2px solid #ac925b;border-radius:14px;box-shadow:0 25px 75px #000c;overflow:auto;background:#19272a;padding:18px}
+.hoja-superpuesta>.panel-equipo{max-width:780px;margin:auto}
+.hoja-superpuesta .arquetipos-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.suministro-descrito{display:flex!important;gap:10px!important;align-items:center!important;justify-content:space-between!important;min-height:90px!important;padding:10px!important;text-align:left}
+.suministro-descrito>span{display:grid;gap:5px;min-width:0}
+.suministro-descrito strong{color:#ffdc92;white-space:normal}
+.suministro-descrito small{display:block;color:#c9d3c5;font-size:.83rem;line-height:1.3}
+.suministro-descrito b{white-space:nowrap;color:#ffe098}
+.tactica-medicos{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid #71856f;border-radius:8px;background:#172b2c;margin-top:12px}
+.tactica-medicos>div:first-child{display:grid;gap:5px;max-width:340px}
+.tactica-medicos small{line-height:1.3}
+.contador-paramedicos{display:flex;align-items:center;justify-content:center;gap:9px}
+.contador-paramedicos button{min-width:43px;font-size:1.25rem}
+.contador-paramedicos strong{white-space:nowrap;font-size:1.1rem;color:#ffe098}
+.reparto-real{font-size:.87rem;color:#a9c8b8;margin:5px 0}
+.visor-rayos-x{position:absolute;inset:0;z-index:5;background:#021b1dda;pointer-events:none}
+.visor-rayos-x svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 0 8px #7ffff2)}
+.visor-titulo{position:absolute;top:12px;left:50%;transform:translateX(-50%);white-space:nowrap;color:#bffff6;background:#052b2d;border:1px solid #70f5ed;padding:6px 12px;font-weight:900;z-index:1}
+.celebracion-victoria{position:absolute;left:50%;top:9%;transform:translateX(-50%);z-index:4;background:#132d2ecb;border:2px solid #f8d178;color:#ffdc7b;padding:8px 22px;border-radius:8px;font-family:'Press Start 2P',monospace;font-size:clamp(.75rem,2vw,1.4rem);text-shadow:0 2px #634019;text-align:center;white-space:nowrap;pointer-events:none}
+.celebracion-victoria span{display:block;margin-top:7px;font-size:.58rem;color:#fff1b6;font-family:Rajdhani,system-ui,sans-serif;letter-spacing:.03em}
+@media(max-width:970px){
+ .hoja-superpuesta{width:min(100%,calc(100% - 12px));max-height:95dvh;border-radius:12px;padding:12px}
+ .hoja-superpuesta .arquetipos-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .juego-app .botones-juego{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .juego-app .botones-juego button{font-size:.77rem;padding:6px 2px}
+ .gorila-logo{width:40px;height:40px}
+ .suministro-descrito{min-height:100px!important}
+}
+@media(max-width:440px){
+ .juego-app .botones-juego{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .juego-app .botones-juego button{font-size:.91rem}
+ .tactica-medicos{display:grid}
+ .suministro-descrito{min-height:85px!important}
+}
