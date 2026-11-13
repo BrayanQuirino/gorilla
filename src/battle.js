@@ -337,13 +337,13 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   if(paquete)return;
   // An armed fighter may intentionally throw an object. Stronger fighters throw farther
   // and harder; unspent firearms are normally kept for shooting.
-  const arrojable=h.objeto && (h.objeto.tipo!=='fuego' || (h.objeto.municion||0)===0);
+  const arrojable=Boolean(h.objeto);
   const fuerza=h.radar.fuerza/100;
   const alcance_lanzamiento=70+fuerza*125;
   if(arrojable && h.orden==='atacar' && !panico && h.defensa<=0 &&
       h.recarga<=0 && h.energia>=18 && cerca_g>g.radio+35 &&
       cerca_g<alcance_lanzamiento && b.golpes_disponibles>=1 &&
-      b.azar()<(.13+fuerza*.28)) {
+      b.azar()<(h.objeto.tipo==='fuego' && h.objeto.municion>0 ? .015+fuerza*.02 : .13+fuerza*.28)) {
     const objeto=h.objeto;
     const inicio={x:h.x,y:h.y};
     equipar(h,null);
