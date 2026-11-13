@@ -96,15 +96,17 @@ test('las pistolas del hangar usan munición finita y no alteran el catálogo or
   assert.ok(arma.municion>=0&&arma.municion<2);
 });
 
-test('los personajes arrancan separados y el terreno eleva y deja caer al personaje',()=>{
+test('humanos evitan alturas de montaña; gorila conserva elevaciones y caída',()=>{
   for(const arena of Object.keys(ARENAS)){
     const {batalla}=partida(arena);
     assert.equal(new Set(batalla.hombres.map(h=>h.x+','+h.y)).size,100);
     for (let paso=0;paso<180;paso++) {
       avanzar_batalla(batalla,1/60);
-      for (const actor of [...batalla.hombres.filter(h=>h.vida>0),batalla.gorila]) {
-        if (!actor.vuelo) assert.ok(actor.altura >= altura_terreno(actor,arena) - .01);
+      // Only the gorilla may climb mountains. Humans stay on walkable ground.
+      for (const h of batalla.hombres.filter(h=>h.vida>0&&!h.vuelo)) {
+        if (batalla.gorila.sujeto!==h) assert.ok(h.altura <= 1);
       }
+      assert.ok(batalla.gorila.altura >= altura_terreno(batalla.gorila,arena) - .01);
     }
   }
   const personaje={x:454,y:292,altura:0};
