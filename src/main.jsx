@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
-import { crear_sorteo_objetos, preparar_equipo, habilidades } from './roster.js';
+import { crear_sorteo_objetos, preparar_equipo, habilidades, arquetipos } from './roster.js';
 import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
@@ -46,11 +46,6 @@ function Radar({ radar }) {
 }
 
 const formato = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
-const categorias = {
-  Combate: ['atacar'],
-  Supervivencia: ['huir', 'esconder', 'rescatar'],
-  Exploración: ['buscar_armas', 'distraer'],
-};
 
 
 function Segmento({ titulo, grupos }) {
@@ -67,39 +62,93 @@ function Segmento({ titulo, grupos }) {
 function Indicador({titulo,valor,icono}) {
   return <div className="indicador"><span aria-hidden="true">{icono}</span><strong>{formato.format(valor)}</strong><small>{titulo}</small></div>;
 }
-function PanelEquipo({ batalla }) {
+function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
+  const [seleccion,cambiar_seleccion]=useState(seleccionInicial);
   const vivos=batalla.hombres.filter(activo),total=batalla.hombres.length;
-  const promedio=Object.fromEntries(habilidades.map(eje=>[eje,vivos.length
-    ? vivos.reduce((s,h)=>s+h.radar[eje],0)/vivos.length:0]));
-  const tipo=nombre=>batalla.hombres.filter(h=>h.arquetipo===nombre).length;
+  const media=personas=>Object.fromEntries(habilidades.map(eje=>[eje,personas.length
+    ? personas.reduce((sum,h)=>sum+h.radar[eje],0)/personas.length:0]));
+  const promedio=media(vivos);
   const equipados=vivos.filter(h=>h.objeto).length;
   const lesionados=vivos.filter(h=>h.estado==='herido').length;
   const incapacitados=batalla.hombres.filter(h=>h.estado==='incapacitado').length;
   const eliminados=batalla.hombres.filter(h=>h.estado==='eliminado').length;
   const valentia=vivos.length?Math.round(vivos.reduce((s,h)=>s+h.valentia,0)/vivos.length):0;
+  const grupos=arquetipos.map((nombre,i)=>({
+    nombre,color:['#79d6bc','#efcb73','#a99de7','#f09783','#75b8ec'][i%5],
+    hombres:batalla.hombres.filter(h=>h.arquetipo===nombre)
+  })).filter(g=>g.hombres.length);
+  const grupo=grupos.find(g=>g.nombre===seleccion);
+  const miembros=grupo?.hombres||[],activos_grupo=miembros.filter(activo);
+  const heridos_grupo=miembros.filter(h=>h.estado==='herido').length;
+  const incap_grupo=miembros.filter(h=>h.estado==='incapacitado').length;
+  const bajas_grupo=miembros.filter(h=>h.estado==='eliminado').length;
+  const armados_grupo=miembros.filter(h=>h.objeto&&activo(h)).length;
   return <aside className="panel-equipo" aria-label="Estadísticas gráficas del equipo">
-    <div className="panel-titulo"><h2>Team overview</h2><span>{vivos.length} / {total} activos</span></div>
-    <div className="indicadores">
-      <Indicador titulo="Activos" valor={vivos.length} icono="👥"/>
-      <Indicador titulo="Equipados" valor={equipados} icono="🧰"/>
-      <Indicador titulo="Valentía %" valor={valentia} icono="⚡"/>
-      <Indicador titulo="En arena" valor={batalla.armas_suelo.filter(o=>!o.recogido_por).length} icono="📦"/>
-    </div>
-    <div className="equipo-radar"><h3>Radar del equipo completo</h3><Radar radar={promedio} /></div>
-    <Segmento titulo="Generaciones" grupos={[
-      {nombre:'Young',valor:tipo('Young'),color:'#6ddac5'},
-      {nombre:'Adult',valor:tipo('Adult'),color:'#eec368'},
-      {nombre:'Older',valor:tipo('Older'),color:'#a9a8f2'}
-    ]} />
-    <Segmento titulo="Estado del equipo" grupos={[
-      {nombre:'En combate',valor:Math.max(0,vivos.length-lesionados),color:'#71d58b'},
-      {nombre:'Heridos',valor:lesionados,color:'#f1b34f'},
-      {nombre:'Incapacitados',valor:incapacitados,color:'#e58a53'},
-      {nombre:'Eliminados',valor:eliminados,color:'#bd6268'}
-    ]} />
-    <div className="tacticas-grafico"><h3>Tácticas en curso</h3>
-      {Object.entries(batalla.plan).map(([id,valor])=><div key={id}><span>{TACTICAS[id].nombre}</span><progress value={valor} max="100"/><b>{valor}%</b></div>)}
-    </div>
+    <div className="panel-titulo"><h2>{grupo?grupo.nombre:'Resumen del equipo'}</h2>
+      {grupo?<button onClick={()=>cambiar_seleccion(null)} aria-label="Volver a todos los arquetipos">← Todos</button>
+        :<span>{vivos.length} / {total} activos</span>}</div>
+    {grupo?<>
+      <div className="indicadores">
+        <Indicador titulo="Total" valor={miembros.length} icono="👥"/>
+        <Indicador titulo="Con objetos" valor={armados_grupo} icono="🧰"/>
+        <Indicador titulo="Heridos" valor={heridos_grupo} icono="🩹"/>
+        <Indicador titulo="Eliminados" valor={bajas_grupo} icono="⚑"/>
+      </div>
+      <Segmento titulo="Estado" grupos={[
+        {nombre:'Sanos',valor:Math.max(0,activos_grupo.length-heridos_grupo),color:'#76d59b'},
+        {nombre:'Heridos',valor:heridos_grupo,color:'#efb95a'},
+        {nombre:'Incapacitados',valor:incap_grupo,color:'#e68f64'},
+        {nombre:'Eliminados',valor:bajas_grupo,color:'#b9606b'}
+      ]}/>
+      <Segmento titulo="Equipamiento de combatientes activos" grupos={[
+        {nombre:'Con objetos',valor:armados_grupo,color:'#89d8e3'},
+        {nombre:'Sin objetos',valor:activos_grupo.length-armados_grupo,color:'#6b7a85'}
+      ]}/>
+      <div className="equipo-radar"><h3>Habilidades de {grupo.nombre}</h3>
+        <Radar radar={media(miembros)}/></div>
+      <div className="atributos-graficos">
+        {habilidades.map((eje,i)=><div key={eje}><span>{etiquetas[i]}</span>
+          <progress value={media(miembros)[eje]} max="100"/><strong>{Math.round(media(miembros)[eje])}</strong></div>)}
+      </div>
+      <div className="comparativa-perfil">
+        <span>Daño potencial</span><strong>{Math.round(media(miembros).fuerza*.72+media(miembros).tecnica*.28)}/100</strong>
+        <span>Velocidad</span><strong>{Math.round(media(miembros).velocidad)}/100</strong>
+      </div>
+    </>:<>
+      <div className="indicadores">
+        <Indicador titulo="Activos" valor={vivos.length} icono="👥"/>
+        <Indicador titulo="Equipados" valor={equipados} icono="🧰"/>
+        <Indicador titulo="Valentía %" valor={valentia} icono="⚡"/>
+        <Indicador titulo="Objetos en arena" valor={batalla.armas_suelo.filter(o=>!o.recogido_por).length} icono="📦"/>
+      </div>
+      <div className="equipo-radar"><h3>Radar del equipo completo</h3><Radar radar={promedio}/></div>
+      <Segmento titulo="Estado del equipo" grupos={[
+        {nombre:'Sanos',valor:Math.max(0,vivos.length-lesionados),color:'#71d58b'},
+        {nombre:'Heridos',valor:lesionados,color:'#f1b34f'},
+        {nombre:'Incapacitados',valor:incapacitados,color:'#e58a53'},
+        {nombre:'Eliminados',valor:eliminados,color:'#bd6268'}
+      ]}/>
+      <h3>Arquetipos · toca para ver detalles</h3>
+      <div className="arquetipos-grid">{grupos.map(g=>{
+        const activos=g.hombres.filter(activo).length;
+        const armados=g.hombres.filter(h=>activo(h)&&h.objeto).length;
+        const heridos=g.hombres.filter(h=>h.estado==='herido').length;
+        return <button className="tarjeta-arquetipo" key={g.nombre}
+          onClick={()=>{if(onAbrir)onAbrir(g.nombre);else cambiar_seleccion(g.nombre);}}>
+          <div className="tarjeta-cabecera"><strong>{g.nombre}</strong><b>{g.hombres.length}</b></div>
+          <div className="mini-barra" aria-hidden="true">
+            <i style={{width:activos/g.hombres.length*100+'%',background:g.color}}/>
+          </div>
+          <div className="mini-estadisticas"><span>🧰 {armados}</span><span>🩹 {heridos}</span>
+            <span>✓ {activos}</span></div>
+        </button>;
+      })}</div>
+      <div className="tacticas-grafico"><h3>Tácticas en curso</h3>
+        {Object.entries(batalla.plan).map(([id,valor])=><div key={id}>
+          <span>{TACTICAS[id].nombre}</span><progress value={valor} max="100"/><b>{valor}%</b>
+        </div>)}
+      </div>
+    </>}
   </aside>;
 }
 
@@ -195,6 +244,7 @@ function App() {
   const [categoria, cambiar_categoria] = useState('Combate');
   const [plan, cambiar_plan] = useState({});
   const [panel_movil, cambiar_panel_movil] = useState(null);
+  const [arquetipo_abierto, cambiar_arquetipo_abierto]=useState(null);
   const [, actualizar_panel] = useState(0);
   const canvas = useRef(null);
   const dibujar = useRef(null);
@@ -208,6 +258,7 @@ function App() {
   const cargando_arena = modo_visual === '3d' && !arte_listo;
   const gorila = batalla.gorila;
   const anuncio = gorila.segunda_vida === 'anuncio';
+  const pausa_activa = en_pausa || panel_movil !== null;
   const activos = batalla.hombres.filter(activo).length;
   const segundos = Math.ceil(batalla.tiempo);
   const reloj = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
@@ -217,8 +268,8 @@ function App() {
     return ()=>audio.current?.cerrar();
   },[]);
   useEffect(() => {
-    audio.current?.activar(sonido && iniciada && !en_pausa && !Boolean(batalla.resultado) && !anuncio);
-  },[sonido,iniciada,en_pausa,batalla.resultado,anuncio]);
+    audio.current?.activar(sonido && iniciada && !pausa_activa && !Boolean(batalla.resultado) && !anuncio);
+  },[sonido,iniciada,pausa_activa,batalla.resultado,anuncio]);
   useEffect(() => {
     const fallo = error => {
       console.warn('Vista WebGL:', error);
@@ -247,12 +298,12 @@ function App() {
       if (modo_visual === '3d') cambiar_arte_listo(listo === true);
     }
     ultimo_cuadro.current = pintar;
-    const jugando = iniciada && !en_pausa && !cargando_arena && !anuncio;
+    const jugando = iniciada && !pausa_activa && !cargando_arena && !anuncio;
     function animar(ahora) {
-      if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * .65);
+      if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * 1.25);
       anterior = ahora;
       pintar();
-      if(sonido && iniciada && !en_pausa) {
+      if(sonido && iniciada && !pausa_activa) {
         const eventos=batalla.eventos;
         while(indice_sonido.current<eventos.length)audio.current?.efecto(eventos[indice_sonido.current++].tipo);
       }
@@ -268,7 +319,7 @@ function App() {
       cancelAnimationFrame(cuadro);
       ultimo_cuadro.current = null;
     };
-  }, [batalla, iniciada, en_pausa, modo_visual, cargando_arena, anuncio]);
+  }, [batalla, iniciada, pausa_activa, modo_visual, cargando_arena, anuncio]);
 
   useEffect(() => {
     if (!anuncio) return;
@@ -301,6 +352,7 @@ function App() {
     cambiar_arte_listo(false);
     cambiar_batalla(partida(nivel, arena));
     cambiar_panel_movil(null);
+    cambiar_arquetipo_abierto(null);
     cambiar_inicio(false);
     cambiar_categoria('Combate');
     cambiar_pausa(false);
@@ -317,8 +369,9 @@ function App() {
     <header className="cabecera movil-cabecera">
       <div className="marca"><h1>Gorilla<span>.</span></h1><p>100 vs 1 · ARCADE</p></div>
       <div className="cabecera-acciones">
-        <button onClick={()=>cambiar_sonido(v=>!v)} aria-label={sonido?'Silenciar':'Activar audio'}>{sonido?'♫':'♪̸'}</button>
-        <button onClick={()=>cambiar_panel_movil('ajustes')} aria-label="Ajustes">⚙</button>
+        <button onClick={()=>{cambiar_pausa(true);cambiar_sonido(v=>!v);}} aria-label={sonido?'Silenciar':'Activar audio'}>{sonido?'♫':'♪̸'}</button>
+        <button onClick={()=>{cambiar_arquetipo_abierto(null);cambiar_panel_movil('ajustes');}} aria-label="Ajustes">⚙</button>
+        {iniciada&&!batalla.resultado&&<button onClick={()=>cambiar_pausa(v=>!v)} aria-label={en_pausa?'Continuar':'Pausar'}>{en_pausa?'▶':'Ⅱ'}</button>}
       </div>
     </header>
     <div className="tablero">
@@ -335,7 +388,7 @@ function App() {
         <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} aria-label={ARENAS[batalla.arena].nombre}/>
           <div className="nombre-arena">{ARENAS[batalla.arena].nombre}</div>
-          {(batalla.resultado||!iniciada||en_pausa||cargando_arena)&&
+          {(batalla.resultado||!iniciada||pausa_activa||cargando_arena)&&
             <div className="estado" role="status">{batalla.resultado||
               (cargando_arena?'Cargando arena':iniciada?'Pausa':'Listos')}</div>}
           {anuncio&&<div className="segunda-vida" role="status" aria-label="Segunda vida del gorila">
@@ -352,17 +405,17 @@ function App() {
               onClick={()=>abrir_estrategia('Combate')}>⚔️ Tácticas</button>}
           <button disabled={!iniciada||Boolean(batalla.resultado)||cargando_arena||anuncio}
             onClick={()=>abrir_estrategia('Suministros')}>📦 Suministros</button>
-          <button onClick={()=>cambiar_panel_movil('equipo')}>📊 Equipo</button>
+          <button onClick={()=>{cambiar_arquetipo_abierto(null);cambiar_panel_movil('equipo');}}>📊 Equipo</button>
         </div>
       </section>
-      <div className="panel-escritorio"><PanelEquipo batalla={batalla}/></div>
+      <div className="panel-escritorio"><PanelEquipo batalla={batalla} onAbrir={nombre=>{cambiar_arquetipo_abierto(nombre);cambiar_panel_movil('equipo');}}/></div>
     </div>
-    {panel_movil&&<div className="hoja-fondo" onClick={()=>cambiar_panel_movil(null)}>
+    {panel_movil&&<div className="hoja-fondo" onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}}>
       <section role="dialog" aria-modal="true" aria-label={panel_movil==='ajustes'?'Ajustes':'Equipo'}
         className="hoja-movil" onClick={e=>e.stopPropagation()}>
         <div className="hoja-cabecera"><h2>{panel_movil==='ajustes'?'⚙ Ajustes':'📊 Equipo'}</h2>
-          <button onClick={()=>cambiar_panel_movil(null)} aria-label="Cerrar">✕</button></div>
-        {panel_movil==='equipo'?<PanelEquipo batalla={batalla}/>:<div className="ajustes-panel">
+          <button onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}} aria-label="Cerrar">✕</button></div>
+        {panel_movil==='equipo'?<PanelEquipo batalla={batalla} seleccionInicial={arquetipo_abierto}/>:<div className="ajustes-panel">
           <label>Vista<select value={modo_visual} onChange={e=>{cambiar_arte_listo(false);cambiar_modo_visual(e.target.value);}}>
             <option value="3d">Arcade 2.5D</option><option value="2d">Retro 2D</option></select></label>
           <label>Arena<select value={arena_elegida} onChange={e=>{const id=e.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>
