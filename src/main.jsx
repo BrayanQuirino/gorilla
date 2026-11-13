@@ -158,7 +158,7 @@ function App() {
           </div>
           <div className="ordenes">
             {Object.entries(TACTICAS)
-              .filter(([id])=>(panel_tacticas==='combate'?['atacar','defender','mantener','emboscada']:panel_tacticas==='supervivencia'?['retirar','huir','esconder','rescatar']:['buscar_armas','distraer']).includes(id)))
+              .filter(([id])=>(panel_tacticas==='combate'?['atacar','defender','mantener','emboscada']:panel_tacticas==='supervivencia'?['retirar','huir','esconder','rescatar']:['buscar_armas','distraer']).includes(id))
               .map(([id,t])=><button key={id} aria-pressed={escuadron===0?batalla.hombres.every(h=>h.orden===id):batalla.hombres.filter(h=>h.escuadron===escuadron).every(h=>h.orden===id)} onClick={()=>ordenar(id)}>{t.nombre}</button>)}
           </div>
           <div className="estado-equipo" aria-live="polite">
