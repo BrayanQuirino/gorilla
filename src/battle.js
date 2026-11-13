@@ -65,7 +65,7 @@ function anunciar_segunda_vida(b) {
   return true;
 }
 
-export const velocidad_gorila = { persecucion: 77, repliegue: 83, embestida: 210 };
+export const velocidad_gorila = { persecucion: 117, repliegue: 106, embestida: 210 };
 export function radio_ataque(g, accion = g.accion) {
   return ({ rugido: 145, golpe_area: g.radio + 75, agarre: g.radio + 54,
     embestida: g.radio + 34, barrido: g.radio + 38 })[accion] ?? g.radio + 38;
@@ -734,12 +734,24 @@ function actualizar_gorila(b,activos,dt) {
     return;
   }
   if (g.fase === 'persecucion') {
+    // Re-evaluate prey during long chases; a zig-zagging scout must not
+    // strand the gorilla forever at the edge of the arena.
+    g.caza_en=(g.caza_en||0)+dt;
+    if(g.caza_en>2.1 || !activo(g.objetivo)){
+      const opciones=activos.filter(h=>puede_actuar(h,g));
+      if(opciones.length)g.objetivo=opciones.reduce((mejor,h)=>
+        distancia(h,g)<distancia(mejor,g)?h:mejor);
+      g.caza_en=0;
+    }
     const objetivo = g.objetivo;
     if (activo(objetivo)) {
       if (puede_actuar(objetivo, g) && alcanza_agarre(g, objetivo)) {
+        g.caza_en=0;
         agarrar(b, objetivo, true);
       } else {
-        g.destino = { x: objetivo.x, y: objetivo.y };
+        // Lead moving targets rather than chasing their previous location.
+        g.destino = { x:limitar(objetivo.x+(objetivo.vx||0)*.18,25,ancho-25),
+          y:limitar(objetivo.y+(objetivo.vy||0)*.18,30,alto-30) };
         mover_gorila(g, g.destino, dt, velocidad_gorila.persecucion * lento, b.arena);
       }
       return;
