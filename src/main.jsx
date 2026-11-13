@@ -265,8 +265,8 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
         return <div className="tactica-fila" key={id}>
           <div className="tactica-cabecera"><strong>{t.nombre}</strong><b>{distribucion.porcentaje(id).toFixed(1)}% <small>({distribucion.cuotas[id]||0})</small></b></div>
           <div className="tactica-ajuste">
-            <input type="range" aria-label={t.nombre} min="0" max="100" step="5"
-              value={valor*porcentajeDisponible/100} max={porcentajeDisponible||100} step="any"
+            <input type="range" aria-label={t.nombre} min="0" max="100" step="any"
+              value={valor*porcentajeDisponible/100}
               onChange={e=>porcentaje(id,Math.max(0,Math.min(100,Math.round(Number(e.target.value)*100/Math.max(1,porcentajeDisponible)/5)*5)))}/>
             <button onClick={()=>porcentaje(id,valor?0:10)}>{valor?'✕':'+'}</button>
           </div>
