@@ -353,9 +353,11 @@ function App() {
       }
       anterior = ahora;
       pintar();
-      if(sonido && iniciada && !pausa_activa) {
-        const eventos=batalla.eventos;
-        while(indice_sonido.current<eventos.length){const evento=eventos[indice_sonido.current++];audio.current?.efecto(evento.tipo,evento);}
+      const eventos=batalla.eventos;
+      for(const evento of eventos){
+        if(evento.id <= indice_sonido.current)continue;
+        indice_sonido.current=evento.id;
+        if(sonido && iniciada && !pausa_activa)audio.current?.efecto(evento.tipo,evento);
       }
       if (ahora - ultimo_panel >= 100) {
         ultimo_panel = ahora;
