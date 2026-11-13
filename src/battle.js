@@ -106,7 +106,7 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
     plan: { atacar: 100 }, activos_asignados: personajes.length, busqueda_en: 0, golpes_disponibles: 2,
     tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:0,bananas_ganadas:0,eventos:[],
     resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}, reserva:true})),
-    entregas:[], parpadeos:[], suministros:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
+    entregas:[], parpadeos:[], suministros:[],proyectiles:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
     gorila:{x:760,y:320,nivel:n,vida,vida_maxima:vida,fuerza,radio:24*(tamano+azar()*.04),
       fase:'espera',reloj:2,ataques:0,energia:100,miedo:0,accion:'',recargas:{},memoria:{},
       furia:0,atrapado:0,reduccion_velocidad:0,descansando:false},
@@ -335,6 +335,27 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const ritmo = h.orden === 'huir' ? 1.3 : h.orden === 'esconder' ? .83 : 1;
   caminar(h, destino, dt, ritmo * rendimiento.velocidad * (altura_terreno(h, b.arena) > 8 ? .7 : 1));
   if(paquete)return;
+  // An armed fighter may intentionally throw an object. Stronger fighters throw farther
+  // and harder; unspent firearms are normally kept for shooting.
+  const arrojable=h.objeto && (h.objeto.tipo!=='fuego' || (h.objeto.municion||0)===0);
+  const fuerza=h.radar.fuerza/100;
+  const alcance_lanzamiento=70+fuerza*125;
+  if(arrojable && h.orden==='atacar' && !panico && h.defensa<=0 &&
+      h.recarga<=0 && h.energia>=18 && cerca_g>g.radio+35 &&
+      cerca_g<alcance_lanzamiento && b.golpes_disponibles>=1 &&
+      b.azar()<(.13+fuerza*.28)) {
+    const objeto=h.objeto;
+    const inicio={x:h.x,y:h.y};
+    equipar(h,null);
+    const vuelo={objeto,inicio,fin:{x:g.x,y:g.y},x:h.x,y:h.y,
+      transcurrido:0,duracion:.35+Math.min(.23,cerca_g/600),hombre:h.id,
+      potencia:(2+valor_objeto(objeto)*.17)*(0.6+fuerza*.85)};
+    b.proyectiles.push(vuelo);
+    h.recarga=3.2;h.energia-=18;h.atacando_hasta=b.transcurrido+.4;
+    b.golpes_disponibles-=1;
+    registrar(b,'objeto_lanzado',{hombre:h.id,objeto:objeto.nombre});
+    return;
+  }
   if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 || h.energia < 14 ||
     cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
   b.golpes_disponibles -= 1;
@@ -666,6 +687,23 @@ export function avanzar_batalla(b,dt) {
   b.parpadeos = b.parpadeos.filter(p => b.transcurrido - p.aterrizaje < duracion_parpadeo);
   b.golpes_disponibles = Math.min(2, b.golpes_disponibles + dt * 2.5);
   actualizar_vuelos(b);
+  b.proyectiles=b.proyectiles.filter(p=>{
+    p.transcurrido+=dt;
+    const f=limitar(p.transcurrido/p.duracion,0,1);
+    p.x=p.inicio.x+(p.fin.x-p.inicio.x)*f;
+    p.y=p.inicio.y+(p.fin.y-p.inicio.y)*f;
+    p.altura=Math.sin(Math.PI*f)*60;
+    if(f<1)return true;
+    b.armas_suelo.push({id:'lanzado-'+p.hombre+'-'+Math.round(b.transcurrido*1000),
+      objeto:p.objeto,x:p.fin.x+12,y:p.fin.y+10,visible:true,recogido_por:null,
+      disponible_en:b.transcurrido+1});
+    if(b.gorila.vida>0) {
+      const golpe=Math.min(b.gorila.vida,p.potencia);
+      b.gorila.vida-=golpe;recompensa(b,golpe);
+    }
+    registrar(b,'impacto_objeto',{hombre:p.hombre,objeto:p.objeto.nombre});
+    return false;
+  });
   const activos=b.hombres.filter(activo);
   if(!activos.length||b.tiempo===0){b.resultado='Victoria del gorila';return;}
   for (const h of activos) h.oculto = h.orden === 'esconder' && tiene_cobertura(h, b.gorila, b.arena);
