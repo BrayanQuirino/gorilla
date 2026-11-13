@@ -394,7 +394,7 @@ function App() {
           </div>}
         </div>
         <div className="controles-arcade">
-          {!iniciada ? <button className="principal" disabled={cargando_arena} onClick={() => cambiar_inicio(true)}>Iniciar</button> : <button ref={boton_estrategia} className="principal" aria-haspopup="dialog"
+          {!iniciada ? <button className="principal" disabled={cargando_arena} onClick={() => { audio.current?.activar(sonido); cambiar_inicio(true); }}>Iniciar</button> : <button ref={boton_estrategia} className="principal" aria-haspopup="dialog"
             disabled={Boolean(batalla.resultado) || cargando_arena || anuncio} onClick={abrir_estrategia}>Estrategia</button>}
           <p>Tácticas · <strong>{Object.entries(batalla.plan).map(([id, valor]) => `${TACTICAS[id].nombre} ${valor} %`).join(' · ') || 'Guardia'}</strong></p>
           <p className="ultimo-evento">Último evento · {ultimo_evento?.tipo.replaceAll('_', ' ') || 'Equipo listo'}</p>
