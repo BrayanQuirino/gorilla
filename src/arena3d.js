@@ -303,7 +303,7 @@ function cuadro(quads, batalla, mirando) {
   const g = batalla.gorila;
   const tiempo = batalla.transcurrido+(batalla.celebracion||0);
   const vista = encuadre(batalla.arena);
-  if ((g.fase === 'aviso' || g.fase === 'embestida') && g.destino) {
+  if (!batalla.resultado && (g.fase === 'aviso' || g.fase === 'embestida') && g.destino) {
     const destino = proyectar(g.destino, vista);
     const rugido = g.accion === 'rugido';
     const radio = radio_ataque(g);
