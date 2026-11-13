@@ -16,7 +16,7 @@ test('atlas produce cuatro fotogramas por animación, sin cargar recursos extern
 test('estados de animación reflejan el motor, no el arquetipo',()=>{
  assert.equal(accion_humano({vida:0,estado:'eliminado'}),'down');
  assert.equal(accion_humano({vida:20,estado:'normal',miedo:90}),'panic');
- assert.equal(accion_humano({vida:20,estado:'normal',miedo:0,oculto:true,orden:'emboscada'}),'ambush');
+ assert.equal(accion_humano({vida:20,estado:'normal',miedo:0,oculto:true,orden:'esconder'}),'hide');
  assert.equal(accion_humano({vida:20,estado:'normal',miedo:0,oculto:false,energia:100,orden:'buscar_armas'}),'search');
  assert.equal(accion_gorila({vida:100,furia:5}),'rage');
  assert.equal(accion_gorila({vida:100,furia:0,fase:'aviso',accion:'rugido'}),'roar');

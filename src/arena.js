@@ -1,4 +1,4 @@
-import { alto, ancho, duracion_entrega } from './battle.js';
+import { alto, ancho, duracion_entrega, paracaidas_visible } from './battle.js';
 import { ARENAS } from './rules.js';
 import { crear_atlas, accion_humano, accion_gorila, dibujar_sprite } from './sprites.js';
 
@@ -114,7 +114,7 @@ function humano(c,h,t,atlas,g){
  if(h.oculto&&!muerto)elipse(c,h.x,h.y-3,15,5,'#4e9e6c55');
  elipse(c,h.x+2,h.y+1,11,4,'#0b151b80');
  const sujeto=g.fase==='agarre'&&g.sujeto===h;
- const action=h.vuelo||sujeto?'idle':accion_humano(h);
+ const action=h.vuelo||sujeto?'idle':accion_humano(h,t);
  const frames=atlas.humano(action,(h.id-1)%10,h.id%5,h.edad>=65,Boolean(h.objeto));
  const speed=action==='run'?1.8:action==='tired'?.45:1;
  const elevacion = h.altura || 0;
@@ -191,11 +191,7 @@ export function crear_dibujante(canvas){
     if(a.tipo==='gorila')gorila(ctx,g,tiempo,atlas);
     else humano(ctx,a.h,tiempo,atlas,g);
   }
-  for(const entrega of batalla.entregas){
-    const t=Math.min(1,(tiempo-entrega.inicio)/duracion_entrega);
-    const x=entrega.x+Math.sin(t*8)*(1-t)*23;
-    const y=entrega.y*t-15*(1-t);
-    baliza(ctx,entrega.x,entrega.y,14,'#f3cc79');
+  function tela(x,y){
     ctx.fillStyle='#f0c36a';
     ctx.beginPath();
     ctx.ellipse(x,y-20,23,16,0,Math.PI,2*Math.PI);
@@ -203,7 +199,17 @@ export function crear_dibujante(canvas){
     ctx.beginPath();
     ctx.moveTo(x-23,y-20);ctx.lineTo(x,y);ctx.lineTo(x+23,y-20);
     ctx.strokeStyle='#fff2b8';ctx.lineWidth=1;ctx.stroke();
+  }
+  for(const entrega of batalla.entregas){
+    const t=Math.min(1,(tiempo-entrega.inicio)/duracion_entrega);
+    const x=entrega.x+Math.sin(t*8)*(1-t)*23;
+    const y=entrega.y*t-15*(1-t);
+    baliza(ctx,entrega.x,entrega.y,14,'#f3cc79');
+    tela(x,y);
     caja(ctx,x,y);
+  }
+  for (const entrega of batalla.parpadeos) {
+    if (paracaidas_visible(tiempo, entrega.aterrizaje)) tela(entrega.x, entrega.y);
   }
   // Impactos y eventos efímeros, nunca interfieren con la simulación.
   ctx.textAlign='center';ctx.font='bold 12px monospace';

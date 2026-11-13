@@ -9,13 +9,9 @@ export const ARENAS = {
 };
 export const TACTICAS = {
   atacar: {nombre:'Atacar', energia:1.7},
-  mantener: {nombre:'Mantener posición', energia:.25},
-  retirar: {nombre:'Retirada', energia:1.2},
   huir: {nombre:'Huida', energia:2.0},
   esconder: {nombre:'Esconderse', energia:.35},
-  emboscada: {nombre:'Emboscada', energia:.8},
   buscar_armas: {nombre:'Buscar armas', energia:1.3},
-  defender: {nombre:'Defender', energia:.6},
   distraer: {nombre:'Distraer', energia:1.4},
   rescatar: {nombre:'Rescatar heridos', energia:1.0},
 };
@@ -30,8 +26,8 @@ export const SUMINISTROS = {
   barricada: {nombre:'Barricada', costo:80, cobertura:25},
   bates: {nombre:'Bates', costo:40, cantidad:10, dano_extra:.15},
   red: {nombre:'Red de captura', costo:85, gorila_lento:8},
-  cuerdas: {nombre:'Cuerdas', costo:35, cantidad:6, tactica:'emboscada'},
-  trampa: {nombre:'Trampa', costo:75, tactica:'emboscada'},
+  cuerdas: {nombre:'Cuerdas', costo:35, cantidad:6},
+  trampa: {nombre:'Trampa', costo:75},
   senuelos: {nombre:'Señuelos', costo:30, efecto:'distraccion', efecto_duracion:10},
   camuflaje: {nombre:'Camuflaje', costo:50, cantidad:15, efecto:'camuflaje', efecto_duracion:20},
   humo: {nombre:'Granada de humo', costo:60, efecto:'humo', efecto_duracion:12},
@@ -83,11 +79,11 @@ export function sortear_inventario(catalogo, arena='claro', azar=Math.random, to
   });
 }
 export function resumir_equipo(hombres,armas_suelo=[]) {
-  const arquetipos={};const edades={jovenes:0,adultos:0,mayores:0,ancianos:0};
+  const arquetipos={};const edades={adolescentes:0,jovenes:0,adultos:0,mayores:0,ancianos:0};
   const objetos={};
   for(const h of hombres){
     arquetipos[h.arquetipo]=(arquetipos[h.arquetipo]||0)+1;
-    edades[h.edad<30?'jovenes':h.edad<55?'adultos':h.edad<70?'mayores':'ancianos']++;
+    edades[h.edad<20?'adolescentes':h.edad<30?'jovenes':h.edad<55?'adultos':h.edad<70?'mayores':'ancianos']++;
     if(h.objeto) objetos[h.objeto.nombre]=(objetos[h.objeto.nombre]||0)+1;
   }
   return {total:hombres.length,armados:hombres.filter(h=>h.objeto).length,

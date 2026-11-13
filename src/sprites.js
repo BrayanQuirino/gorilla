@@ -85,22 +85,23 @@ export function crear_atlas(){
  }
  return {gorila,humano};
 }
-export function accion_humano(h){
+export function accion_humano(h, tiempo = 0){
  if(h.vida<=0||h.estado==='incapacitado'||h.estado==='eliminado')return 'down';
  if(h.estado==='panico'||h.miedo>74)return 'panic';
  if(h.estado==='herido')return 'hurt';
- if(h.oculto)return h.orden==='emboscada'?'ambush':'hide';
+ if(h.oculto)return 'hide';
  if(h.energia<20)return 'tired';
  if(h.orden==='buscar_armas')return 'search';
- if(h.orden==='huir'||h.orden==='retirar')return 'run';
- if(h.orden==='atacar'&&h.recarga>0)return 'attack';
+ if(h.orden==='huir')return 'run';
+ if(h.orden==='atacar'&&h.atacando_hasta>tiempo)return 'attack';
  if(Math.hypot(h.vx||0,h.vy||0)>8)return 'walk';
  return 'idle';
 }
 export function accion_gorila(g){
  if(g.vida<=0)return 'down';
- if(g.furia>0)return 'rage';
  if(g.fase==='embestida')return 'charge';
+ if(g.movimiento>5)return 'walk';
+ if(g.furia>0)return 'rage';
  if(g.fase==='aviso')return g.accion==='rugido'?'roar':'attack';
  if(g.fase==='recuperacion'&&g.energia<25)return 'tired';
  if(g.fase==='recuperacion')return 'hurt';

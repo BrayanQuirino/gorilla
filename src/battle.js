@@ -1,33 +1,65 @@
 import { ARENAS, TACTICAS, SUMINISTROS, VENTAJAS_GORILA, limitar, distancia } from './rules.js';
-import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega } from './terreno.js';
+import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio } from './terreno.js';
 export { ancho, alto };
 export const dificultades=['Fácil','Normal','Difícil','Extremo'];
 const niveles=[[650,1,1],[775,1.12,1.06],[900,1.24,1.12],[1050,1.38,1.15],[1200,1.53,1.20],[1350,1.68,1.25],[1500,1.84,1.29],[1675,2.02,1.35],[1850,2.20,1.40],[2050,2.40,1.44],[2275,2.63,1.50],[2500,2.85,1.56]];
 const efecto_vigente=(batalla,nombre)=>batalla.efectos.some(e=>e.nombre===nombre&&e.restante>0);
-const armados=h=>Boolean(h.objeto);
 export const activo=h=>h.estado!=='eliminado'&&h.estado!=='incapacitado'&&h.vida>0;
 const azar_normalizado=(azar)=>limitar(azar(),0,0.999999);
 const cerca=(h,g,r)=>distancia(h,g)<r;
 function registrar(batalla,tipo,datos={}) {batalla.eventos.push({tipo,tiempo:300-batalla.tiempo,...datos});if(batalla.eventos.length>300)batalla.eventos.shift();}
+const capacidad_busqueda = .08;
+const salud = h => limitar(h.vida / h.vida_maxima, 0, 1);
+
+export function condiciones_combate(h) {
+  const fuerza = h.radar.fuerza / 100;
+  const resistencia = .45 + .42 * fuerza + .08 * h.radar.temple / 100 + .05 * h.radar.agilidad / 100;
+  const lesion = 1 - salud(h);
+  const valor = (h.valentia ?? 55) / 100;
+  return {
+    velocidad: (1 - lesion * (.70 - resistencia * .34)) * (.82 + valor * .31),
+    potencia: (1 - lesion * (.79 - resistencia * .36)) * (.66 + valor * .58),
+  };
+}
+
+function puede_actuar(h, g) {
+  return Boolean(h) && activo(h) && !h.vuelo && !(g.fase === 'agarre' && g.sujeto === h);
+}
+
+function asignar_busqueda(b, hombres) {
+  const buscadores = b.armas_suelo.some(objeto => !objeto.recogido_por)
+    ? new Set(hombres.filter(h => puede_actuar(h, b.gorila))
+      .sort((a, z) => distancia(z, b.gorila) - distancia(a, b.gorila) || a.id - z.id)
+      .slice(0, Math.round(hombres.length * capacidad_busqueda)))
+    : new Set();
+  for (const h of hombres) {
+    const orden = buscadores.has(h) ? 'buscar_armas' : 'atacar';
+    if (h.orden !== orden) {
+      h.orden = orden;
+      h.buscando = null;
+    }
+  }
+}
+
 export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones={}) {
   const n=limitar(Math.floor(dificultad),0,3)*3+1+Math.floor(azar_normalizado(azar)*3);
   const [vida,fuerza,tamano]=niveles[n-1];
   const arena=ARENAS[opciones.arena]?opciones.arena:'claro';
   const batalla = {
-    estrategia: 'atacar',
+    estrategia: 'atacar', busqueda_en: 0, golpes_disponibles: 2,
     tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:0,bananas_ganadas:0,eventos:[],
-    resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a})),
-    entregas:[], suministros:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
+    resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}})),
+    entregas:[], parpadeos:[], suministros:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
     gorila:{x:760,y:320,nivel:n,vida,vida_maxima:vida,fuerza,radio:24*(tamano+azar()*.04),
       fase:'espera',reloj:2,ataques:0,energia:100,miedo:0,accion:'',recargas:{},memoria:{},
       furia:0,atrapado:0,reduccion_velocidad:0,descansando:false},
     hombres:personajes.map(personaje=>{
       const indice=personaje.id-1;
-      const x = 62 + indice % 10 * 30;
-      const y = 154 + Math.floor(indice / 10) * 36;
+      const x = 53 + indice % 10 * 36;
+      const y = 120 + Math.floor(indice / 10) * 43;
       const vida_maxima=35+(personaje.radar.estrategia||50)*.65;
-      return {...personaje,x,y,vida:vida_maxima,vida_maxima,energia:100,vx:0,vy:0,miedo:0,
-        recarga:0,reaccion:0,orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,
+      return {...personaje,objeto:personaje.objeto ? {...personaje.objeto} : null,x,y,vida:vida_maxima,vida_maxima,energia:100,vx:0,vy:0,miedo:0,
+        recarga:0,reaccion:0,defensa:0,valentia:40+personaje.radar.temple*.48,orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,
         mejoras:[],buscando:null,oculto:false};
     }),
   };
@@ -46,6 +78,10 @@ export function dar_orden(batalla, orden) {
     if (!activo(hombre)) continue;
     hombre.orden = orden;
     hombre.buscando = null;
+  }
+  if (orden === 'buscar_armas') {
+    asignar_busqueda(batalla, batalla.hombres.filter(activo));
+    batalla.busqueda_en = batalla.transcurrido + 1.2;
   }
   batalla.tacticas_usadas[orden] = (batalla.tacticas_usadas[orden] || 0) + 1;
   registrar(batalla, 'orden', { orden });
@@ -67,6 +103,10 @@ export function comprar_suministro(batalla,id) {
 }
 
 export const duracion_entrega = 2.2;
+const intervalo_parpadeo = .16;
+export const duracion_parpadeo = 6 * intervalo_parpadeo;
+export const paracaidas_visible = (tiempo, aterrizaje) =>
+  Math.floor((tiempo - aterrizaje) / intervalo_parpadeo) % 2 === 1;
 
 function aplicar_suministro(batalla, entrega) {
   const { tipo: id, x, y } = entrega;
@@ -90,7 +130,7 @@ function aplicar_suministro(batalla, entrega) {
     for(let i=0;i<capacidad;i++){
       const modelo=batalla.hombres[i%batalla.hombres.length];
       batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:x+(i-2)*22,y,altura:0,vz:0,vuelo:null,orden:batalla.estrategia,
-        vx:0,vy:0,miedo:0,recarga:0,reaccion:0,mejoras:[],buscando:null,oculto:false,proteccion:0,bono_dano:0,
+        vx:0,vy:0,miedo:0,recarga:0,reaccion:0,defensa:0,valentia:40+modelo.radar.temple*.48,mejoras:[],buscando:null,oculto:false,proteccion:0,bono_dano:0,
         fuerza_efectiva:modelo.radar.fuerza,velocidad_efectiva:modelo.radar.velocidad});
     }
     batalla.reservas-=capacidad;
@@ -100,6 +140,7 @@ function aplicar_suministro(batalla, entrega) {
   } else {
     batalla.suministros.push({ tipo: 'paquete', x, y, restante: 2 });
   }
+  batalla.parpadeos.push({ x, y, aterrizaje: batalla.transcurrido });
   registrar(batalla, 'paquete_entregado', { id });
 }
 function recompensa(batalla,danio,dt=0) {
@@ -112,96 +153,143 @@ function recompensa(batalla,danio,dt=0) {
 function caminar(h,d,dt,velocidad=1) {
   if(!d)return;
   const distancia_restante=distancia(h,d);
-  const ritmo=(24+h.velocidad_efectiva*1.05)*(h.energia<20?.6:1)*velocidad;
+  const ritmo = (14 + h.velocidad_efectiva * .58) * (h.energia < 20 ? .67 : 1) * velocidad;
   const giro=Math.min(1,dt*(3+h.radar.agilidad*.14));
   const escala=distancia_restante>3?Math.min(ritmo,distancia_restante/Math.max(dt,.001))/distancia_restante:0;
   h.vx+=((d.x-h.x)*escala-h.vx)*giro;h.vy+=((d.y-h.y)*escala-h.vy)*giro;
   h.x=limitar(h.x+h.vx*dt,10,ancho-10);h.y=limitar(h.y+h.vy*dt,10,alto-10);
 }
-function buscar_objeto(b,h) {
-  const disponibles=b.armas_suelo.filter(a=>!a.recogido_por);
-  if(!disponibles.length)return null;
-  const conocimiento=h.radar.inteligencia/100;
-  const visibles=disponibles.filter(a=>a.visible||conocimiento>.75);
-  if(!visibles.length)return null;
-  return visibles.reduce((m,a)=>!m||distancia(h,a)<distancia(h,m)?a:m,null);
+export function buscar_objeto(b, h) {
+  const inteligencia = limitar(h.radar.inteligencia * condiciones_combate(h).potencia / 100, 0, 1);
+  const disponibles = b.armas_suelo.filter(objeto => !objeto.recogido_por && (objeto.disponible_en ?? 0) <= b.transcurrido &&
+    (!h.objeto || (objeto.objeto.tipo === 'fuego' && h.objeto.tipo !== 'fuego') ||
+      (objeto.objeto.tipo !== 'fuego' && h.objeto.tipo !== 'fuego' &&
+        (objeto.objeto.bono_fuerza_pb || 0) > (h.objeto.bono_fuerza_pb || 0)) ||
+      (objeto.objeto.tipo === 'fuego' && objeto.objeto.municion > h.objeto.municion)) &&
+    (objeto.visible || distancia(h, objeto) <= 65 + 340 * inteligencia));
+  const actual = disponibles.find(objeto => objeto.id === h.buscando);
+  if (actual) return actual;
+  if (!disponibles.length) return null;
+  const reservados = new Set(b.hombres.filter(otro => otro !== h && otro.orden === 'buscar_armas').map(otro => otro.buscando));
+  const puntuacion = objeto => distancia(h, objeto) + (reservados.has(objeto.id) ? 1000 : 0)
+    - inteligencia * (objeto.objeto.tipo === 'fuego' ? 120 : Math.min(70, (objeto.objeto.bono_fuerza_pb || 0) / 20));
+  return disponibles.reduce((mejor, objeto) => puntuacion(objeto) < puntuacion(mejor) ? objeto : mejor);
 }
-function actualizar_hombre(b,h,dt,puesto) {
-  const g=b.gorila,cerca_g=Math.hypot(distancia(h,g), (h.altura-g.altura)*1.6);
-  h.recarga=Math.max(0,h.recarga-dt);h.reaccion=Math.max(0,h.reaccion-dt);
-  for(const mejora of h.mejoras)mejora.restante-=dt;
-  h.mejoras=h.mejoras.filter(m=>m.restante>0);
-  const pánico=h.miedo>12+h.radar.temple*.76;
-  h.miedo=limitar(h.miedo-dt*(cerca_g>175?15:4),0,100);
-  const gasto=(TACTICAS[h.orden]?.energia||.25)*(h.orden==='mantener'?0.3:1);
-  h.energia=limitar(h.energia-dt*gasto+(h.orden==='mantener'||h.orden==='esconder'?dt*1.3:0),0,100);
-  h.estado=h.vida<h.vida_maxima*.35?'herido':h.energia<20?'cansado':pánico?'panico':'normal';
-  h.oculto=h.orden==='esconder'||(h.orden==='emboscada'&&cerca_g>120);
-  let destino=h;
-  if(h.orden==='rescatar') {
-    const caido=b.hombres.filter(p=>p.estado==='incapacitado').sort((a,z)=>distancia(h,a)-distancia(h,z))[0];
-    if(caido){destino=caido;if(distancia(h,caido)<18&&h.recarga===0){
-      caido.estado='herido';caido.vida=Math.max(8,caido.vida_maxima*.15);caido.orden='retirar';
-      h.recarga=8;registrar(b,'rescate',{hombre:caido.id,paramedico:h.id});
-    }}else h.orden='mantener';
-  }
-  else if(h.orden==='retirar'||h.orden==='huir'||(h.orden==='atacar'&&pánico))destino={x:h.x+(h.x-g.x),y:h.y+(h.y-g.y)};
-  else if(h.orden==='distraer'){
-    const distancia = Math.max(cerca_g, 1);
-    const lado = h.id % 2 ? 1 : -1;
-    const ajuste = limitar((105 - cerca_g) / 35, -2, 2);
-    const dx = (h.x - g.x) / distancia;
-    const dy = (h.y - g.y) / distancia;
-    destino = { x: h.x + 45 * (dx * ajuste - dy * lado), y: h.y + 45 * (dy * ajuste + dx * lado) };
-  }
-  else if(h.orden==='buscar_armas'){
-    const objeto=buscar_objeto(b,h);h.buscando=objeto?.id||null;
-    if(objeto){destino=objeto;if(distancia(h,objeto)<15){
-      h.objeto=objeto.objeto;objeto.recogido_por=h.id;
-      h.fuerza_efectiva=h.radar.fuerza*(1+(h.objeto?.bono_fuerza_pb||0)/10000);
-      h.velocidad_efectiva=h.radar.velocidad*(1-(h.objeto?.penalizacion_velocidad_pb||0)/10000);
-      registrar(b,'arma_encontrada',{hombre:h.id,objeto:h.objeto.nombre});
-      h.orden='retirar';
-    }} else h.orden='esconder';
-  } else if(h.orden==='esconder'||h.orden==='emboscada') {
-    const cobertura=ARENAS[b.arena].cobertura;
-    if(cobertura>.3)destino={x:limitar(h.x+(h.id%2?20:-20),10,990),y:limitar(h.y+(h.id%3?15:-15),10,630)};
-  } else if(puesto!==undefined) {
-    const angulo=(puesto%20)*Math.PI*2/20,radio=g.radio+12+Math.floor(puesto/20)*16;
-    destino={x:g.x+Math.cos(angulo)*radio,y:g.y+Math.sin(angulo)*radio};
-  }
-  if(g.fase==='aviso'&&g.accion!=='rugido'&&h.reaccion===0&&!['huir','retirar'].includes(h.orden)
-    &&h.radar.inteligencia>=36&&g.destino&&distancia(h,g.destino)<52+h.radar.inteligencia*.45) {
-    destino={x:h.x*2-g.destino.x,y:h.y*2-g.destino.y};
-  }
-  const mov=h.orden==='huir'?1.4:h.orden==='esconder'?.5:1;
-  caminar(h, destino, dt, mov * (altura_terreno(h, b.arena) > 8 ? .7 : 1));
-  const emboscando=h.orden==='emboscada'&&cerca_g<g.radio+35;
-  const disparo=h.objeto?.tipo==='fuego'&&h.objeto.municion>0;
-  const alcance=disparo?h.objeto.alcance:g.radio+24;
-  if((h.orden==='atacar'||emboscando)&&!pánico&&h.reaccion===0&&h.recarga<=0&&cerca_g<=alcance){
-    h.recarga=disparo?1.15:2.4-h.radar.tecnica*.016;
-    if(disparo){h.objeto.municion--;registrar(b,'disparo',{hombre:h.id,restante:h.objeto.municion});}
-    const bono_estrategia=efecto_vigente(b,'plan')?.15:0;
-    const humo=efecto_vigente(b,'humo')?-.12:0;
-    const golpe=azar_normalizado(b.azar)<limitar(.2+h.radar.precision*.0075+bono_estrategia+humo,.05,.95);
-    if(golpe){
-      const apertura=g.fase==='recuperacion'?1.45:1;
-      const arma=h.objeto?1+(h.objeto.bono_fuerza_pb||0)/10000:1;
-      const cuerdas=b.suministros.some(s=>s.tipo==='cuerdas')?1.12:1;
-      const alerta=g.memoria.emboscada?.85:1;
-      const danio=(1+h.fuerza_efectiva*.065)*apertura*arma*(disparo?3:1)*(1+h.bono_dano)*(emboscando?1.35*cuerdas*alerta:1);
-      const aplicado=Math.min(g.vida,danio);g.vida=Math.max(0,g.vida-aplicado);recompensa(b,aplicado);
+
+function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
+  const g = b.gorila;
+  const distancia_plana = distancia(h, g);
+  const cerca_g = Math.hypot(distancia_plana, (h.altura - g.altura) * 1.6);
+  h.recarga = Math.max(0, h.recarga - dt);
+  h.defensa = Math.max(0, (h.defensa || 0) - dt);
+  for (const mejora of h.mejoras) mejora.restante -= dt;
+  h.mejoras = h.mejoras.filter(mejora => mejora.restante > 0);
+  const templanza = h.radar.temple / 100;
+  h.miedo = Math.max(0, h.miedo - dt * (cerca_g > 175 ? 8 : 2));
+  const confianza = limitar(40 + templanza * 48 - h.miedo * .56 - (1 - salud(h)) * 26
+    - (1 - cantidad_activos / 100) * 24 + (1 - g.vida / g.vida_maxima) * 18
+    + (efecto_vigente(b, 'inspiracion') ? 18 : 0), 0, 100);
+  h.valentia += (confianza - h.valentia) * Math.min(1, dt * 1.4);
+  const panico = h.valentia < 22;
+  h.estado = salud(h) < .35 ? 'herido' : h.energia < 20 ? 'cansado' : panico ? 'panico' : 'normal';
+  h.energia = limitar(h.energia + dt * (h.recarga > 0 ? 4.2 : 2.6) - (h.orden === 'huir' ? dt * 1.7 : 0), 0, 100);
+  const rendimiento = condiciones_combate(h);
+  const disparo = h.objeto?.tipo === 'fuego' && h.objeto.municion > 0;
+  const alcance = disparo ? h.objeto.alcance : g.radio + 27;
+  const amenazado = (g.fase === 'aviso' || g.fase === 'embestida') && g.accion !== 'rugido'
+    && g.destino && distancia(h, g.destino) < g.radio + 75
+    && Math.abs(h.altura - g.altura) < 35;
+  if (amenazado && h.orden !== 'huir' && h.valentia >= 22) {
+    if (h.energia >= 6 && h.defendio_ataque !== g.ataques) {
+      h.defendio_ataque = g.ataques;
+      h.energia -= 4;
     }
-    if(emboscando)h.orden='retirar';
+    if (h.defendio_ataque === g.ataques) h.defensa = .22;
+  }
+  let destino = h;
+  h.oculto = h.orden === 'esconder' && tiene_cobertura(h, g, b.arena);
+  if (h.orden === 'huir' || (h.orden === 'atacar' && panico)) {
+    destino = { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
+  } else if (h.orden === 'esconder' && !h.oculto) {
+    destino = refugio(h, g, b.arena) ?? { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
+  } else if (h.orden === 'rescatar') {
+    const caido = b.hombres.filter(p => p.estado === 'incapacitado' && !p.vuelo)
+      .sort((a, z) => distancia(h, a) - distancia(h, z))[0];
+    if (caido) {
+      destino = caido;
+      if (distancia(h, caido) < 38 && h.recarga <= 0) {
+        caido.estado = 'herido';
+        caido.vida = Math.max(8, caido.vida_maxima * .15);
+        caido.orden = b.estrategia;
+        h.recarga = 8;
+        registrar(b, 'rescate', { hombre: caido.id, paramedico: h.id });
+      }
+    }
+  } else if (h.orden === 'distraer') {
+    const largo = Math.max(distancia_plana, 1);
+    const lado = h.id % 2 ? 1 : -1;
+    const ajuste = limitar((115 - distancia_plana) / 36, -2, 2);
+    const dx = (h.x - g.x) / largo;
+    const dy = (h.y - g.y) / largo;
+    destino = { x: h.x + 45 * (dx * ajuste - dy * lado), y: h.y + 45 * (dy * ajuste + dx * lado) };
+  } else if (h.orden === 'buscar_armas') {
+    const objeto = buscar_objeto(b, h);
+    h.buscando = objeto?.id ?? null;
+    if (objeto) {
+      destino = objeto;
+      const inteligencia = h.radar.inteligencia / 100;
+      if (distancia(h, objeto) < 14 + inteligencia * 11) {
+        if (h.objeto) {
+          b.armas_suelo.push({ id: 'relevo-' + h.id + '-' + b.transcurrido, objeto: h.objeto,
+            x: h.x, y: h.y, visible: true, recogido_por: null, disponible_en: b.transcurrido + 5 });
+        }
+        h.objeto = objeto.objeto;
+        objeto.recogido_por = h.id;
+        h.fuerza_efectiva = h.radar.fuerza * (1 + (h.objeto.bono_fuerza_pb || 0) / 10000);
+        h.velocidad_efectiva = h.radar.velocidad * (1 - (h.objeto.penalizacion_velocidad_pb || 0) / 10000);
+        registrar(b, 'arma_encontrada', { hombre: h.id, objeto: h.objeto.nombre });
+      }
+    } else {
+      const angulo = h.id * 2.4 + b.transcurrido * .16;
+      destino = { x: ancho / 2 + Math.cos(angulo) * 330, y: alto / 2 + Math.sin(angulo) * 214 };
+    }
+  } else if (puesto !== undefined && !(disparo && cerca_g < alcance * .85)) {
+    const angulo = (puesto % 11) * Math.PI * 2 / 11 + Math.floor(puesto / 11) * .18;
+    const radio = g.radio + 19 + Math.floor(puesto / 11) * 35;
+    destino = { x: g.x + Math.cos(angulo) * radio, y: g.y + Math.sin(angulo) * radio };
+  }
+  if (amenazado && h.defensa > 0 && h.orden === 'atacar') destino = { x: 2 * h.x - g.destino.x, y: 2 * h.y - g.destino.y };
+  if (h.defensa > 0) destino = { x: limitar(destino.x, 14, ancho - 14), y: limitar(destino.y, 14, alto - 14) };
+  const ritmo = h.orden === 'huir' ? 1.3 : h.orden === 'esconder' ? .83 : 1;
+  caminar(h, destino, dt, ritmo * rendimiento.velocidad * (altura_terreno(h, b.arena) > 8 ? .7 : 1));
+  if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 || h.energia < 14 ||
+    cerca_g > alcance || (disparo && tiene_cobertura(g, h, b.arena)) || b.golpes_disponibles < 1) return;
+  b.golpes_disponibles -= 1;
+  h.recarga = (disparo ? 3.6 : 4.7) - h.radar.tecnica * .009;
+  h.atacando_hasta = b.transcurrido + .38;
+  h.energia -= disparo ? 10 : 15;
+  if (disparo) {
+    h.objeto.municion--;
+    registrar(b, 'disparo', { hombre: h.id, restante: h.objeto.municion });
+  }
+  const bono_estrategia = efecto_vigente(b, 'plan') ? .15 : 0;
+  const humo = efecto_vigente(b, 'humo') ? -.12 : 0;
+  if (azar_normalizado(b.azar) < limitar((.21 + h.radar.precision * .007) * rendimiento.potencia + bono_estrategia + humo, .05, .95)) {
+    const apertura = g.fase === 'recuperacion' ? 1.35 : 1;
+    const danio = (1 + h.fuerza_efectiva * .086) * rendimiento.potencia * apertura * (disparo ? 2.6 : 1) * (1 + h.bono_dano);
+    const aplicado = Math.min(g.vida, danio);
+    g.vida -= aplicado;
+    recompensa(b, aplicado);
   }
 }
+
 function danar_hombre(b,h,multiplicador=1) {
   if(!activo(h))return;
   const g=b.gorila;
   const cobertura=b.suministros.some(s=>s.tipo==='barricada'&&distancia(h,s)<80)?0.65:1;
   const furia=g.furia>0?VENTAJAS_GORILA.furia.fuerza:1;
-  const impacto=(70+azar_normalizado(b.azar)*55)*g.fuerza*furia*multiplicador*(1-h.proteccion)*cobertura;
+  const defensa = h.defensa > 0 ? .76 - h.radar.agilidad * .002 : 1;
+  const impacto=(22+azar_normalizado(b.azar)*18)*g.fuerza*furia*multiplicador*(1-h.proteccion)*cobertura*defensa;
   h.vida=Math.max(0,h.vida-impacto);h.miedo=limitar(h.miedo+45,0,100);
   if(h.vida<=0) {
     h.estado=azar_normalizado(b.azar)<.22?'incapacitado':'eliminado';
@@ -243,10 +331,11 @@ function resolver_ataque(b,activos) {
     if(!g.destino||distancia(h,g.destino)>radio)continue;
     if(g.accion==='rugido'){h.miedo=limitar(h.miedo+38,0,100);continue;}
     const factor=g.accion==='golpe_area'?.82:1;
+    if (g.accion === 'barrido' && g.objetivo && h !== g.objetivo) continue;
     if (h.vuelo || Math.abs(h.altura - g.altura) > 35) continue;
     if (g.accion === 'embestida') impacto_embestida(b, h);
     else {
-      danar_hombre(b, h, factor * (h.orden === 'defender' ? .75 : 1));
+      danar_hombre(b, h, factor);
       if (g.accion === 'golpe_area') lanzar(b, h, g, 94);
     }
   }
@@ -257,12 +346,34 @@ function impacto_embestida(b, h) {
   g.impactados ??= new Set();
   if (g.impactados.has(h.id) || !activo(h) || h.vuelo || Math.abs(h.altura - g.altura) > 35) return;
   g.impactados.add(h.id);
-  danar_hombre(b, h, h.orden === 'defender' ? .84 : 1.12);
+  danar_hombre(b, h, 1.12);
   lanzar(b, h, g, 94);
 }
 
 function cooldown(g,nombre,segundos){g.recargas[nombre]=segundos;}
 function habilitada(g,nombre){return (g.recargas[nombre]||0)<=0;}
+function mover_gorila(g, destino, dt, ritmo, arena) {
+  const paso = Math.min(1, ritmo * dt / Math.max(distancia(g, destino), 1));
+  const x = limitar(g.x + (destino.x - g.x) * paso, 25, ancho - 25);
+  const y = limitar(g.y + (destino.y - g.y) * paso, 30, alto - 30);
+  if (Math.abs(x - g.x) > .1) g.mira_izquierda = x < g.x;
+  g.movimiento = Math.hypot(x - g.x, y - g.y) / dt;
+  g.x = x;
+  g.y = y;
+  actualizar_altura(g, arena, dt);
+  return paso === 1;
+}
+
+function salida_gorila(g, hombres) {
+  const candidatos = Array.from({ length: 12 }, (_, i) => {
+    const angulo = i * Math.PI / 6;
+    return { x: limitar(g.x + Math.cos(angulo) * 180, 60, ancho - 60),
+      y: limitar(g.y + Math.sin(angulo) * 150, 55, alto - 55) };
+  });
+  const puntuacion = punto => Math.min(...hombres.map(h => distancia(h, punto))) + distancia(g, punto) * .14;
+  return candidatos.reduce((mejor, punto) => puntuacion(punto) > puntuacion(mejor) ? punto : mejor);
+}
+
 function actualizar_gorila(b,activos,dt) {
   const g=b.gorila;
   for(const key of Object.keys(g.recargas))g.recargas[key]=Math.max(0,g.recargas[key]-dt);
@@ -274,11 +385,31 @@ function actualizar_gorila(b,activos,dt) {
   if(g.energia<20&&habilitada(g,'segundo_aliento')&&g.fase!=='aviso'){
     g.energia=Math.min(100,g.energia+20);cooldown(g,'segundo_aliento',90);registrar(b,'segundo_aliento');
   }
-  g.reloj-=dt;
+  g.movimiento = 0;
+  g.reloj -= dt;
+  const lento = g.reduccion_velocidad > 0 ? .60 : 1;
+  if (g.fase === 'repliegue') {
+    if (mover_gorila(g, g.destino, dt, 83 * lento, b.arena) || g.reloj <= 0) {
+      g.fase = 'espera';
+      g.reloj = .25;
+    }
+    return;
+  }
+  if (g.fase === 'persecucion') {
+    if (puede_actuar(g.objetivo, g) && !g.objetivo.oculto && g.reloj > 0) {
+      g.destino = { x: g.objetivo.x, y: g.objetivo.y };
+      if (distancia(g, g.objetivo) > g.radio + 43) {
+        mover_gorila(g, g.destino, dt, 77 * lento, b.arena);
+        return;
+      }
+    }
+    g.fase = 'espera';
+    g.reloj = 0;
+  }
   if (g.fase === 'agarre') {
     const h = g.sujeto;
-    if (g.reloj <= 0 || !activo(h)) {
-      if (activo(h)) {
+    if (g.reloj <= 0 || !h || !activo(h)) {
+      if (h && activo(h)) {
         lanzar(b, h, g, 145);
         h.vuelo.agarre = true;
         registrar(b, 'lanzamiento', { hombre: h.id });
@@ -290,19 +421,13 @@ function actualizar_gorila(b,activos,dt) {
     return;
   }
   if(g.fase==='embestida'){
-    const ruta = g.destino;
-    const recorrido = distancia(g, ruta);
-    const lento=g.reduccion_velocidad>0?.6:1;
-    const fatiga=g.energia<20?.6:1;
-    const furia=g.furia>0?VENTAJAS_GORILA.furia.velocidad:1;
-    const paso=Math.min(1,(g.altura > 10 ? 350 : 510)*dt*lento*fatiga*furia/Math.max(recorrido,1));
-    g.x += (ruta.x - g.x) * paso;
-    g.y += (ruta.y - g.y) * paso;
-    actualizar_altura(g, b.arena, dt);
+    const fatiga = g.energia < 20 ? .7 : 1;
+    const furia = g.furia > 0 ? VENTAJAS_GORILA.furia.velocidad : 1;
+    const llego = mover_gorila(g, g.destino, dt, (g.altura > 10 ? 158 : 210) * lento * fatiga * furia, b.arena);
     for (const h of activos) {
       if (distancia(h, g) < g.radio + 10) impacto_embestida(b, h);
     }
-    if (paso === 1 || g.reloj <= 0) {
+    if (llego || g.reloj <= 0) {
       g.destino = { x: g.x, y: g.y };
       resolver_ataque(b, activos);
     }
@@ -313,9 +438,9 @@ function actualizar_gorila(b,activos,dt) {
     if(g.accion==='embestida'){
       g.fase = 'embestida';
       g.impactados = new Set();
-      g.reloj = 2;
+      g.reloj = 3.1;
     } else if (g.accion === 'agarre') {
-      if (activo(g.sujeto) && !g.sujeto.vuelo && distancia(g, g.sujeto) < g.radio + 54
+      if (puede_actuar(g.sujeto, g) && distancia(g, g.sujeto) < g.radio + 54
         && Math.abs(g.sujeto.altura - g.altura) < 26) {
         g.fase = 'agarre';
         g.reloj = 1.1;
@@ -331,29 +456,54 @@ function actualizar_gorila(b,activos,dt) {
   const trampa=b.suministros.find(s=>s.tipo==='trampa'&&distancia(g,s)<45);
   if(trampa){g.fase='recuperacion';g.reloj=3;trampa.restante=0;registrar(b,'trampa_activada');return;}
   const señuelo=b.suministros.find(s=>s.tipo==='senuelos');
-  const memoria_escondite=Boolean(g.memoria.esconder||g.memoria.emboscada);
-  const amenazas=activos.filter(h=>!h.oculto||distancia(h,g)<(memoria_escondite?125:70));
+  const amenazas = activos.filter(h => puede_actuar(h, g) && !h.oculto);
+  if (!amenazas.length) {
+    g.destino = zona_entrega(b.arena, b.azar);
+    g.fase = 'repliegue';
+    g.reloj = 2.6;
+    return;
+  }
   const distracciones = amenazas.filter(h => h.orden === 'distraer' && cerca(h, g, 145));
-  const candidatos = distracciones.length ? distracciones : amenazas.length ? amenazas : activos;
-  const objetivo=candidatos.reduce((m,h)=>distancia(h,g)<distancia(m,g)?h:m);
+  const candidatos = distracciones.length ? distracciones : amenazas;
+  const puntuacion = h => distancia(g, h) + 13 * amenazas.filter(otro => otro !== h && cerca(h, otro, 57)).length;
+  const objetivo = candidatos.reduce((mejor, h) => puntuacion(h) < puntuacion(mejor) ? h : mejor);
+  const cercano = amenazas.reduce((mejor, h) => distancia(g, h) < distancia(g, mejor) ? h : mejor);
+  const cercanos = amenazas.filter(h => cerca(h, g, g.radio + 91)).length;
+  if ((cercanos >= 5 || (cercanos >= 2 && g.vida / g.vida_maxima < .38)) && habilitada(g, 'repliegue')) {
+    g.destino = salida_gorila(g, amenazas);
+    g.fase = 'repliegue';
+    g.reloj = 2.8;
+    cooldown(g, 'repliegue', 8);
+    registrar(b, 'gorila_se_repliega');
+    return;
+  }
   if(señuelo&&azar_normalizado(b.azar)<.55){
+    g.ataques++;
     g.accion='embestida';g.destino={x:señuelo.x,y:señuelo.y};g.fase='aviso';g.reloj=.8;
     señuelo.restante=0;registrar(b,'gorila_distraido');return;
   }
-  const d=distancia(g,objetivo),cercanos=activos.filter(h=>cerca(h,g,g.radio+80)).length;
+  const presa = distancia(g, cercano) < g.radio + 43 ? cercano : objetivo;
+  const d = distancia(g, presa);
+  g.objetivo = presa;
+  g.mira_izquierda = presa.x < g.x;
+  if (d > g.radio + 43 && (d < 155 || !habilitada(g, 'carga'))) {
+    g.fase = 'persecucion';
+    g.reloj = 3.5;
+    return;
+  }
   const táctica=Object.entries(b.tacticas_usadas).sort((a,z)=>z[1]-a[1])[0];
   if(táctica&&táctica[1]>=3)g.memoria[táctica[0]]=true;
   g.ataques++;
-  if (d < g.radio + 43 && habilitada(g,'agarre') && !objetivo.vuelo) {
+  if (d < g.radio + 43 && habilitada(g,'agarre') && !presa.vuelo) {
     g.accion = 'agarre';
-    g.sujeto = objetivo;
-    g.mira_izquierda = objetivo.x < g.x;
+    g.sujeto = presa;
+    g.mira_izquierda = presa.x < g.x;
     cooldown(g, 'agarre', 12);
   } else if(cercanos>=8&&habilitada(g,'golpe_area')){g.accion='golpe_area';cooldown(g,'golpe_area',35);}
   else if(g.ataques%4===0&&habilitada(g,'rugido')){g.accion='rugido';cooldown(g,'rugido',45);}
-  else if(d>185&&habilitada(g,'carga')){g.accion='embestida';cooldown(g,'carga',30);}
+  else if(d>=155&&habilitada(g,'carga')){g.accion='embestida';cooldown(g,'carga',30);}
   else g.accion=d<g.radio+40?'barrido':'embestida';
-  g.destino=g.accion==='embestida'?{x:objetivo.x,y:objetivo.y}:{x:g.x,y:g.y};
+  g.destino=g.accion==='embestida'?{x:presa.x,y:presa.y}:{x:g.x,y:g.y};
   g.fase='aviso';g.reloj=Math.max(.55,1.32-g.nivel*.035);
   g.energia=limitar(g.energia-7,0,100);
   for(const h of activos)h.reaccion=(100-h.radar.agilidad)*.008;
@@ -373,15 +523,24 @@ export function avanzar_batalla(b,dt) {
     aplicar_suministro(b, entrega);
     return false;
   });
+  b.parpadeos = b.parpadeos.filter(p => b.transcurrido - p.aterrizaje < duracion_parpadeo);
+  b.golpes_disponibles = Math.min(2, b.golpes_disponibles + dt * 2.5);
   actualizar_vuelos(b);
   const activos=b.hombres.filter(activo);
   if(!activos.length||b.tiempo===0){b.resultado='Victoria del gorila';return;}
+  for (const h of activos) h.oculto = h.orden === 'esconder' && tiene_cobertura(h, b.gorila, b.arena);
   actualizar_gorila(b,activos,dt);
-  let puesto=0;
-  for(const h of activos){
+  const disponibles = activos.filter(activo);
+  if (b.estrategia === 'buscar_armas' && b.transcurrido >= b.busqueda_en) {
+    asignar_busqueda(b, disponibles);
+    b.busqueda_en = b.transcurrido + 1.2;
+  }
+  const puestos = new Map(disponibles.filter(h => h.orden === 'atacar' && h.valentia >= 22).map((h, i) => [h, i]));
+  const turno = Math.floor(b.transcurrido * 2.5) % activos.length;
+  for (let i = 0; i < activos.length; i++) {
+    const h = activos[(i + turno) % activos.length];
     if(!activo(h) || h.vuelo || (b.gorila.fase === 'agarre' && b.gorila.sujeto === h))continue;
-    const dispuesto=h.orden==='atacar'&&h.miedo<=12+h.radar.temple*.76;
-    actualizar_hombre(b,h,dt,dispuesto?puesto++:undefined);
+    actualizar_hombre(b, h, dt, puestos.get(h), disponibles.length);
   }
   const suelo = b.hombres.filter(h => activo(h) && !h.vuelo && !(b.gorila.fase === 'agarre' && b.gorila.sujeto === h));
   separar_personajes(suelo, b.gorila);

@@ -24,6 +24,11 @@ const perfiles = [
   ['Anciano',{velocidad:28,agilidad:28,estrategia:30,temple:30},65,100],
 ];
 
+export const radar_arquetipo = Object.fromEntries(
+  [...perfiles, ['Tarzán', Object.fromEntries(habilidades.map(eje => [eje, 90]))]]
+    .map(([nombre, rasgos]) => [nombre, Object.fromEntries(habilidades.map(eje => [eje, rasgos[eje] ?? 50]))]),
+);
+
 const edades = [
   [18, .95, 1], [24, .95, 1], [25, 1, 1], [34, 1, 1],
   [42, .95, .90], [57, .85, .78], [72, .72, .63],

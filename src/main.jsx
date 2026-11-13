@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
-import { crear_sorteo_objetos, preparar_equipo, habilidades } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, activo, dar_orden, comprar_suministro, dificultades } from './battle.js';
+import { crear_sorteo_objetos, preparar_equipo, habilidades, radar_arquetipo } from './roster.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, activo, dar_orden, comprar_suministro, dificultades, condiciones_combate } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
-import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
+import { ARENAS, TACTICAS, SUMINISTROS, resumir_equipo } from './rules.js';
 import './style.css';
 
 const sortear_objeto = crear_sorteo_objetos(catalogo);
@@ -24,7 +24,7 @@ function poligono(radios) {
   return radios.map((radio, indice) => punto(indice, radio).join(',')).join(' ');
 }
 
-function Radar({ radar, maximo = 100 }) {
+function Radar({ radar }) {
   return <svg className="radar" viewBox="0 0 290 210" role="img"
     aria-label={etiquetas.map((etiqueta, indice) => `${etiqueta} ${formato.format(radar[habilidades[indice]])}`).join(', ')}>
     {[18, 36, 54, 72].map(radio => <polygon key={radio} points={poligono(Array(habilidades.length).fill(radio))}
@@ -38,15 +38,15 @@ function Radar({ radar, maximo = 100 }) {
           dominantBaseline="middle">{etiquetas[indice]}</text>
       </g>;
     })}
-    <polygon points={poligono(habilidades.map(eje => radar[eje] * 72 / maximo))}
+    <polygon points={poligono(habilidades.map(eje => radar[eje] * .72))}
       fill="#acdd7960" stroke="#b5e880" strokeWidth="2" />
   </svg>;
 }
 
 const formato = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
 const categorias = {
-  Combate: ['atacar', 'defender', 'mantener', 'emboscada'],
-  Supervivencia: ['retirar', 'huir', 'esconder', 'rescatar'],
+  Combate: ['atacar'],
+  Supervivencia: ['huir', 'esconder', 'rescatar'],
   Exploración: ['buscar_armas', 'distraer'],
 };
 
@@ -63,16 +63,43 @@ function PanelEquipo({ batalla, perfil, cambiar_perfil }) {
     perfiles.get(hombre.arquetipo).push(hombre);
   }
   const miembros = perfiles.get(perfil);
-  const totales = miembros && Object.fromEntries(habilidades.map(eje =>
-    [eje, miembros.reduce((total, hombre) => total + hombre.radar[eje], 0)]));
+  const radar = radar_arquetipo[perfil];
+  const activos = batalla.hombres.filter(activo);
+  const en_suelo = batalla.armas_suelo.filter(objeto => !objeto.recogido_por);
+  const resumen = resumir_equipo(batalla.hombres, en_suelo);
+  const armas = activos.filter(hombre => hombre.objeto?.tipo === 'fuego').length;
+  const armas_suelo = en_suelo.filter(item => item.objeto.tipo === 'fuego').length;
+  const media = (equipo, valor) => equipo.length ? equipo.reduce((total, hombre) => total + valor(hombre), 0) / equipo.length : 0;
+  const rendimiento = equipo => [
+    ['Valentía media (%)', media(equipo, hombre => hombre.valentia)],
+    ['Velocidad efectiva (%)', media(equipo, hombre => condiciones_combate(hombre).velocidad) * 100],
+    ['Potencia efectiva (%)', media(equipo, hombre => condiciones_combate(hombre).potencia) * 100],
+  ];
   return <aside aria-label="Resumen del equipo">
     {miembros ? <>
       <button onClick={() => cambiar_perfil(null)}>← Todos los perfiles</button>
       <h2>{perfil}</h2>
-      <p>{miembros.filter(activo).length} activos de {miembros.length} · Habilidades acumuladas</p>
-      <Radar radar={totales} maximo={miembros.length * 100} />
-      <Cifras entradas={habilidades.map((eje, indice) => [etiquetas[indice], totales[eje]])} />
+      <p>{miembros.filter(activo).length} activos de {miembros.length} · Radar base del perfil</p>
+      <Radar radar={radar} />
+      <Cifras entradas={habilidades.map((eje, indice) => [etiquetas[indice], radar[eje]])} />
+      <h2>Estado del perfil</h2>
+      <Cifras entradas={rendimiento(miembros.filter(activo))} />
     </> : <>
+      <h2>Resumen del equipo</h2>
+      <Cifras entradas={[
+        ['Activos', activos.length], ['Con equipo', resumen.armados],
+        ['Armas de fuego en uso', armas], ['Armas de fuego en arena', armas_suelo],
+        ['Objetos en arena', en_suelo.length], ['Buscando armas', activos.filter(h => h.orden === 'buscar_armas').length],
+      ]} />
+      <h2>Edades</h2>
+      <Cifras entradas={[
+        ['Adolescentes (18–19)', resumen.edades.adolescentes],
+        ['Adultos (20–54)', resumen.edades.jovenes + resumen.edades.adultos],
+        ['Mayores (55–69)', resumen.edades.mayores], ['Adultos mayores (70+)', resumen.edades.ancianos],
+      ]} />
+      <h2>Estado de combate</h2>
+      <Cifras entradas={rendimiento(activos)} />
+      <p>La fuerza ayuda a conservar velocidad y potencia tras recibir daño. La valentía puede mejorar o reducir ambas.</p>
       <h2>Perfiles del equipo</h2>
       <div className="perfiles">
         {[...perfiles].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es')).map(([nombre, grupo]) =>
@@ -92,15 +119,11 @@ function Barra({ nombre, valor, maximo, detalle }) {
 }
 
 const descripciones = {
-  atacar: 'Avanzan hacia el gorila y atacan cuando entran en alcance.',
-  defender: 'Se protegen en el sitio y reciben un 25 % menos de daño de sus ataques.',
-  mantener: 'Se quedan en su posición y recuperan energía.',
-  emboscada: 'Se ocultan a distancia. Si el gorila se acerca, atacan con más fuerza y se retiran.',
-  retirar: 'Se alejan del gorila a ritmo normal.',
-  huir: 'Se alejan más rápido, con mayor gasto de energía.',
-  esconder: 'Se ocultan y recuperan energía. Buscan cobertura en las arenas que la ofrecen.',
-  rescatar: 'Van hacia los incapacitados y los ayudan a retirarse.',
-  buscar_armas: 'Buscan objetos en la arena y se retiran tras recoger uno.',
+  atacar: 'Se acercan por turnos. Se protegen automáticamente ante un ataque anunciado y recuperan energía entre golpes.',
+  huir: 'Se alejan. Su velocidad depende del daño recibido, la fuerza y la valentía.',
+  esconder: 'Buscan rocas o estructuras que bloqueen la visión del gorila.',
+  rescatar: 'Van hacia los incapacitados y los ayudan a levantarse.',
+  buscar_armas: 'El 8 % más alejado del gorila busca objetos. La inteligencia mejora el alcance y la elección. Los demás siguen combatiendo.',
   distraer: 'Rodean al gorila a distancia para atraer su atención.',
 };
 
@@ -184,7 +207,7 @@ function App() {
     ultimo_cuadro.current = pintar;
     const jugando = iniciada && !en_pausa && !cargando_arena;
     function animar(ahora) {
-      if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * .72);
+      if (anterior !== undefined && jugando) avanzar_batalla(batalla, Math.min(.05, (ahora - anterior) / 1000) * .65);
       anterior = ahora;
       pintar();
       if (ahora - ultimo_panel >= 100) {

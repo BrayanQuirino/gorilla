@@ -1,7 +1,7 @@
 // A fixed oblique camera projects the battle plane into the painted arenas.
 // Painted silhouettes supply per-pixel occlusion for upright actor billboards.
 import { ancho, alto, encuadre } from './terreno.js';
-import { duracion_entrega } from './battle.js';
+import { duracion_entrega, paracaidas_visible } from './battle.js';
 import { limitar } from './rules.js';
 import fotogramas from './art/sprites.json';
 
@@ -11,6 +11,7 @@ const archivos = import.meta.glob('./art/*.{webp,png}', {
 const imagenes = new Map();
 const lados = [0, 1, 2, 0, 2, 3];
 const poses = {
+  paso: ['paso1', 'paso2', 'paso3', 'paso4'],
   embestida: ['carga1', 'carga2', 'carga3', 'carga4'],
   barrido: ['barrido1', 'barrido2', 'barrido3', 'barrido4'],
   golpe_area: ['golpe1', 'golpe2', 'golpe3'],
@@ -196,7 +197,8 @@ function poseGorila(g, tiempo) {
   if (g.descansando || g.vida <= 0) return 'descanso';
   if (g.fase === 'agarre') return g.reloj > .7 ? 'agarre' : 'alzar';
   if (g.accion === 'agarre' && g.fase === 'recuperacion' && g.reloj > .82) return 'soltar';
-  if (g.fase === 'embestida') return poses.embestida[Math.floor(tiempo * 12) % 4];
+  if (g.fase === 'embestida') return poses.embestida[Math.floor(tiempo * 7) % 4];
+  if (g.movimiento > 5) return poses.paso[Math.floor(tiempo * 5) % 4];
   if (g.fase === 'aviso' || g.fase === 'recuperacion') {
     const secuencia = poses[g.accion] ?? poses.barrido;
     if (g.fase === 'recuperacion') {
@@ -216,28 +218,30 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
   const caido = h.estado === 'incapacitado' || h.vida <= 0;
   const moviendo = Math.abs(h.vx) + Math.abs(h.vy) > 10;
   if (Math.abs(h.vx) > 7) mirando.set(h.id, h.vx < 0);
-  const paso = moviendo ? Math.sin(tiempo * 16 + h.id * .7) : 0;
-  const tono = h.oculto ? oculto : h.estado === 'herido' ? herido : blanco;
-  const escala = (.96 + h.y / alto * .16) * (h.edad >= 75 ? .92 : 1);
+  const paso = moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
+  const golpe = Math.max(0, (h.atacando_hasta ?? 0) - tiempo);
+  const tono = h.defensa > 0 ? [1, .88, .61, 1] : h.oculto ? oculto : h.estado === 'herido' ? herido : blanco;
+  const escala = h.edad >= 75 ? .92 : 1;
   sprite(quads, 'sombra', x, y + 4, caido ? .51 : .77, y);
   const retrato = retratos[h.arquetipo] ?? 'estudiante';
   const altura = h.altura || 0;
   const vuelo = h.vuelo ? (tiempo - h.vuelo.inicio) / h.vuelo.duracion : 0;
   const sujeto = g.fase === 'agarre' && g.sujeto === h;
-  sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x, y - altura - Math.abs(paso) * 2,
+  const izquierda = mirando.get(h.id) ?? g.x < h.x;
+  const avance = golpe > 0 ? Math.sin(golpe / .38 * Math.PI) * (g.x < h.x ? -4 : 4) : 0;
+  sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x + avance, y - altura - Math.abs(paso) * 2,
     escala, y + altura * .35, [tono[0], tono[1], tono[2], -tono[3]],
-    h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : paso * .11,
-    mirando.get(h.id) ?? g.x < h.x);
+    h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : h.defensa > 0 ? -.16 : paso * .085,
+    izquierda);
 }
 
 function dibujarGorila(quads, g, x, y, tiempo, espejo) {
-  const escala = limitar(g.radio / 27, .92, 1.48) * (.83 + g.y / alto * .15);
+  const escala = limitar(g.radio / 27, .92, 1.22) * .97;
   const pose = poseGorila(g, tiempo);
   sprite(quads, 'sombra', x, y + 15, escala * 2.75, y);
   const region = fotogramas[pose];
-  const respiracion = pose === 'reposo' ? 1 + Math.sin(tiempo * 3.1) * .024 : 1;
   const altura = g.altura || 0;
-  quads.quad(x, y - altura, region[2] * escala, region[3] * escala * respiracion, y + altura * .35, region, [1, 1, 1, -1], 0, espejo);
+  quads.quad(x, y - altura, region[2] * escala, region[3] * escala, y + altura * .35, region, [1, 1, 1, -1], 0, espejo);
 
 }
 
@@ -263,7 +267,7 @@ function cuadro(quads, batalla, mirando) {
     if (actor === g) {
       const avance = (g.destino?.x ?? ancho / 2) - g.x;
       if (Math.abs(avance) > 4) mirando.set(g, avance < 0);
-      dibujarGorila(quads, g, x, y, tiempo, g.accion === 'agarre' ? g.mira_izquierda : (mirando.get(g) ?? true));
+      dibujarGorila(quads, g, x, y, tiempo, g.mira_izquierda ?? mirando.get(g) ?? true);
     } else if (actor.arquetipo) {
       dibujarHumano(quads, actor, x, y, tiempo, g, mirando);
     } else if (actor.tipo === 'barricada') {
@@ -279,6 +283,11 @@ function cuadro(quads, batalla, mirando) {
     sprite(quads, 'sombra', x, y + 4, 1.35, y);
     sprite(quads, 'paracaidas', x + Math.sin(t * 8) * (1 - t) * 23,
       y * t - 15 * (1 - t), 1, y, [1, 1, 1, -1]);
+  }
+  for (const entrega of batalla.parpadeos) {
+    if (!paracaidas_visible(tiempo, entrega.aterrizaje)) continue;
+    const { x, y } = proyectar(entrega, vista);
+    sprite(quads, 'tela_paracaidas', x, y - 12, 1, y, [1, 1, 1, -1]);
   }
 }
 

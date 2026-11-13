@@ -78,15 +78,60 @@ export function zona_entrega(arena, azar) {
   return punto;
 }
 
-export function separar_personajes(hombres, gorila, vueltas = 1) {
+export function tiene_cobertura(actor, observador, arena) {
+  const dx = actor.x - observador.x;
+  const dy = actor.y - observador.y;
+  const desde = (observador.altura ?? altura_terreno(observador, arena)) + 26;
+  const hasta = altura_terreno(actor, arena) + 13;
+  return obstaculos[arena].some(base => {
+    const vx = dx / base.rx;
+    const vy = dy / base.ry;
+    const largo = vx * vx + vy * vy;
+    if (!largo) return false;
+    const t = ((base.x - observador.x) / base.rx * vx + (base.y - observador.y) / base.ry * vy) / largo;
+    if (t <= .03 || t >= .97) return false;
+    const radio = Math.hypot((observador.x + dx * t - base.x) / base.rx,
+      (observador.y + dy * t - base.y) / base.ry);
+    const altura = base.altura * limitar((1.08 - radio) / .80, 0, 1);
+    return altura > desde + (hasta - desde) * t;
+  });
+}
+
+export function refugio(actor, observador, arena) {
+  const opciones = obstaculos[arena].map(base => {
+    const dx = (base.x - observador.x) / base.rx;
+    const dy = (base.y - observador.y) / base.ry;
+    const radio = Math.hypot(dx, dy) || 1;
+    return {
+      x: limitar(base.x + dx / radio * (base.rx + 30) + (actor.id % 5 - 2) * 10, 24, ancho - 24),
+      y: limitar(base.y + dy / radio * (base.ry + 26) + (actor.id % 7 - 3) * 8, 26, alto - 26),
+    };
+  }).filter(punto => tiene_cobertura(punto, observador, arena));
+  return opciones.sort((a, b) => Math.hypot(a.x - actor.x, a.y - actor.y) -
+    Math.hypot(b.x - actor.x, b.y - actor.y))[0];
+}
+
+const separacion_x = 34;
+const separacion_y = 39;
+const direcciones = Array.from({ length: 16 }, (_, i) =>
+  [Math.cos(i * Math.PI / 8), Math.sin(i * Math.PI / 8)]);
+
+function superpuestos(a, b, margen = 1) {
+  return Math.abs((a.altura ?? 0) - (b.altura ?? 0)) <= 22 &&
+    ((a.x - b.x) / separacion_x) ** 2 + ((a.y - b.y) / separacion_y) ** 2 < margen ** 2;
+}
+
+export function separar_personajes(hombres, gorila, vueltas = 4) {
+  const radio = gorila.radio + 8;
   for (let vuelta = 0; vuelta < vueltas; vuelta++) {
+    let contactos = false;
     for (let i = 0; i < hombres.length; i++) {
       const a = hombres[i];
       const gx = a.x - gorila.x;
       const gy = a.y - gorila.y;
       const distancia_gorila = Math.hypot(gx, gy);
-      const radio = gorila.radio + 5;
       if (distancia_gorila < radio && Math.abs((a.altura ?? 0) - (gorila.altura ?? 0)) < 22) {
+        contactos = true;
         a.x = gorila.x + (distancia_gorila ? gx / distancia_gorila * radio : radio);
         a.y = gorila.y + (distancia_gorila ? gy / distancia_gorila * radio : 0);
       }
@@ -94,11 +139,11 @@ export function separar_personajes(hombres, gorila, vueltas = 1) {
         const b = hombres[j];
         const dx = b.x - a.x;
         const dy = b.y - a.y;
-        if (Math.abs(dx) >= 23 || Math.abs(dy) >= 24 || Math.abs((a.altura ?? 0) - (b.altura ?? 0)) > 22) continue;
-        const distancia = Math.hypot(dx / 23, dy / 24);
-        if (distancia >= 1) continue;
-        const fuerza = distancia ? (1 - distancia) * .5 / distancia : 0;
-        const x = distancia ? dx * fuerza : 11.5;
+        if (Math.abs(dx) >= separacion_x || Math.abs(dy) >= separacion_y || !superpuestos(a, b)) continue;
+        contactos = true;
+        const distancia = Math.hypot(dx / separacion_x, dy / separacion_y);
+        const fuerza = distancia ? (1.01 - distancia) * .5 / distancia : 0;
+        const x = distancia ? dx * fuerza : separacion_x / 2;
         const y = dy * fuerza;
         a.x -= x;
         a.y -= y;
@@ -106,9 +151,40 @@ export function separar_personajes(hombres, gorila, vueltas = 1) {
         b.y += y;
       }
     }
+    if (!contactos) break;
     for (const hombre of hombres) {
-      hombre.x = limitar(hombre.x, 10, ancho - 10);
-      hombre.y = limitar(hombre.y, 10, alto - 10);
+      hombre.x = limitar(hombre.x, 14, ancho - 14);
+      hombre.y = limitar(hombre.y, 22, alto - 22);
+    }
+  }
+
+  // A wall or a dense crowd can prevent pairwise pushes from clearing a body.
+  // Try nearby slots when a character is still significantly inside another.
+  const ubicados = [];
+  for (const hombre of hombres) {
+    if (ubicados.some(otro => superpuestos(hombre, otro, .88))) {
+      reubicar(hombre, hombres, gorila, radio);
+    }
+    ubicados.push(hombre);
+  }
+}
+
+function reubicar(hombre, hombres, gorila, radio) {
+  const altura = hombre.altura;
+  for (let anillo = 1; anillo <= 6; anillo++) {
+    for (const [dx, dy] of direcciones) {
+      const candidato = {
+        x: hombre.x + dx * anillo * separacion_x * .42,
+        y: hombre.y + dy * anillo * separacion_y * .42,
+        altura,
+      };
+      if (candidato.x < 14 || candidato.x > ancho - 14 || candidato.y < 22 || candidato.y > alto - 22) continue;
+      if (Math.abs((altura ?? 0) - (gorila.altura ?? 0)) < 22 &&
+        Math.hypot(candidato.x - gorila.x, candidato.y - gorila.y) < radio) continue;
+      if (hombres.some(otro => otro !== hombre && superpuestos(candidato, otro, .98))) continue;
+      hombre.x = candidato.x;
+      hombre.y = candidato.y;
+      return;
     }
   }
 }
