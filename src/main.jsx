@@ -313,8 +313,9 @@ function App() {
     return ()=>audio.current?.cerrar();
   },[]);
   useEffect(() => {
-    audio.current?.activar(sonido && iniciada && !pausa_activa && !Boolean(batalla.resultado) && !anuncio);
-  },[sonido,iniciada,pausa_activa,batalla.resultado,anuncio]);
+    audio.current?.configurarArena(batalla.arena);
+    audio.current?.activar(sonido && iniciada && !pausa_activa && !Boolean(batalla.resultado), anuncio);
+  },[sonido,iniciada,pausa_activa,batalla.resultado,anuncio,batalla.arena]);
   useEffect(() => {
     const fallo = error => {
       console.warn('Vista WebGL:', error);
@@ -454,7 +455,7 @@ function App() {
         <div className="controles-arcade botones-juego">
           {!iniciada?
             <button className="principal" disabled={cargando_arena}
-              onClick={()=>{audio.current?.activar(sonido);if(sonido)audio.current?.efecto('inicio_batalla');cambiar_inicio(true);}}>▶ Iniciar batalla</button>:
+              onClick={()=>{audio.current?.configurarArena(batalla.arena);audio.current?.activar(sonido);if(sonido)audio.current?.efecto('inicio_batalla');cambiar_inicio(true);}}>▶ Iniciar batalla</button>:
             <button className="principal" ref={boton_estrategia}
               disabled={Boolean(batalla.resultado)||cargando_arena||anuncio}
               onClick={()=>abrir_estrategia('Combate')}>⚔️ Tácticas</button>}
