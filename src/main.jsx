@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades, radar_arquetipo } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, activo, dar_orden, comprar_suministro, dificultades, condiciones_combate } from './battle.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, danio_humano, radio_ataque, rango_golpe_gorila, velocidad_gorila } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS, resumir_equipo } from './rules.js';
@@ -69,12 +69,9 @@ function PanelEquipo({ batalla, perfil, cambiar_perfil }) {
   const resumen = resumir_equipo(batalla.hombres, en_suelo);
   const armas = activos.filter(hombre => hombre.objeto?.tipo === 'fuego').length;
   const armas_suelo = en_suelo.filter(item => item.objeto.tipo === 'fuego').length;
-  const media = (equipo, valor) => equipo.length ? equipo.reduce((total, hombre) => total + valor(hombre), 0) / equipo.length : 0;
-  const rendimiento = equipo => [
-    ['Valentía media (%)', media(equipo, hombre => hombre.valentia)],
-    ['Velocidad efectiva (%)', media(equipo, hombre => condiciones_combate(hombre).velocidad) * 100],
-    ['Potencia efectiva (%)', media(equipo, hombre => condiciones_combate(hombre).potencia) * 100],
-  ];
+  const media_valentia = activos.length ? activos.reduce((total, hombre) => total + hombre.valentia, 0) / activos.length : 0;
+  const g = batalla.gorila;
+  const [golpe_min, golpe_max] = rango_golpe_gorila(g);
   return <aside aria-label="Resumen del equipo">
     {miembros ? <>
       <button onClick={() => cambiar_perfil(null)}>← Todos los perfiles</button>
@@ -82,8 +79,18 @@ function PanelEquipo({ batalla, perfil, cambiar_perfil }) {
       <p>{miembros.filter(activo).length} activos de {miembros.length} · Radar base del perfil</p>
       <Radar radar={radar} />
       <Cifras entradas={habilidades.map((eje, indice) => [etiquetas[indice], radar[eje]])} />
-      <h2>Estado del perfil</h2>
-      <Cifras entradas={rendimiento(miembros.filter(activo))} />
+      <h2>Vida y daño por integrante</h2>
+      <p>Daño máximo por impacto acertado, en puntos de vida del gorila. Baja hasta 30 % en el límite del alcance.</p>
+      <div className="fichas-perfil">
+        {miembros.map(hombre => {
+          const disparo = hombre.objeto?.tipo === 'fuego' && hombre.objeto.municion > 0;
+          return <div key={hombre.id}>
+            <strong>#{hombre.id} · {hombre.edad} años</strong>
+            <span>{formato.format(hombre.vida)} / {formato.format(hombre.vida_maxima)} PV</span>
+            <small>{activo(hombre) ? `${formato.format(danio_humano(hombre, disparo, g.fase === 'recuperacion' ? 1.35 : 1))} PV máx. por ${disparo ? 'disparo' : 'golpe'}` : hombre.estado}</small>
+          </div>;
+        })}
+      </div>
     </> : <>
       <h2>Resumen del equipo</h2>
       <Cifras entradas={[
@@ -91,15 +98,28 @@ function PanelEquipo({ batalla, perfil, cambiar_perfil }) {
         ['Armas de fuego en uso', armas], ['Armas de fuego en arena', armas_suelo],
         ['Objetos en arena', en_suelo.length], ['Buscando armas', activos.filter(h => h.orden === 'buscar_armas').length],
       ]} />
-      <h2>Edades</h2>
+      <h2>Por edad</h2>
       <Cifras entradas={[
-        ['Adolescentes (18–19)', resumen.edades.adolescentes],
-        ['Adultos (20–54)', resumen.edades.jovenes + resumen.edades.adultos],
-        ['Mayores (55–69)', resumen.edades.mayores], ['Adultos mayores (70+)', resumen.edades.ancianos],
+        ['Adolescentes', resumen.edades.adolescentes],
+        ['Adultos', resumen.edades.jovenes + resumen.edades.adultos],
+        ['Mayores', resumen.edades.mayores], ['Adultos mayores', resumen.edades.ancianos],
       ]} />
-      <h2>Estado de combate</h2>
-      <Cifras entradas={rendimiento(activos)} />
-      <p>La fuerza ayuda a conservar velocidad y potencia tras recibir daño. La valentía puede mejorar o reducir ambas.</p>
+      <Cifras entradas={[
+        ['Heridos', activos.filter(h => h.estado === 'herido').length],
+        ['Incapacitados', batalla.hombres.filter(h => h.estado === 'incapacitado').length],
+        ['Eliminados', batalla.hombres.filter(h => h.estado === 'eliminado').length],
+        ['Valentía media (%)', media_valentia],
+      ]} />
+      <details className="ficha-gorila">
+        <summary>Datos del gorila</summary>
+        <Cifras entradas={[
+          ['Vida actual (PV)', g.vida], ['Vida máxima (PV)', g.vida_maxima],
+          ['Fuerza (×)', g.fuerza], ['Persecución (u/s)', velocidad_gorila.persecucion],
+          ['Repliegue (u/s)', velocidad_gorila.repliegue], ['Embestida (u/s)', velocidad_gorila.embestida], ['Alcance del golpe (u)', radio_ataque(g, 'barrido')],
+          ['Daño mínimo (PV)', golpe_min], ['Daño máximo (PV)', golpe_max],
+        ]} />
+        <p>Daño de un golpe directo antes de defensa. Disminuye con la distancia. El lanzamiento quita entre 92 % y 116 % de la vida máxima del combatiente.</p>
+      </details>
       <h2>Perfiles del equipo</h2>
       <div className="perfiles">
         {[...perfiles].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es')).map(([nombre, grupo]) =>
@@ -123,16 +143,24 @@ const descripciones = {
   huir: 'Se alejan. Su velocidad depende del daño recibido, la fuerza y la valentía.',
   esconder: 'Buscan rocas o estructuras que bloqueen la visión del gorila.',
   rescatar: 'Van hacia los incapacitados y los ayudan a levantarse.',
-  buscar_armas: 'El 8 % más alejado del gorila busca objetos. La inteligencia mejora el alcance y la elección. Los demás siguen combatiendo.',
+  buscar_armas: 'Los hombres asignados más lejos del gorila buscan equipo. La inteligencia mejora la búsqueda.',
   distraer: 'Rodean al gorila a distancia para atraer su atención.',
 };
 
-function MenuEstrategia({ dialogo, batalla, categoria, cambiar_categoria, ordenar, comprar, reanudar }) {
+function MenuEstrategia({ dialogo, batalla, categoria, cambiar_categoria, plan, cambiar_plan, comprar, reanudar, cancelar }) {
+  const elegidas = Object.entries(plan);
+  const disponible = 100 - elegidas.reduce((total, [, porcentaje]) => total + porcentaje, 0);
+  function porcentaje(id, valor) {
+    const siguiente = { ...plan };
+    if (valor) siguiente[id] = valor;
+    else delete siguiente[id];
+    cambiar_plan(siguiente);
+  }
   return <dialog ref={dialogo} className="menu-estrategia" aria-labelledby="titulo-estrategia"
-    onCancel={evento => { evento.preventDefault(); reanudar(); }}>
+    onCancel={evento => { evento.preventDefault(); cancelar(); }}>
     <header>
       <h2 id="titulo-estrategia">Estrategia</h2>
-      <p>Táctica para todo el equipo</p>
+      <p>Reparte hasta tres tácticas entre los hombres activos.</p>
     </header>
     <div className="tabs-retro" role="group" aria-label="Categorías de estrategia">
       {[...Object.keys(categorias), 'Suministros'].map(nombre => <button key={nombre}
@@ -143,12 +171,28 @@ function MenuEstrategia({ dialogo, batalla, categoria, cambiar_categoria, ordena
       <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id, suministro]) =>
         <button key={id} disabled={batalla.bananas < suministro.costo || (suministro.solo_con_reservas && !batalla.reservas)}
           onClick={() => comprar(id)}><span>{suministro.nombre}</span><strong>{suministro.costo} 🍌</strong></button>)}</div>
-    </> : <div className="ordenes">
-      {categorias[categoria].map(id => <button key={id}
-        aria-pressed={batalla.estrategia === id} onClick={() => ordenar(id)}><strong>{TACTICAS[id].nombre}</strong><span>{descripciones[id]}</span></button>)}
-    </div>}
+    </> : <>
+      <div className="reparto-tactico">
+        {elegidas.map(([id, valor]) => <div key={id}>
+          <label>{TACTICAS[id].nombre} · {valor} %
+            <input type="range" aria-label={`Porcentaje para ${TACTICAS[id].nombre}`}
+              min="0" max={valor + disponible} step="5" value={valor}
+              onChange={evento => porcentaje(id, Number(evento.target.value))} />
+          </label>
+          <button onClick={() => porcentaje(id, 0)} aria-label={`Quitar ${TACTICAS[id].nombre}`}>Quitar</button>
+        </div>)}
+        <p role="status">{disponible} % en guardia · {elegidas.length} de 3 tácticas</p>
+      </div>
+      <div className="ordenes">
+        {categorias[categoria].map(id => <button key={id} aria-pressed={Boolean(plan[id])}
+          disabled={Boolean(plan[id]) || elegidas.length >= 3 || disponible < 5}
+          onClick={() => porcentaje(id, Math.min(disponible, id === 'buscar_armas' ? 10 : 25))}>
+          <strong>{TACTICAS[id].nombre}</strong><span>{descripciones[id]}</span>
+        </button>)}
+      </div>
+    </>}
     <footer>
-      <p role="status">Táctica activa · {TACTICAS[batalla.estrategia].nombre}</p>
+      <button onClick={cancelar}>Cerrar sin aplicar tácticas</button>
       <button className="principal" onClick={reanudar}>Reanudar</button>
     </footer>
   </dialog>;
@@ -162,6 +206,7 @@ function App() {
   const [en_pausa, cambiar_pausa] = useState(false);
   const [modo_visual, cambiar_modo_visual] = useState('3d');
   const [categoria, cambiar_categoria] = useState('Combate');
+  const [plan, cambiar_plan] = useState({});
   const [perfil, cambiar_perfil] = useState(null);
   const [, actualizar_panel] = useState(0);
   const canvas = useRef(null);
@@ -224,11 +269,17 @@ function App() {
   }, [batalla, iniciada, en_pausa, modo_visual, cargando_arena]);
 
   function abrir_estrategia() {
+    cambiar_plan({ ...batalla.plan });
     cambiar_pausa(true);
     dialogo.current.showModal();
   }
 
   function reanudar() {
+    aplicar_plan(batalla, plan);
+    cerrar_estrategia();
+  }
+
+  function cerrar_estrategia() {
     dialogo.current.close();
     cambiar_pausa(false);
     boton_estrategia.current?.focus();
@@ -248,10 +299,6 @@ function App() {
       actualizar_panel(v => v + 1);
       ultimo_cuadro.current?.();
     }
-  }
-
-  function ordenar(orden) {
-    if (dar_orden(batalla, orden)) actualizar_panel(v => v + 1);
   }
 
   return <main>
@@ -288,20 +335,21 @@ function App() {
         <div className="controles-arcade">
           {!iniciada ? <button className="principal" disabled={cargando_arena} onClick={() => cambiar_inicio(true)}>Iniciar</button> : <button ref={boton_estrategia} className="principal" aria-haspopup="dialog"
             disabled={Boolean(batalla.resultado) || cargando_arena} onClick={abrir_estrategia}>Estrategia</button>}
-          <p>Táctica activa · <strong>{TACTICAS[batalla.estrategia].nombre}</strong></p>
+          <p>Tácticas · <strong>{Object.entries(batalla.plan).map(([id, valor]) => `${TACTICAS[id].nombre} ${valor} %`).join(' · ') || 'Guardia'}</strong></p>
           <p className="ultimo-evento">Último evento · {ultimo_evento?.tipo.replaceAll('_', ' ') || 'Equipo listo'}</p>
         </div>
       </section>
       <PanelEquipo batalla={batalla} perfil={perfil} cambiar_perfil={cambiar_perfil} />
     </div>
     <section className="reglas"><h2>Reglas</h2>
-      <p>Pulsa Iniciar para que el equipo entre en combate. Abre Estrategia para pausar la batalla y cambiar la táctica de todos. Agota la resistencia del gorila antes de que se agote el reloj.
+      <p>Pulsa Iniciar para que el equipo entre en combate. Abre Estrategia para pausar la batalla y repartir hasta tres tácticas. Agota la resistencia del gorila antes de que se agote el reloj.
         Si todos caen o se acaba el tiempo, gana el gorila.</p>
       <p>Cada hombre tiene ocho habilidades, una edad de 18 a 100 años y puede empezar sin objeto o con uno sorteado del catálogo de 1,000.
         La edad modifica sus habilidades físicas y el miedo puede hacerlo retroceder.</p>
     </section>
     <MenuEstrategia dialogo={dialogo} batalla={batalla} categoria={categoria}
-      cambiar_categoria={cambiar_categoria} ordenar={ordenar} comprar={comprar} reanudar={reanudar} />
+      cambiar_categoria={cambiar_categoria} plan={plan} cambiar_plan={cambiar_plan} comprar={comprar}
+      reanudar={reanudar} cancelar={cerrar_estrategia} />
   </main>;
 }
 

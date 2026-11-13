@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { avanzar_batalla, crear_batalla, dar_orden } from '../src/battle.js';
+import { avanzar_batalla, crear_batalla, aplicar_plan } from '../src/battle.js';
 import { ajustar_edad, crear_sorteo_objetos, generar_hombres, habilidades } from '../src/roster.js';
 
 const catalogo = JSON.parse(readFileSync(new URL('../src/data/objetos.json', import.meta.url)));
@@ -56,7 +56,7 @@ test('un ataque acertado que agota la resistencia da la victoria a los hombres',
   hombre.y = batalla.gorila.y;
   hombre.altura = batalla.gorila.altura;
   batalla.gorila.vida = 1;
-  dar_orden(batalla, 'atacar');
+  aplicar_plan(batalla, {atacar:100});
   avanzar_batalla(batalla, 1 / 60);
   assert.equal(batalla.resultado, 'Victoria de los hombres');
 });

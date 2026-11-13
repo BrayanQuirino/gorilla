@@ -60,3 +60,12 @@ aside h2{margin:9px 0}
 .perfiles strong{color:var(--acento)}
 .menu-estrategia .ordenes button{display:grid;gap:5px;text-align:left;align-content:start}
 .menu-estrategia .ordenes span{font-size:.84rem;font-weight:500;line-height:1.35}
+
+.reparto-tactico{margin-top:12px;padding:10px;background:#182425}
+.reparto-tactico>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin-bottom:8px}
+.reparto-tactico input{width:100%;accent-color:var(--acento)}
+.ficha-gorila{margin:12px 0;padding:9px;background:#233133}
+.ficha-gorila summary{cursor:pointer;font-weight:700;color:var(--acento)}
+.fichas-perfil{display:grid;gap:6px;margin-top:8px}
+.fichas-perfil>div{display:grid;grid-template-columns:1fr auto;gap:3px 7px;padding:7px;background:#233133}
+.fichas-perfil small{grid-column:1/-1}

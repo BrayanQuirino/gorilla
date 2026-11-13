@@ -1,7 +1,7 @@
 // A fixed oblique camera projects the battle plane into the painted arenas.
 // Painted silhouettes supply per-pixel occlusion for upright actor billboards.
 import { ancho, alto, encuadre } from './terreno.js';
-import { duracion_entrega, paracaidas_visible } from './battle.js';
+import { duracion_entrega, paracaidas_visible, radio_ataque } from './battle.js';
 import { limitar } from './rules.js';
 import fotogramas from './art/sprites.json';
 
@@ -125,8 +125,8 @@ const spriteFragmento = `
         texture2D(atlas, texel - vec2(pixel, 0.0)).a),
         min(texture2D(atlas, texel + vec2(0.0, pixel)).a,
         texture2D(atlas, texel - vec2(0.0, pixel)).a));
-      vec3 contraste = mix(vec3(1.0, .90, .52), tinta.rgb * .9 + .21, interior);
-      gl_FragColor = vec4(contraste, tinta.a * .97);
+      vec3 contraste = mix(vec3(.19, .17, .15), tinta.rgb * .78 + .035, interior);
+      gl_FragColor = vec4(contraste, tinta.a);
       return;
     }
     gl_FragColor = tinta * vec4(tono.rgb, abs(tono.a));
@@ -172,7 +172,6 @@ function lote() {
 
 const blanco = [1, 1, 1, 1];
 const herido = [1, .66, .59, 1];
-const oculto = [.66, .74, .68, .68];
 const oro = [1, .81, .41, .91];
 
 function sprite(quads, nombre, x, y, escala, pie, tono = blanco, giro = 0, espejo = false) {
@@ -220,7 +219,7 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
   if (Math.abs(h.vx) > 7) mirando.set(h.id, h.vx < 0);
   const paso = moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
   const golpe = Math.max(0, (h.atacando_hasta ?? 0) - tiempo);
-  const tono = h.defensa > 0 ? [1, .88, .61, 1] : h.oculto ? oculto : h.estado === 'herido' ? herido : blanco;
+  const tono = h.estado === 'herido' ? herido : blanco;
   const escala = h.edad >= 75 ? .92 : 1;
   sprite(quads, 'sombra', x, y + 4, caido ? .51 : .77, y);
   const retrato = retratos[h.arquetipo] ?? 'estudiante';
@@ -233,6 +232,13 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando) {
     escala, y + altura * .35, [tono[0], tono[1], tono[2], -tono[3]],
     h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : h.defensa > 0 ? -.16 : paso * .085,
     izquierda);
+  if (!h.objeto || caido) return;
+  const objeto = h.objeto.tipo === 'fuego' ? 'arma_fuego' :
+    h.objeto.peso_g > 1200 ? 'arma_larga' : 'objeto_mano';
+  const [, , ancho_retrato, alto_retrato] = fotogramas[retrato];
+  const mano = (izquierda ? -1 : 1) * ancho_retrato * .39 * escala;
+  sprite(quads, objeto, x + avance + mano, y - altura - alto_retrato * .32 * escala - Math.abs(paso) * 2,
+    escala, y + altura * .35, [1, 1, 1, -1], h.vuelo ? vuelo * Math.PI * 2 : 0, izquierda);
 }
 
 function dibujarGorila(quads, g, x, y, tiempo, espejo) {
@@ -252,12 +258,12 @@ function cuadro(quads, batalla, mirando) {
   if ((g.fase === 'aviso' || g.fase === 'embestida') && g.destino) {
     const destino = proyectar(g.destino, vista);
     const rugido = g.accion === 'rugido';
-    const radio = rugido ? 145 : g.accion === 'golpe_area' ? g.radio + 75 : g.radio + 28;
+    const radio = radio_ataque(g);
     aro(quads, destino.x, destino.y, radio * vista.ancho / ancho, radio * vista.alto / alto,
       -1, rugido ? oro : [1, .39, .21, .95], tiempo * 1.1);
   }
   const actores = [
-    ...batalla.armas_suelo.filter(objeto => objeto.visible && !objeto.recogido_por),
+    ...batalla.armas_suelo.filter(objeto => !objeto.recogido_por && (objeto.reserva ? objeto.descubierto : objeto.visible)),
     ...batalla.suministros,
     ...batalla.hombres,
     g,

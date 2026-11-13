@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,dar_orden,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,condiciones_combate} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,condiciones_combate} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -28,25 +28,29 @@ test('inventario inicial y reserva de arena comparten presupuesto sin duplicarlo
     assert.ok(equipo.armas_suelo.every(o=>ARENAS[id].categorias.includes(o.objeto.categoria)||(id==='hangar'&&o.objeto.categoria==='armas_fuego')));
   }
 });
-test('buscar armas asigna el 8 % más alejado del equipo activo',()=>{
+test('el plan reparte tres acciones y asigna la búsqueda a los más alejados',()=>{
   const {batalla}=partida();
   const caido=batalla.hombres.at(-1);
   caido.estado='incapacitado';
   assert.ok(Object.hasOwn(TACTICAS,'buscar_armas'));
-  assert.equal(dar_orden(batalla,'buscar_armas'),true);
-  assert.equal(batalla.estrategia,'buscar_armas');
-  const esperados = batalla.hombres.slice(0, -1).sort((a, b) => distancia(b, batalla.gorila) - distancia(a, batalla.gorila)).slice(0, 8);
+  assert.equal(aplicar_plan(batalla,{atacar:25,buscar_armas:10,huir:40}),true);
+  assert.deepEqual(batalla.plan,{atacar:25,buscar_armas:10,huir:40});
+  const esperados = batalla.hombres.slice(0, -1).sort((a, b) => distancia(b, batalla.gorila) - distancia(a, batalla.gorila)).slice(0, 10);
   const buscadores = batalla.hombres.filter(h => h.orden === 'buscar_armas');
-  assert.equal(buscadores.length, 8);
+  assert.equal(buscadores.length, 10);
   assert.ok(buscadores.every(h => esperados.includes(h)));
-  assert.equal(batalla.hombres.filter(h => h.orden === 'atacar').length, 92);
-  for (const orden of ['defender', 'emboscada', 'mantener', 'retirar']) assert.equal(dar_orden(batalla, orden), false);
+  assert.equal(batalla.hombres.filter(h => h.orden === 'atacar').length, 26);
+  assert.equal(batalla.hombres.filter(h => h.orden === 'huir').length, 39);
+  assert.equal(batalla.hombres.filter(h => h.orden === 'guardia').length, 25);
+  assert.equal(aplicar_plan(batalla, { atacar: 30, buscar_armas: 10, huir: 40, rescatar: 20 }), false);
+  assert.equal(aplicar_plan(batalla, { atacar: 96, buscar_armas: 5 }), false);
+  for (const orden of ['defender', 'emboscada', 'mantener', 'retirar']) assert.equal(aplicar_plan(batalla, { [orden]: 100 }), false);
   assert.equal(caido.orden,'atacar');
-  assert.equal(dar_orden(batalla,'mover'),false);
+  assert.equal(aplicar_plan(batalla,{mover:100}),false);
 });
 test('el combate avanza y el gorila actúa automáticamente',()=>{
   const {batalla}=partida();
-  assert.equal(batalla.estrategia,'atacar');
+  assert.equal(batalla.plan.atacar,100);
   for(let i=0;i<900&&!batalla.resultado;i++)avanzar_batalla(batalla,1/30);
   assert.ok(batalla.transcurrido>0);
   assert.ok(batalla.eventos.some(e=>e.tipo==='ataque_gorila'));
@@ -67,7 +71,7 @@ test('buscar armas las recoge del suelo sin clonar el objeto',()=>{
   hombre.objeto=null;
   const colocada=batalla.armas_suelo[0];
   colocada.x=hombre.x;colocada.y=hombre.y;colocada.visible=true;
-  dar_orden(batalla,'buscar_armas');
+  aplicar_plan(batalla,{buscar_armas:10});
   avanzar_batalla(batalla,.033);
   assert.ok(batalla.armas_suelo.some(a=>a.recogido_por));
 });
@@ -106,7 +110,7 @@ test('los personajes arrancan separados y el terreno eleva y deja caer al person
 test('un suministro aterriza fuera de los obstáculos y se aplica una sola vez',()=>{
   for (const arena of Object.keys(ARENAS)) {
     const {batalla}=partida(arena);
-    dar_orden(batalla,'rescatar');
+    aplicar_plan(batalla,{});
     batalla.gorila.reloj=100;
     batalla.bananas=90;
     const hombre=batalla.hombres[0];
@@ -129,7 +133,7 @@ test('un suministro aterriza fuera de los obstáculos y se aplica una sola vez',
 
 test('el agarre retiene al hombre y lo lanza en arco; la embestida proyecta a los impactados',()=>{
   const {batalla}=partida('claro');
-  dar_orden(batalla,'rescatar');
+  aplicar_plan(batalla,{});
   const g=batalla.gorila;
   const h=batalla.hombres[0];
   Object.assign(g,{x:520,y:440,altura:0,fase:'aviso',accion:'agarre',reloj:0,sujeto:h,mira_izquierda:false});
@@ -142,6 +146,7 @@ test('el agarre retiene al hombre y lo lanza en arco; la embestida proyecta a lo
   assert.ok(h.altura>35);
   for(let i=0;i<20;i++) avanzar_batalla(batalla,.05);
   assert.equal(h.vuelo,undefined);
+  assert.ok(h.vida <= h.vida_maxima * .08 + .001);
   const segundo=batalla.hombres[1];
   Object.assign(g,{fase:'embestida',accion:'embestida',reloj:1,destino:{x:520,y:440}});
   Object.assign(segundo,{x:550,y:440,altura:g.altura});
@@ -187,7 +192,7 @@ test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', (
   const { batalla } = partida('claro');
   const g = batalla.gorila;
   batalla.hombres = batalla.hombres.slice(0, 6);
-  dar_orden(batalla, 'rescatar');
+  aplicar_plan(batalla, {});
   Object.assign(g, { x: 600, y: 400, altura: 0, reloj: 0 });
   for (let i = 0; i < 6; i++) Object.assign(batalla.hombres[i], {
     x: 600 + Math.cos(i * Math.PI / 3) * 70, y: 400 + Math.sin(i * Math.PI / 3) * 70, altura: 0,
@@ -205,4 +210,22 @@ test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', (
   assert.equal(g.objetivo, batalla.hombres[0]);
   avanzar_batalla(batalla, .05);
   assert.ok(g.x > 600);
+});
+
+test('el golpe del gorila hiere con caída de daño dentro del radio', () => {
+  const { batalla } = partida('claro');
+  const [cerca, lejos, fuera] = batalla.hombres;
+  batalla.hombres = [cerca, lejos, fuera];
+  aplicar_plan(batalla, {});
+  const g = batalla.gorila;
+  Object.assign(g, { x: 610, y: 450, altura: 0, fase: 'aviso', accion: 'golpe_area',
+    reloj: 0, destino: { x: 610, y: 450 } });
+  for (const [h, x] of [[cerca, 646], [lejos, 697], [fuera, 800]]) {
+    Object.assign(h, { x, y: 450, altura: 0, vida: 65, vida_maxima: 65 });
+  }
+  batalla.azar = () => .7;
+  avanzar_batalla(batalla, .05);
+  assert.equal(cerca.estado, 'herido');
+  assert.ok(cerca.vida < lejos.vida);
+  assert.equal(fuera.vida, 65);
 });

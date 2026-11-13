@@ -8,7 +8,6 @@ export const activo=h=>h.estado!=='eliminado'&&h.estado!=='incapacitado'&&h.vida
 const azar_normalizado=(azar)=>limitar(azar(),0,0.999999);
 const cerca=(h,g,r)=>distancia(h,g)<r;
 function registrar(batalla,tipo,datos={}) {batalla.eventos.push({tipo,tiempo:300-batalla.tiempo,...datos});if(batalla.eventos.length>300)batalla.eventos.shift();}
-const capacidad_busqueda = .08;
 const salud = h => limitar(h.vida / h.vida_maxima, 0, 1);
 
 export function condiciones_combate(h) {
@@ -26,19 +25,59 @@ function puede_actuar(h, g) {
   return Boolean(h) && activo(h) && !h.vuelo && !(g.fase === 'agarre' && g.sujeto === h);
 }
 
-function asignar_busqueda(b, hombres) {
-  const buscadores = b.armas_suelo.some(objeto => !objeto.recogido_por)
-    ? new Set(hombres.filter(h => puede_actuar(h, b.gorila))
-      .sort((a, z) => distancia(z, b.gorila) - distancia(a, b.gorila) || a.id - z.id)
-      .slice(0, Math.round(hombres.length * capacidad_busqueda)))
-    : new Set();
-  for (const h of hombres) {
-    const orden = buscadores.has(h) ? 'buscar_armas' : 'atacar';
-    if (h.orden !== orden) {
-      h.orden = orden;
-      h.buscando = null;
+export function danio_humano(h, disparo = false, apertura = 1, cercania = 0) {
+  return (1 + h.fuerza_efectiva * .086) * condiciones_combate(h).potencia * apertura
+    * (disparo ? 2.6 : 1) * (1 + (h.bono_dano ?? 0)) * (1 - .30 * limitar(cercania, 0, 1));
+}
+
+export const velocidad_gorila = { persecucion: 77, repliegue: 83, embestida: 210 };
+export function radio_ataque(g, accion = g.accion) {
+  return ({ rugido: 145, golpe_area: g.radio + 75, agarre: g.radio + 54,
+    embestida: g.radio + 34, barrido: g.radio + 38 })[accion] ?? g.radio + 38;
+}
+export function rango_golpe_gorila(g) {
+  const fuerza = g.fuerza * (g.furia > 0 ? VENTAJAS_GORILA.furia.fuerza : 1);
+  return [36 * fuerza, 60 * fuerza];
+}
+
+function asignar_plan(b) {
+  const hombres = b.hombres.filter(activo);
+  const reparto = [...Object.entries(b.plan)];
+  reparto.push(['guardia', 100 - reparto.reduce((total, [, porcentaje]) => total + porcentaje, 0)]);
+  const grupos = reparto.map(([orden, porcentaje]) => {
+    const exactos = hombres.length * porcentaje / 100;
+    return { orden, cantidad: Math.floor(exactos), resto: exactos % 1 };
+  });
+  const pendientes = hombres.length - grupos.reduce((total, grupo) => total + grupo.cantidad, 0);
+  [...grupos].sort((a, z) => z.resto - a.resto).slice(0, pendientes).forEach(grupo => grupo.cantidad++);
+  grupos.sort((a, z) => Number(z.orden === 'buscar_armas') - Number(a.orden === 'buscar_armas'));
+  let disponibles = [...hombres].sort((a, z) => a.id - z.id);
+  for (const { orden, cantidad } of grupos) {
+    if (orden === 'buscar_armas') disponibles.sort((a, z) =>
+      distancia(z, b.gorila) - distancia(a, b.gorila) || a.id - z.id);
+    for (const h of disponibles.slice(0, cantidad)) {
+      if (h.orden !== orden) {
+        h.orden = orden;
+        h.buscando = null;
+      }
     }
+    disponibles = disponibles.slice(cantidad).sort((a, z) => a.id - z.id);
   }
+  b.activos_asignados = hombres.length;
+}
+
+export function aplicar_plan(b, plan) {
+  if (b.resultado) return false;
+  const entradas = Object.entries(plan);
+  if (entradas.length > 3 || entradas.some(([orden, valor]) =>
+    !Object.hasOwn(TACTICAS, orden) || !Number.isInteger(valor) || valor < 5 || valor > 100 || valor % 5) ||
+    entradas.reduce((total, [, valor]) => total + valor, 0) > 100) return false;
+  b.plan = { ...plan };
+  asignar_plan(b);
+  b.busqueda_en = b.transcurrido + 2;
+  for (const orden of Object.keys(plan)) b.tacticas_usadas[orden] = (b.tacticas_usadas[orden] || 0) + 1;
+  registrar(b, 'estrategia_actualizada');
+  return true;
 }
 
 export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones={}) {
@@ -46,9 +85,9 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   const [vida,fuerza,tamano]=niveles[n-1];
   const arena=ARENAS[opciones.arena]?opciones.arena:'claro';
   const batalla = {
-    estrategia: 'atacar', busqueda_en: 0, golpes_disponibles: 2,
+    plan: { atacar: 100 }, activos_asignados: personajes.length, busqueda_en: 0, golpes_disponibles: 2,
     tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:0,bananas_ganadas:0,eventos:[],
-    resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}})),
+    resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}, reserva:true})),
     entregas:[], parpadeos:[], suministros:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
     gorila:{x:760,y:320,nivel:n,vida,vida_maxima:vida,fuerza,radio:24*(tamano+azar()*.04),
       fase:'espera',reloj:2,ataques:0,energia:100,miedo:0,accion:'',recargas:{},memoria:{},
@@ -57,7 +96,8 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
       const indice=personaje.id-1;
       const x = 53 + indice % 10 * 36;
       const y = 120 + Math.floor(indice / 10) * 43;
-      const vida_maxima=35+(personaje.radar.estrategia||50)*.65;
+      const edad = limitar((personaje.edad - 45) / 55, 0, 1);
+      const vida_maxima = (37 + personaje.radar.estrategia * .47 + personaje.radar.fuerza * .22) * (1 - edad * .27);
       return {...personaje,objeto:personaje.objeto ? {...personaje.objeto} : null,x,y,vida:vida_maxima,vida_maxima,energia:100,vx:0,vy:0,miedo:0,
         recarga:0,reaccion:0,defensa:0,valentia:40+personaje.radar.temple*.48,orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,
         mejoras:[],buscando:null,oculto:false};
@@ -71,22 +111,6 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   return batalla;
 }
 
-export function dar_orden(batalla, orden) {
-  if (batalla.resultado || !Object.hasOwn(TACTICAS, orden)) return false;
-  batalla.estrategia = orden;
-  for (const hombre of batalla.hombres) {
-    if (!activo(hombre)) continue;
-    hombre.orden = orden;
-    hombre.buscando = null;
-  }
-  if (orden === 'buscar_armas') {
-    asignar_busqueda(batalla, batalla.hombres.filter(activo));
-    batalla.busqueda_en = batalla.transcurrido + 1.2;
-  }
-  batalla.tacticas_usadas[orden] = (batalla.tacticas_usadas[orden] || 0) + 1;
-  registrar(batalla, 'orden', { orden });
-  return true;
-}
 export function comprar_suministro(batalla,id) {
   if (!Object.hasOwn(SUMINISTROS, id) || batalla.resultado) return false;
   const item = SUMINISTROS[id];
@@ -129,7 +153,7 @@ function aplicar_suministro(batalla, entrega) {
     const capacidad=Math.min(100-batalla.hombres.filter(activo).length,batalla.reservas,item.cantidad);
     for(let i=0;i<capacidad;i++){
       const modelo=batalla.hombres[i%batalla.hombres.length];
-      batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:x+(i-2)*22,y,altura:0,vz:0,vuelo:null,orden:batalla.estrategia,
+      batalla.hombres.push({...modelo,id:batalla.hombres.length+1,vida:modelo.vida_maxima,estado:'normal',energia:100,objeto:null,x:x+(i-2)*22,y,altura:0,vz:0,vuelo:null,orden:'guardia',
         vx:0,vy:0,miedo:0,recarga:0,reaccion:0,defensa:0,valentia:40+modelo.radar.temple*.48,mejoras:[],buscando:null,oculto:false,proteccion:0,bono_dano:0,
         fuerza_efectiva:modelo.radar.fuerza,velocidad_efectiva:modelo.radar.velocidad});
     }
@@ -191,7 +215,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     + (efecto_vigente(b, 'inspiracion') ? 18 : 0), 0, 100);
   h.valentia += (confianza - h.valentia) * Math.min(1, dt * 1.4);
   const panico = h.valentia < 22;
-  h.estado = salud(h) < .35 ? 'herido' : h.energia < 20 ? 'cansado' : panico ? 'panico' : 'normal';
+  h.estado = salud(h) <= .65 ? 'herido' : h.energia < 20 ? 'cansado' : panico ? 'panico' : 'normal';
   h.energia = limitar(h.energia + dt * (h.recarga > 0 ? 4.2 : 2.6) - (h.orden === 'huir' ? dt * 1.7 : 0), 0, 100);
   const rendimiento = condiciones_combate(h);
   const disparo = h.objeto?.tipo === 'fuego' && h.objeto.municion > 0;
@@ -220,7 +244,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       if (distancia(h, caido) < 38 && h.recarga <= 0) {
         caido.estado = 'herido';
         caido.vida = Math.max(8, caido.vida_maxima * .15);
-        caido.orden = b.estrategia;
+        caido.orden = 'guardia';
         h.recarga = 8;
         registrar(b, 'rescate', { hombre: caido.id, paramedico: h.id });
       }
@@ -237,6 +261,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     h.buscando = objeto?.id ?? null;
     if (objeto) {
       destino = objeto;
+      if (distancia(h, objeto) < 48) objeto.descubierto = true;
       const inteligencia = h.radar.inteligencia / 100;
       if (distancia(h, objeto) < 14 + inteligencia * 11) {
         if (h.objeto) {
@@ -263,7 +288,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const ritmo = h.orden === 'huir' ? 1.3 : h.orden === 'esconder' ? .83 : 1;
   caminar(h, destino, dt, ritmo * rendimiento.velocidad * (altura_terreno(h, b.arena) > 8 ? .7 : 1));
   if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 || h.energia < 14 ||
-    cerca_g > alcance || (disparo && tiene_cobertura(g, h, b.arena)) || b.golpes_disponibles < 1) return;
+    cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
   b.golpes_disponibles -= 1;
   h.recarga = (disparo ? 3.6 : 4.7) - h.radar.tecnica * .009;
   h.atacando_hasta = b.transcurrido + .38;
@@ -276,20 +301,22 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const humo = efecto_vigente(b, 'humo') ? -.12 : 0;
   if (azar_normalizado(b.azar) < limitar((.21 + h.radar.precision * .007) * rendimiento.potencia + bono_estrategia + humo, .05, .95)) {
     const apertura = g.fase === 'recuperacion' ? 1.35 : 1;
-    const danio = (1 + h.fuerza_efectiva * .086) * rendimiento.potencia * apertura * (disparo ? 2.6 : 1) * (1 + h.bono_dano);
+    const danio = danio_humano(h, disparo, apertura, cerca_g / alcance);
     const aplicado = Math.min(g.vida, danio);
     g.vida -= aplicado;
     recompensa(b, aplicado);
   }
 }
 
-function danar_hombre(b,h,multiplicador=1) {
+function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
   if(!activo(h))return;
   const g=b.gorila;
   const cobertura=b.suministros.some(s=>s.tipo==='barricada'&&distancia(h,s)<80)?0.65:1;
-  const furia=g.furia>0?VENTAJAS_GORILA.furia.fuerza:1;
+  const [minimo, maximo] = rango_golpe_gorila(g);
   const defensa = h.defensa > 0 ? .76 - h.radar.agilidad * .002 : 1;
-  const impacto=(22+azar_normalizado(b.azar)*18)*g.fuerza*furia*multiplicador*(1-h.proteccion)*cobertura*defensa;
+  const azar = azar_normalizado(b.azar);
+  const impacto = lanzamiento ? h.vida_maxima * (.92 + azar * .24) :
+    (minimo + azar * (maximo - minimo)) * multiplicador * (1 - h.proteccion) * cobertura * defensa;
   h.vida=Math.max(0,h.vida-impacto);h.miedo=limitar(h.miedo+45,0,100);
   if(h.vida<=0) {
     h.estado=azar_normalizado(b.azar)<.22?'incapacitado':'eliminado';
@@ -297,7 +324,10 @@ function danar_hombre(b,h,multiplicador=1) {
     // Un objeto puede recuperarse del suelo, nunca duplicarse.
     if(h.objeto){b.armas_suelo.push({id:'caida-'+h.id+'-'+Math.round(b.transcurrido*100),objeto:h.objeto,x:h.x,y:h.y,visible:true,recogido_por:null});h.objeto=null;}
     for(const aliado of b.hombres)if(activo(aliado)&&distancia(aliado,h)<95)aliado.miedo=limitar(aliado.miedo+17,0,100);
-  } else if(h.vida<h.vida_maxima*.4)h.estado='herido';
+  } else if (salud(h) <= .65) {
+    if (h.estado !== 'herido') registrar(b, 'herido', { hombre: h.id });
+    h.estado = 'herido';
+  }
 }
 function lanzar(b, h, origen, fuerza) {
   const dx = h.x - origen.x;
@@ -320,19 +350,21 @@ function actualizar_vuelos(b) {
     if (t >= 1) {
       delete h.vuelo;
       h.vz = 0;
-      if (vuelo.agarre) danar_hombre(b, h, .8);
+      if (vuelo.agarre) danar_hombre(b, h, 1, true);
     }
   }
 }
 
 function resolver_ataque(b,activos) {
-  const g=b.gorila,radio=g.accion==='rugido'?145:g.accion==='golpe_area'?g.radio+75:g.radio+28;
+  const g = b.gorila;
+  const radio = radio_ataque(g);
   for(const h of activos) {
-    if(!g.destino||distancia(h,g.destino)>radio)continue;
+    const cercania = Math.hypot(distancia(h, g), (h.altura - g.altura) * 1.35);
+    if (cercania > radio) continue;
     if(g.accion==='rugido'){h.miedo=limitar(h.miedo+38,0,100);continue;}
-    const factor=g.accion==='golpe_area'?.82:1;
+    const factor = (g.accion === 'golpe_area' ? .95 : 1) * (1 - .48 * cercania / radio);
     if (g.accion === 'barrido' && g.objetivo && h !== g.objetivo) continue;
-    if (h.vuelo || Math.abs(h.altura - g.altura) > 35) continue;
+    if (h.vuelo || tiene_cobertura(h, g, b.arena)) continue;
     if (g.accion === 'embestida') impacto_embestida(b, h);
     else {
       danar_hombre(b, h, factor);
@@ -344,9 +376,12 @@ function resolver_ataque(b,activos) {
 function impacto_embestida(b, h) {
   const g = b.gorila;
   g.impactados ??= new Set();
-  if (g.impactados.has(h.id) || !activo(h) || h.vuelo || Math.abs(h.altura - g.altura) > 35) return;
+  if (g.impactados.has(h.id) || !activo(h) || h.vuelo) return;
+  const cercania = Math.hypot(distancia(h, g), (h.altura - g.altura) * 1.35);
+  const radio = radio_ataque(g, 'embestida');
+  if (cercania > radio) return;
   g.impactados.add(h.id);
-  danar_hombre(b, h, 1.12);
+  danar_hombre(b, h, 1.35 * (1 - .45 * cercania / radio));
   lanzar(b, h, g, 94);
 }
 
@@ -389,7 +424,7 @@ function actualizar_gorila(b,activos,dt) {
   g.reloj -= dt;
   const lento = g.reduccion_velocidad > 0 ? .60 : 1;
   if (g.fase === 'repliegue') {
-    if (mover_gorila(g, g.destino, dt, 83 * lento, b.arena) || g.reloj <= 0) {
+    if (mover_gorila(g, g.destino, dt, velocidad_gorila.repliegue * lento, b.arena) || g.reloj <= 0) {
       g.fase = 'espera';
       g.reloj = .25;
     }
@@ -399,7 +434,7 @@ function actualizar_gorila(b,activos,dt) {
     if (puede_actuar(g.objetivo, g) && !g.objetivo.oculto && g.reloj > 0) {
       g.destino = { x: g.objetivo.x, y: g.objetivo.y };
       if (distancia(g, g.objetivo) > g.radio + 43) {
-        mover_gorila(g, g.destino, dt, 77 * lento, b.arena);
+        mover_gorila(g, g.destino, dt, velocidad_gorila.persecucion * lento, b.arena);
         return;
       }
     }
@@ -423,9 +458,9 @@ function actualizar_gorila(b,activos,dt) {
   if(g.fase==='embestida'){
     const fatiga = g.energia < 20 ? .7 : 1;
     const furia = g.furia > 0 ? VENTAJAS_GORILA.furia.velocidad : 1;
-    const llego = mover_gorila(g, g.destino, dt, (g.altura > 10 ? 158 : 210) * lento * fatiga * furia, b.arena);
+    const llego = mover_gorila(g, g.destino, dt, (g.altura > 10 ? 158 : velocidad_gorila.embestida) * lento * fatiga * furia, b.arena);
     for (const h of activos) {
-      if (distancia(h, g) < g.radio + 10) impacto_embestida(b, h);
+      if (distancia(h, g) <= radio_ataque(g, 'embestida')) impacto_embestida(b, h);
     }
     if (llego || g.reloj <= 0) {
       g.destino = { x: g.x, y: g.y };
@@ -440,8 +475,7 @@ function actualizar_gorila(b,activos,dt) {
       g.impactados = new Set();
       g.reloj = 3.1;
     } else if (g.accion === 'agarre') {
-      if (puede_actuar(g.sujeto, g) && distancia(g, g.sujeto) < g.radio + 54
-        && Math.abs(g.sujeto.altura - g.altura) < 26) {
+      if (puede_actuar(g.sujeto, g) && Math.hypot(distancia(g, g.sujeto), (g.sujeto.altura - g.altura) * 1.35) <= radio_ataque(g, 'agarre')) {
         g.fase = 'agarre';
         g.reloj = 1.1;
         registrar(b, 'agarre', { hombre: g.sujeto.id });
@@ -531,9 +565,9 @@ export function avanzar_batalla(b,dt) {
   for (const h of activos) h.oculto = h.orden === 'esconder' && tiene_cobertura(h, b.gorila, b.arena);
   actualizar_gorila(b,activos,dt);
   const disponibles = activos.filter(activo);
-  if (b.estrategia === 'buscar_armas' && b.transcurrido >= b.busqueda_en) {
-    asignar_busqueda(b, disponibles);
-    b.busqueda_en = b.transcurrido + 1.2;
+  if (disponibles.length !== b.activos_asignados || (b.plan.buscar_armas && b.transcurrido >= b.busqueda_en)) {
+    asignar_plan(b);
+    b.busqueda_en = b.transcurrido + 2;
   }
   const puestos = new Map(disponibles.filter(h => h.orden === 'atacar' && h.valentia >= 22).map((h, i) => [h, i]));
   const turno = Math.floor(b.transcurrido * 2.5) % activos.length;

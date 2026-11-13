@@ -1,4 +1,4 @@
-import { alto, ancho, duracion_entrega, paracaidas_visible } from './battle.js';
+import { alto, ancho, duracion_entrega, paracaidas_visible, radio_ataque } from './battle.js';
 import { ARENAS } from './rules.js';
 import { crear_atlas, accion_humano, accion_gorila, dibujar_sprite } from './sprites.js';
 
@@ -170,7 +170,7 @@ export function crear_dibujante(canvas){
   ctx.imageSmoothingEnabled=false;ctx.drawImage(capas.get(id),0,0);
   // objetos aún en arena: los ocultos nunca se muestran antes de encontrarlos.
   for(const o of batalla.armas_suelo||[]){
-    if(o.recogido_por||!o.visible)continue;
+    if(o.recogido_por || !(o.reserva ? o.descubierto : o.visible))continue;
     caja(ctx,o.x,o.y,o.objeto?.tipo==='fuego'?'#ad6348':'#9c784d');
     if(o.objeto?.tipo==='fuego'){rect(ctx,o.x-6,o.y-3,12,3,'#252b30');rect(ctx,o.x+4,o.y-5,3,4,'#dfd49b');}
   }
@@ -180,7 +180,7 @@ export function crear_dibujante(canvas){
   }
   const g=batalla.gorila;
   if((g.fase==='aviso'||g.fase==='embestida')&&g.destino){
-    const r=g.accion==='rugido'?145:g.accion==='golpe_area'?g.radio+75:g.radio+28;
+    const r=radio_ataque(g);
     ctx.fillStyle=g.accion==='rugido'?'#eccc4560':'#e85c4e50';
     ctx.beginPath();ctx.arc(g.destino.x,g.destino.y,r,0,Math.PI*2);ctx.fill();
     baliza(ctx,g.destino.x,g.destino.y,r,g.accion==='rugido'?'#f9d668':'#ff9473');
