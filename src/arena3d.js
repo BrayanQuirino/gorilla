@@ -100,7 +100,7 @@ function createScene(gl,canvas){
  const mesh={cube:cube(gl),sphere:sphere(gl),cylinder:cylinder(gl)};
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.enable(gl.CULL_FACE);
  const cam=[0,39,48],view=lookAt(cam,[0,0,0],[0,1,0]);
- const proj=mul(ortho(-24,24,-19,19,.1,110),view);
+ const proj=mul(ortho(-24,24,-14,14,.1,110),view);
  gl.uniformMatrix4fv(loc.projection,false,new Float32Array(proj));
  function draw(type,x,y,z,w,h,d,color,rot=0,alpha=1){
   const g=mesh[type];gl.bindBuffer(gl.ARRAY_BUFFER,g.v);gl.enableVertexAttribArray(loc.position);gl.vertexAttribPointer(loc.position,3,gl.FLOAT,false,0,0);
@@ -199,7 +199,7 @@ export function crear_dibujante_3d(canvas){
   gl.viewport(0,0,canvas.width,canvas.height);
   const sky=hex(p.sky);gl.clearColor(...sky,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   gl.useProgram(scene.p);
-  gl.uniformMatrix4fv(scene.loc.projection,false,new Float32Array(mul(ortho(-24,24,-19,19,.1,110),lookAt([0,39,48],[0,0,0],[0,1,0]))));
+  gl.uniformMatrix4fv(scene.loc.projection,false,new Float32Array(mul(ortho(-24,24,-14,14,.1,110),lookAt([0,39,48],[0,0,0],[0,1,0]))));
   draw('cube',0,-.25,0,46,.45,30,p.ground);
   draw('sphere',0,-.045,0,34,.13,22,p.path);
   forest(draw,arena);
@@ -211,4 +211,12 @@ export function crear_dibujante_3d(canvas){
   for(const h of battle.hombres||[])fighter(draw,h,time,selected>0&&h.escuadron===selected);
   gorilla(draw,battle.gorila,time);
  };
+}
+
+// Proyección del clic a la superficie del terreno bajo una cámara ortográfica oblicua.
+export function punto_terreno_3d(nx,ny){
+ const x=(nx-.5)*48;
+ const vertical=(.5-ny)*28;
+ const z=-vertical*(Math.hypot(39,48)/39);
+ return {x:clamp(500+x*24,12,988),y:clamp(320+z*24,12,628)};
 }
