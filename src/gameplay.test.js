@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,condiciones_combate,en_furia,reanudar_segunda_vida} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,condiciones_combate,en_furia,reanudar_segunda_vida} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -44,8 +44,13 @@ test('el plan reparte seis acciones y asigna la búsqueda a los más alejados',(
   assert.equal(batalla.hombres.filter(h => h.orden === 'atacar').length, 50);
   assert.equal(batalla.hombres.filter(h => h.orden === 'huir').length, 40);
   assert.equal(batalla.hombres.filter(h => h.orden === 'guardia').length, 0);
-  assert.equal(aplicar_plan(batalla, {atacar:25, buscar_armas:15, huir:20, rescatar:15, esconder:15, distraer:10}), true);
+  const medicos=paramedicos_disponibles(batalla);
+  assert.ok(medicos>0);
+  assert.equal(aplicar_plan(batalla, {atacar:35,buscar_armas:15,huir:20,esconder:15,distraer:15,rescatar:medicos}),true);
   assert.equal(Object.keys(batalla.plan).length,6);
+  assert.equal(batalla.hombres.filter(h=>h.orden==='rescatar').length,medicos);
+  assert.ok(batalla.hombres.filter(h=>h.orden==='rescatar').every(h=>h.arquetipo==='Paramédico'));
+  assert.equal(aplicar_plan(batalla,{atacar:100,rescatar:medicos+1}),false);
   assert.equal(batalla.hombres.filter(h=>h.estado!=='incapacitado'&&h.orden==='guardia').length,0);
   assert.equal(aplicar_plan(batalla, { atacar: 96, buscar_armas: 5 }), false);
   assert.equal(aplicar_plan(batalla, { atacar: 80, huir: 10 }), false);
@@ -308,4 +313,31 @@ test('arquetipos modifican potencia y velocidad sin depender de edad',()=>{
   assert.ok(radar_arquetipo.Musculoso.fuerza>radar_arquetipo.Oficinista.fuerza);
   assert.ok(musculo.fuerza_efectiva>0&&oficinista.velocidad_efectiva>0);
   assert.ok(batalla.hombres.every(h=>!('edad' in h)));
+});
+
+test('tienda aprobada: 13 artículos y compras sin reservas de refuerzos',()=>{
+  const {batalla}=partida();
+  assert.equal(Object.keys(SUMINISTROS).length,13);
+  for(const id of ['trampa','senuelos','camuflaje','humo','radio','plan_maestro','bananas_extra'])
+    assert.equal(Object.hasOwn(SUMINISTROS,id),false);
+  batalla.bananas=600;
+  assert.equal(comprar_suministro(batalla,'refuerzos'),true);
+  assert.equal(comprar_suministro(batalla,'refuerzos'),true);
+  assert.equal(batalla.bananas,300);
+});
+
+test('un paquete conserva su existencia hasta que un humano lo recoge',()=>{
+  const {batalla}=partida();
+  batalla.bananas=400;
+  assert.equal(comprar_suministro(batalla,'cascos'),true);
+  const entrega=batalla.entregas[0];
+  entrega.inicio=-10;
+  avanzar_batalla(batalla,.016);
+  const paquete=batalla.suministros.find(s=>s.tipo==='paquete');
+  assert.ok(paquete);
+  assert.equal(paquete.recolector,
+    [...batalla.hombres].filter(h=>h.vida>0&&h.estado!=='incapacitado').sort((a,b)=>distancia(a,paquete)-distancia(b,paquete))[0].id);
+  // No expiry while the collector is walking from across the arena.
+  for(let i=0;i<150&&!batalla.resultado;i++)avanzar_batalla(batalla,.016);
+  assert.ok(batalla.eventos.filter(e=>e.tipo==='suministro_recogido').length<=1);
 });
