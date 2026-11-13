@@ -295,6 +295,12 @@ function cuadro(quads, batalla, mirando) {
       sprite(quads, 'caja', x, y, actor.tipo==='paquete' ? 1.45 : .82, y, actor.tipo ? [1, .81, .41, -.91] : [1, 1, 1, -1]);
     }
   }
+  for(const p of batalla.proyectiles||[]) {
+    const {x,y}=proyectar(p,vista);
+    const tipo=p.objeto?.tipo==='fuego'?'arma_fuego':'objeto_mano';
+    sprite(quads,'sombra',x,y+5,.55,y);
+    sprite(quads,tipo,x,y-(p.altura||0),.95,y,[1,1,1,-3],p.transcurrido*8);
+  }
   for (const entrega of batalla.entregas) {
     const { x, y } = proyectar(entrega, vista);
     const t = limitar((tiempo - entrega.inicio) / duracion_entrega, 0, 1);
