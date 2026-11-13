@@ -61,7 +61,7 @@ export function rango_golpe_gorila(g) {
 function asignar_plan(b) {
   const hombres = b.hombres.filter(activo);
   const reparto = [...Object.entries(b.plan)];
-  reparto.push(['guardia', 100 - reparto.reduce((total, [, porcentaje]) => total + porcentaje, 0)]);
+  // No unassigned humans: tactics always total 100%.
   const grupos = reparto.map(([orden, porcentaje]) => {
     const exactos = hombres.length * porcentaje / 100;
     return { orden, cantidad: Math.floor(exactos), resto: exactos % 1 };
@@ -89,7 +89,7 @@ export function aplicar_plan(b, plan) {
   const entradas = Object.entries(plan);
   if (entradas.length > 3 || entradas.some(([orden, valor]) =>
     !Object.hasOwn(TACTICAS, orden) || !Number.isInteger(valor) || valor < 5 || valor > 100 || valor % 5) ||
-    entradas.reduce((total, [, valor]) => total + valor, 0) > 100) return false;
+    entradas.reduce((total, [, valor]) => total + valor, 0) !== 100) return false;
   b.plan = { ...plan };
   asignar_plan(b);
   b.busqueda_en = b.transcurrido + 2;
@@ -180,7 +180,7 @@ function aplicar_suministro(batalla, entrega) {
   if (['barricada', 'senuelos', 'humo', 'trampa', 'cuerdas'].includes(id)) {
     batalla.suministros.push({ tipo: id, x, y, restante: id === 'barricada' ? 25 : item.efecto_duracion || 30 });
   } else {
-    batalla.suministros.push({ tipo: 'paquete', x, y, restante: 2 });
+    // Ground package remains until picked up.
   }
   batalla.parpadeos.push({ x, y, aterrizaje: batalla.transcurrido });
   registrar(batalla, 'paquete_entregado', { id });
@@ -201,13 +201,34 @@ function caminar(h,d,dt,velocidad=1) {
   h.vx+=((d.x-h.x)*escala-h.vx)*giro;h.vy+=((d.y-h.y)*escala-h.vy)*giro;
   h.x=limitar(h.x+h.vx*dt,10,ancho-10);h.y=limitar(h.y+h.vy*dt,10,alto-10);
 }
+export function valor_objeto(o) {
+  if(!o)return 0;
+  return o.tipo==='fuego'&&o.municion>0 ? 100+Math.min(40,o.municion*2)+(o.alcance||0)*.04
+    : Math.max(1,10+(o.bono_fuerza_pb||0)/65+Math.min(25,(o.peso_g||0)/230));
+}
+export function clase_danio(o) {
+  const v=valor_objeto(o);
+  return v>=100?'Crítico':v>=40?'Alto':v>=18?'Medio':'Bajo';
+}
+function equipar(h,o) {
+  h.objeto=o;
+  h.fuerza_efectiva=h.radar.fuerza*(1+(o?.bono_fuerza_pb||0)/10000);
+  h.velocidad_efectiva=h.radar.velocidad*(1-(o?.penalizacion_velocidad_pb||0)/10000);
+}
+function soltar_objeto(b,h,impulso=0) {
+  if(!h.objeto)return;
+  const angulo=b.azar()*Math.PI*2, objeto=h.objeto;
+  equipar(h,null);
+  b.armas_suelo.push({id:'soltado-'+h.id+'-'+Math.round(b.transcurrido*1000),
+    objeto,x:limitar(h.x+Math.cos(angulo)*impulso,12,ancho-12),
+    y:limitar(h.y+Math.sin(angulo)*impulso,12,alto-12),
+    visible:true,recogido_por:null,disponible_en:b.transcurrido+.3});
+  registrar(b,'objeto_soltado',{hombre:h.id,objeto:objeto.nombre});
+}
 export function buscar_objeto(b, h) {
   const inteligencia = limitar(h.radar.inteligencia * condiciones_combate(h).potencia / 100, 0, 1);
   const disponibles = b.armas_suelo.filter(objeto => !objeto.recogido_por && (objeto.disponible_en ?? 0) <= b.transcurrido &&
-    (!h.objeto || (objeto.objeto.tipo === 'fuego' && h.objeto.tipo !== 'fuego') ||
-      (objeto.objeto.tipo !== 'fuego' && h.objeto.tipo !== 'fuego' &&
-        (objeto.objeto.bono_fuerza_pb || 0) > (h.objeto.bono_fuerza_pb || 0)) ||
-      (objeto.objeto.tipo === 'fuego' && objeto.objeto.municion > h.objeto.municion)) &&
+    valor_objeto(objeto.objeto) > valor_objeto(h.objeto)+1 &&
     (objeto.visible || distancia(h, objeto) <= 65 + 340 * inteligencia));
   const actual = disponibles.find(objeto => objeto.id === h.buscando);
   if (actual) return actual;
@@ -250,7 +271,15 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   }
   let destino = h;
   h.oculto = h.orden === 'esconder' && tiene_cobertura(h, g, b.arena);
-  if (h.orden === 'huir' || (h.orden === 'atacar' && panico)) {
+  const paquete=b.suministros.find(p=>p.tipo==='paquete'&&!p.recogido&&p.recolector===h.id);
+  if(paquete) {
+    destino=paquete;
+    if(distancia(h,paquete)<23) {
+      paquete.recogido=true;
+      aplicar_suministro(b,paquete.entrega);
+      registrar(b,'suministro_recogido',{hombre:h.id,tipo:paquete.entrega.tipo});
+    }
+  } else if (h.orden === 'huir' || (h.orden === 'atacar' && panico)) {
     destino = { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
   } else if (h.orden === 'esconder' && !h.oculto) {
     destino = refugio(h, g, b.arena) ?? { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
@@ -274,7 +303,9 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     const dx = (h.x - g.x) / largo;
     const dy = (h.y - g.y) / largo;
     destino = { x: h.x + 45 * (dx * ajuste - dy * lado), y: h.y + 45 * (dy * ajuste + dx * lado) };
-  } else if (h.orden === 'buscar_armas') {
+  } else if (h.orden === 'buscar_armas' ||
+    (h.orden !== 'huir' && h.orden !== 'esconder' && buscar_objeto(b,h) &&
+    distancia(h,buscar_objeto(b,h))<35)) {
     const objeto = buscar_objeto(b, h);
     h.buscando = objeto?.id ?? null;
     if (objeto) {
@@ -286,10 +317,8 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
           b.armas_suelo.push({ id: 'relevo-' + h.id + '-' + b.transcurrido, objeto: h.objeto,
             x: h.x, y: h.y, visible: true, recogido_por: null, disponible_en: b.transcurrido + 5 });
         }
-        h.objeto = objeto.objeto;
+        equipar(h,objeto.objeto);
         objeto.recogido_por = h.id;
-        h.fuerza_efectiva = h.radar.fuerza * (1 + (h.objeto.bono_fuerza_pb || 0) / 10000);
-        h.velocidad_efectiva = h.radar.velocidad * (1 - (h.objeto.penalizacion_velocidad_pb || 0) / 10000);
         registrar(b, 'arma_encontrada', { hombre: h.id, objeto: h.objeto.nombre });
       }
     } else {
@@ -305,6 +334,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   if (h.defensa > 0) destino = { x: limitar(destino.x, 14, ancho - 14), y: limitar(destino.y, 14, alto - 14) };
   const ritmo = h.orden === 'huir' ? 1.3 : h.orden === 'esconder' ? .83 : 1;
   caminar(h, destino, dt, ritmo * rendimiento.velocidad * (altura_terreno(h, b.arena) > 8 ? .7 : 1));
+  if(paquete)return;
   if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 || h.energia < 14 ||
     cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
   b.golpes_disponibles -= 1;
@@ -335,6 +365,8 @@ function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
   const azar = azar_normalizado(b.azar);
   const impacto = lanzamiento ? h.vida_maxima * (.92 + azar * .24) :
     (minimo + azar * (maximo - minimo)) * multiplicador * (1 - h.proteccion) * cobertura * defensa;
+  if(h.objeto&&impacto>8&&b.azar()<limitar((impacto/h.vida_maxima-.12)*.5+
+    (1-h.radar.fuerza/100)*.15,0,.83))soltar_objeto(b,h,20+Math.min(70,impacto));
   aplicar_danio_humano(b, h, impacto, 45);
 }
 
@@ -345,7 +377,7 @@ function aplicar_danio_humano(b, h, impacto, miedo) {
     h.estado=azar_normalizado(b.azar)<.22?'incapacitado':'eliminado';
     registrar(b,'baja',{hombre:h.id,estado:h.estado});
     // Un objeto puede recuperarse del suelo, nunca duplicarse.
-    if(h.objeto){b.armas_suelo.push({id:'caida-'+h.id+'-'+Math.round(b.transcurrido*100),objeto:h.objeto,x:h.x,y:h.y,visible:true,recogido_por:null});h.objeto=null;}
+    if(h.objeto)soltar_objeto(b,h,7);
     for(const aliado of b.hombres)if(activo(aliado)&&distancia(aliado,h)<95)aliado.miedo=limitar(aliado.miedo+17,0,100);
   } else if (salud(h) <= .65) {
     if (h.estado !== 'herido') registrar(b, 'herido', { hombre: h.id });
@@ -617,11 +649,18 @@ export function avanzar_batalla(b,dt) {
   recompensa(b,0,dt);
   for(const e of b.efectos)e.restante-=dt;
   b.efectos=b.efectos.filter(e=>e.restante>0);
-  for(const s of b.suministros)s.restante-=dt;
+  for(const s of b.suministros)if(s.tipo!=='paquete'||s.recogido)s.restante-=dt;
   b.suministros=b.suministros.filter(s=>s.restante>0);
+  for(const p of b.suministros.filter(s=>s.tipo==='paquete'&&!s.recogido)) {
+    if(!b.hombres.some(h=>h.id===p.recolector&&activo(h)))
+      p.recolector=b.hombres.filter(activo).sort((a,z)=>distancia(a,p)-distancia(z,p))[0]?.id;
+  }
   b.entregas = b.entregas.filter(entrega => {
     if (b.transcurrido - entrega.inicio < duracion_entrega) return true;
-    aplicar_suministro(b, entrega);
+    const cercano=b.hombres.filter(activo).sort((a,z)=>distancia(a,entrega)-distancia(z,entrega))[0];
+    b.suministros.push({tipo:'paquete',x:entrega.x,y:entrega.y,restante:2,recogido:false,
+      recolector:cercano?.id,entrega});
+    registrar(b,'paquete_aterrizado',{id:entrega.tipo});
     return false;
   });
   b.parpadeos = b.parpadeos.filter(p => b.transcurrido - p.aterrizaje < duracion_parpadeo);
