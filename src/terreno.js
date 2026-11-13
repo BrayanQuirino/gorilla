@@ -24,6 +24,68 @@ const obstaculos = Object.fromEntries(Object.entries(bases).map(([arena, lista])
   }))];
 }));
 
+// Human routes are constrained by ground-level cliffs and large rock masses.
+// Rivers and bridges stay traversable. Gorilla height/climbing is unchanged.
+export function obstaculo_humano(p, arena, margen=13) {
+  return (obstaculos[arena]||[]).some(o =>
+    ((p.x-o.x)/(o.rx+margen))**2+((p.y-o.y)/(o.ry+margen))**2 < 1);
+}
+export function ruta_humano(actor, destino, arena) {
+  if(!destino)return destino;
+  const lista=(obstaculos[arena]||[]);
+  // Check the entire segment: don't let actors go through rock in one frame.
+  let bloque=null, tPrimero=2;
+  for(const o of lista){
+    const dx=destino.x-actor.x,dy=destino.y-actor.y;
+    const rx=o.rx+17,ry=o.ry+18;
+    const a=(dx/rx)**2+(dy/ry)**2;
+    if(a<1e-8)continue;
+    const ox=(actor.x-o.x)/rx,oy=(actor.y-o.y)/ry;
+    const b=2*(ox*dx/rx+oy*dy/ry),c=ox*ox+oy*oy-1;
+    const d=b*b-4*a*c;
+    if(d<0)continue;
+    const t=(-b-Math.sqrt(d))/(2*a);
+    if(t>=0&&t<=1&&t<tPrimero){bloque=o;tPrimero=t;}
+  }
+  if(!bloque)return destino;
+  // Go around the mountain on the shorter tangent side; stick to the same
+  // side briefly to prevent oscillating between both flanks every frame.
+  const o=bloque;
+  const theta=Math.atan2((actor.y-o.y)/(o.ry+20),(actor.x-o.x)/(o.rx+20));
+  const candidate=(side)=>{
+    const angle=theta+side*.63;
+    return {x:limitar(o.x+Math.cos(angle)*(o.rx+32),14,ancho-14),
+      y:limitar(o.y+Math.sin(angle)*(o.ry+35),22,alto-22)};
+  };
+  let lado=actor.rodeo?.key===lista.indexOf(o)&&actor.rodeo?.restante>0
+    ?actor.rodeo.lado
+    :(Math.hypot(candidate(1).x-destino.x,candidate(1).y-destino.y)
+      <Math.hypot(candidate(-1).x-destino.x,candidate(-1).y-destino.y)?1:-1);
+  actor.rodeo={key:lista.indexOf(o),lado,restante:Math.max(0,(actor.rodeo?.restante||0)-.016)};
+  return candidate(lado);
+}
+export function corregir_paso_humano(actor, antes, arena){
+  if(!obstaculo_humano(actor,arena,12))return;
+  // Try sliding along the cliff rather than snapping through the mountain.
+  const x={x:actor.x,y:antes.y},y={x:antes.x,y:actor.y};
+  if(!obstaculo_humano(x,arena,12)){actor.y=antes.y;actor.vy=0;return;}
+  if(!obstaculo_humano(y,arena,12)){actor.x=antes.x;actor.vx=0;return;}
+  actor.x=antes.x;actor.y=antes.y;actor.vx*=.3;actor.vy*=.3;
+}
+export function agua_humano(p,arena) {
+  const vista=encuadre(arena);
+  const x=vista.x+p.x*vista.ancho/ancho;
+  const y=vista.y+p.y*vista.alto/alto;
+  // Painted water at the left footbridge in the wooded scenes.
+  if(arena==='claro'||arena==='selva')
+    return x<215 && y>375 && y<560 && x < 208-(y-375)*.11;
+  return false;
+}
+export function altura_humano(p,arena) {
+  // Humans never climb the rock altitude map; water and riverbanks are level.
+  return 0;
+}
+
 export function limitar_posicion(actor, arena, margen = 0) {
   for (const obstaculo of obstaculos[arena]) {
     const rx = obstaculo.rx + margen;
