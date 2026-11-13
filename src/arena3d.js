@@ -118,7 +118,7 @@ const spriteFragmento = `
     float frente = texture2D(profundidad, pantalla).r;
     float suelo = pie < 0.0 ? pantalla.y : pie;
     vec4 tinta = texture2D(atlas, texel);
-    float valiente = step(1.5, abs(tono.a));
+    float valiente = step(1.5, abs(tono.a)) * (1.0 - step(2.5,abs(tono.a)));
     float opacidad = abs(tono.a) - valiente;
     if ((frente > suelo + .009 && abs(tono.a) < 2.5) || valiente > .0) {
       if (tono.a >= 0.0) discard;
