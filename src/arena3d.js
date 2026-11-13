@@ -18,13 +18,10 @@ const poses = {
   rugido: ['rugido1', 'rugido2', 'rugido3'],
 };
 const retratos = {
-  Entrenador: 'deportista', Campista: 'cazador', Estudiante: 'estudiante',
-  Boxeador: 'boxeador', Científico: 'cientifico', Acróbata: 'artista',
-  Oficinista: 'oficinista', Aficionado: 'conductor', Turista: 'ingeniero',
-  Repartidor: 'guardia', Musculoso: 'tarzan', Adolescente: 'adolescente',
-  Paramédico: 'paramedico', Velocista: 'deportista', Atleta: 'deportista',
-  Beisbolista: 'estudiante', Malabarista: 'artista', Corredor: 'deportista',
-  Anciano: 'anciano', Tarzán: 'tarzan',
+  Young: 'adolescente',
+  Adult: 'oficinista',
+  Older: 'anciano',
+
 };
 
 function cargarImagen(nombre) {
