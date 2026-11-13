@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import catalogo from './data/objetos.json' with {type:'json'};
-import {habilidades,crear_sorteo_objetos,preparar_equipo} from './roster.js';
+import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
 import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,condiciones_combate,en_furia,reanudar_segunda_vida} from './battle.js';
@@ -12,12 +12,13 @@ function partida(arena='hangar'){
   const equipo=preparar_equipo(crear_sorteo_objetos(catalogo),catalogo,arena,azar);
   return {equipo,batalla:crear_batalla(equipo.hombres,1,azar,equipo)};
 }
-test('se conservan los 100 hombres, ocho atributos y edades de 18-100',()=>{
+test('se conservan 100 hombres adultos con arquetipos clásicos y ocho habilidades',()=>{
   const {equipo}=partida();
   assert.equal(equipo.hombres.length,100);
   assert.equal(habilidades.length,8);
-  assert.ok(equipo.hombres.every(h=>h.edad>=18&&h.edad<=100));
-  assert.ok(equipo.hombres.every(h=>['Young','Adult','Older'].includes(h.arquetipo)));
+  assert.ok(equipo.hombres.every(h=>!Object.hasOwn(h,'edad')));
+  assert.ok(equipo.hombres.every(h=>arquetipos.includes(h.arquetipo)));
+  assert.ok(arquetipos.every(nombre=>equipo.hombres.some(h=>h.arquetipo===nombre)));
 });
 test('inventario inicial y reserva de arena comparten presupuesto sin duplicarlo',()=>{
   for(const id of Object.keys(ARENAS)){
@@ -297,4 +298,14 @@ test('empuje de contacto aplica 0.05 % de vida inicial sin repetir cada cuadro',
   h.x = 630;
   avanzar_batalla(batalla, .05);
   assert.equal(h.vida, vida);
+});
+
+test('arquetipos modifican potencia y velocidad sin depender de edad',()=>{
+  const {batalla}=partida('claro');
+  const musculo=batalla.hombres.find(h=>h.arquetipo==='Musculoso');
+  const oficinista=batalla.hombres.find(h=>h.arquetipo==='Oficinista');
+  assert.ok(musculo&&oficinista);
+  assert.ok(radar_arquetipo.Musculoso.fuerza>radar_arquetipo.Oficinista.fuerza);
+  assert.ok(musculo.fuerza_efectiva>0&&oficinista.velocidad_efectiva>0);
+  assert.ok(batalla.hombres.every(h=>!('edad' in h)));
 });
