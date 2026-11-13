@@ -233,6 +233,20 @@ export function separar_personajes(hombres, gorila, vueltas = 4) {
       }
       for (let j = i + 1; j < hombres.length; j++) {
         const b = hombres[j];
+        // Scouts share the narrow lanes: yield and pass one another instead
+        // of being pushed back to their starting spots every simulation tick.
+        if(a.orden==='buscar_armas' && b.orden==='buscar_armas'){
+          const ddx=b.x-a.x,ddy=b.y-a.y;
+          const dst=Math.hypot(ddx,ddy);
+          if(dst>=18)continue;
+          const side=a.id<b.id?1:-1;
+          const vx=dst>1?-ddy/dst:side,vy=dst>1?ddx/dst:0;
+          a.x=limitar(a.x+vx*1.5,14,ancho-14);
+          a.y=limitar(a.y+vy*1.5,22,alto-22);
+          b.x=limitar(b.x-vx*1.5,14,ancho-14);
+          b.y=limitar(b.y-vy*1.5,22,alto-22);
+          continue;
+        }
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         if (Math.abs(dx) >= separacion_x || Math.abs(dy) >= separacion_y || !superpuestos(a, b)) continue;
@@ -258,7 +272,7 @@ export function separar_personajes(hombres, gorila, vueltas = 4) {
   // Try nearby slots when a character is still significantly inside another.
   const ubicados = [];
   for (const hombre of hombres) {
-    if (ubicados.some(otro => superpuestos(hombre, otro, .88))) {
+    if (hombre.orden!=='buscar_armas'&&ubicados.some(otro => superpuestos(hombre, otro, .88))) {
       reubicar(hombre, hombres, gorila, radio);
     }
     ubicados.push(hombre);
