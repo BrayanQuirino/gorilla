@@ -808,7 +808,9 @@ export function avanzar_batalla(b,dt) {
   }
   const suelo = b.hombres.filter(h => activo(h) && !h.vuelo && !(b.gorila.fase === 'agarre' && b.gorila.sujeto === h));
   empujar_por_contacto(b, suelo);
+  const antes_separacion=new Map(suelo.map(h=>[h,{x:h.x,y:h.y}]));
   separar_personajes(suelo.filter(activo), b.gorila);
+  for(const h of suelo) corregir_paso_humano(h,antes_separacion.get(h),b.arena);
   for (const h of suelo){
     h.nadando=agua_humano(h,b.arena);
     h.altura=altura_humano(h,b.arena);
