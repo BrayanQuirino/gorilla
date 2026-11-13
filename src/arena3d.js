@@ -119,6 +119,7 @@ const spriteFragmento = `
     float frente = texture2D(profundidad, pantalla).r;
     float suelo = pie < 0.0 ? pantalla.y : pie;
     vec4 tinta = texture2D(atlas, texel);
+    if(tinta.a < .12) discard;
     float valiente = step(1.5, abs(tono.a)) * (1.0 - step(2.5,abs(tono.a)));
     float opacidad = abs(tono.a) - valiente;
     if ((frente > suelo + .009 && abs(tono.a) < 2.5) || valiente > .0) {
@@ -224,7 +225,7 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando, celebracion=0) {
   if (Math.abs(h.vx) > 7) mirando.set(h.id, h.vx < 0);
   const bailando=celebracion>0 && !caido;
   const baile=bailando?Math.sin(celebracion*10+h.id*.87):0;
-  const paso = bailando?baile*3:moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
+  const paso = bailando?baile*5:moviendo ? Math.sin(tiempo * 11 + h.id * .7) : 0;
   const golpe = Math.max(0, (h.atacando_hasta ?? 0) - tiempo);
   const tono = h.estado === 'herido' ? herido : blanco;
   const escala = 1;
@@ -234,10 +235,10 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando, celebracion=0) {
   const vuelo = h.vuelo ? (tiempo - h.vuelo.inicio) / h.vuelo.duracion : 0;
   const sujeto = g.fase === 'agarre' && g.sujeto === h;
   const izquierda = mirando.get(h.id) ?? g.x < h.x;
-  const avance = bailando?Math.sin(celebracion*6+h.id)*6:golpe > 0 ? Math.sin(golpe / .38 * Math.PI) * (g.x < h.x ? -4 : 4) : 0;
+  const avance = bailando?Math.sin(celebracion*6+h.id)*4:golpe > 0 ? Math.sin(golpe / .38 * Math.PI) * (g.x < h.x ? -4 : 4) : 0;
   sprite(quads, caido && !h.vuelo ? 'caido' : retrato, x + avance, y - altura - Math.abs(paso) * 2,
     escala, y + altura * .35, [tono[0], tono[1], tono[2], -(tono[3] + Number(!caido && h.valentia > 70))],
-    h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : bailando ? baile*.25 : h.defensa > 0 ? -.16 : paso * .085,
+    h.vuelo ? vuelo * Math.PI * 2 : sujeto ? 1.05 : bailando ? baile*.18 : h.defensa > 0 ? -.16 : paso * .085,
     izquierda);
   if(!caido){
     const cab = y-altura-27-Math.abs(paso)*2;
@@ -247,9 +248,12 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando, celebracion=0) {
     if(h.escudo){rectangulo(quads,x+avance+(izquierda?-15:15),y-altura-4,15,28,y,[.63,.77,.85,-1]);
       rectangulo(quads,x+avance+(izquierda?-15:15),y-altura-4,5,16,y,[.31,.49,.6,-1]);}
     if(bailando){
+      // Two raised vertical arms, aligned to shoulders: no huge diagonal quads.
+      const levanta=Math.abs(Math.sin(celebracion*8+h.id*.27));
       for(const lado of [-1,1]){
-        const levanta=Math.abs(Math.sin(celebracion*8+h.id*.3));
-        rectangulo(quads,x+avance+lado*15,cab-levanta*12,7,20,y,[.91,.72,.53,-1],lado*(.55+levanta*.5));
+        const ax=x+avance+lado*10;
+        rectangulo(quads,ax,cab+1-levanta*6,4,11,y,[.94,.74,.52,-1]);
+        rectangulo(quads,ax,cab-8-levanta*6,6,4,y,[.96,.80,.57,-1]);
       }
     }
   }
@@ -264,6 +268,7 @@ function dibujarHumano(quads, h, x, y, tiempo, g, mirando, celebracion=0) {
 
 function dibujarGorila(quads, g, x, y, tiempo, espejo) {
   const escala = limitar(g.radio / 27, .92, 1.22) * .97;
+  const derrotado=g.vida<=0;
   const pose = poseGorila(g, tiempo);
   sprite(quads, 'sombra', x, y + 15, escala * 2.75, y);
   const region = fotogramas[pose];
@@ -277,7 +282,14 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
       rectangulo(quads, x + dx, py, 3 + (1 - fase) * 4, 4 + (1 - fase) * 5, y, fuego, fase * .7);
     }
   }
-  quads.quad(x, y - altura, region[2] * escala, region[3] * escala, y + altura * .35, region, [1, 1, 1, -3], 0, espejo);
+  if(derrotado){
+    // The gorilla visibly collapses horizontally onto the floor.
+    quads.quad(x-20*escala,y+5,region[2]*escala,region[3]*escala,
+      y+15,region,[.78,.76,.73,-3],-Math.PI*.47,espejo);
+  }else{
+    quads.quad(x, y - altura, region[2] * escala, region[3] * escala,
+      y + altura * .35, region, [1, 1, 1, -3], 0, espejo);
+  }
 
 }
 
@@ -316,6 +328,21 @@ function cuadro(quads, batalla, mirando) {
       rectangulo(quads,x,y-38,Math.max(0,60*actor.vida/actor.vida_maxima),4,y,[.52,.89,.55,-1]);
     } else {
       sprite(quads, 'caja', x, y, actor.tipo==='paquete' ? 1.45 : .82, y, actor.tipo ? [1, .81, .41, -.91] : [1, 1, 1, -1]);
+    }
+  }
+  // Ripple sprites on water surface after a thrown person lands in the river.
+  for(const h of batalla.hombres){
+    if(!h.chapuzon_hasta || h.chapuzon_hasta<batalla.transcurrido || !h.nadando)continue;
+    const delta=1.15-(h.chapuzon_hasta-batalla.transcurrido);
+    const {x,y}=proyectar(h,vista);
+    const growth=14+delta*30;
+    const opacity=Math.max(.04,.8-delta*.7);
+    aro(quads,x,y+3,growth,growth*.30,-1,[.70,.93,1,opacity],0,18);
+    for(let k=0;k<7;k++){
+      const angle=k*Math.PI*2/7+delta*1.2;
+      sprite(quads,'pixel',x+Math.sin(angle)*growth*.6,
+        y-4-Math.max(0,Math.sin(delta*Math.PI/1.15))*24-Math.cos(angle)*9,
+        3.5,y,[.72,.95,1,-opacity]);
     }
   }
   for(const p of batalla.proyectiles||[]) {
