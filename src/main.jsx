@@ -238,7 +238,7 @@ function MenuEstrategia({dialogo,batalla,categoria,cambiar_categoria,plan,cambia
   const cansados=vivos.filter(h=>h.energia<30).length;
   const caidos=batalla.hombres.filter(h=>!activo(h)).length;
   const conArmaFuego=vivos.filter(h=>h.objeto?.tipo==='fuego'&&h.objeto.municion>0).length;
-  const vidaEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.vida/h.vida_maxima),0)/vivos.length*100):0;
+  const vidaEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.vida/h.vida_maxima,0)/vivos.length*100):0;
   const energiaEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.energia,0)/vivos.length):0;
   const coraje=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.valentia,0)/vivos.length):0;
   const indicadores=[
