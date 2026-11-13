@@ -42,3 +42,14 @@ npm run build
 ## Balance pendiente
 
 Las probabilidades y cantidades actuales son **parámetros de videojuego** sujetos a pruebas, no estadísticas de ataques reales de gorilas. Algunas habilidades declaradas, efectos de suministros y nuevos tipos de arena requerirán iteraciones de comportamiento y balance; la incorporación de spritesheets ilustrados profesionalmente, sonidos y la posible migración a Phaser siguen pendientes. El atlas actual está dibujado en código y no reproduce de manera exacta la ilustración conceptual aprobada.
+
+## Probar la versión arcade
+
+La rama `main` incluye un atlas de cuatro fotogramas por estado, gorila espalda plateada, humanos pixel-art, terrenos, impactos, avisos y HUD de tácticas y compras.
+
+- `npm ci && npm test && npm run dev`: pruebas y vista local.
+- `npm run build`: compilación de producción.
+- `.github/workflows/ci.yml`: comprueba automáticamente tests y build.
+- `.github/workflows/pages.yml`: intenta publicar en GitHub Pages después de probar y compilar. Si aún no está habilitado, seleccionar **Settings → Pages → Source → GitHub Actions** en el repositorio.
+
+El sitio de Pages solo debe considerarse publicado cuando el workflow `Publish Gorilla to GitHub Pages` muestre una ejecución exitosa. No hay ninguna dependencia de Phaser en esta versión; el motor sigue funcionando con Canvas 2D.
