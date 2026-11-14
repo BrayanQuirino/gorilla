@@ -283,7 +283,7 @@ function caminar(h,d,dt,velocidad=1,arena='claro') {
 }
 export function valor_objeto(o) {
   if(!o)return 0;
-  return o.tipo==='fuego'?100+(o.municion>0?(o.dano_maximo||60):0):(o.dano_maximo||0)*1000;
+  return o.tipo==='fuego'?100+(o.municion>0?(o.dano_maximo||60):0):(o.dano_maximo===undefined?1:o.dano_maximo*1000);
 }
 export function clase_danio(o) {
   const v=valor_objeto(o);
