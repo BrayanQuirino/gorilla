@@ -205,7 +205,7 @@ test('los ataques conservan recarga sin consumir energía ni impedir combatir', 
   avanzar_batalla(batalla,.05);
   const vida = g.vida;
   assert.ok(vida < g.vida_maxima);
-  assert.ok(h.recarga > 2,'se conserva el tiempo de recarga');
+  assert.ok(h.recarga > 1.4,'se conserva el tiempo de recarga sin bloquear la ofensiva');
   assert.equal(h.energia,undefined,'el humano ya no usa energía para atacar');
   for(let i=0;i<20;i++) avanzar_batalla(batalla,.05);
   assert.equal(g.vida,vida);
@@ -576,4 +576,24 @@ test('solo correr reduce agilidad y al parar se recupera',()=>{
   for(let i=0;i<100;i++)actualizar_fatiga_carrera(h,0,.05);
   assert.ok(h.fatiga_carrera<fatigado,'descansar recupera agilidad');
   assert.equal(h.energia,undefined,'el humano no usa energía');
+});
+
+test('ofensiva continua: el grupo ataca repetidamente pese a la baja valentía',()=>{
+ const {batalla}=partida('claro');
+ batalla.hombres=batalla.hombres.slice(0,24);
+ assert.equal(aplicar_plan(batalla,{atacar:100}),true);
+ const g=batalla.gorila;
+ Object.assign(g,{x:575,y:350,altura:0,fase:'espera',reloj:1e5,vida:650,vida_maxima:650});
+ batalla.armas_suelo=[];
+ batalla.hombres.forEach((h,i)=>{
+  const angle=2*Math.PI*i/24;
+  Object.assign(h,{x:g.x+Math.cos(angle)*55,y:g.y+Math.sin(angle)*55,
+   altura:0,objeto:null,valentia:15,miedo:90,recarga:0,defensa:0,orden:'atacar'});
+ });
+ batalla.azar=()=>0;
+ for(let i=0;i<240;i++)avanzar_batalla(batalla,1/30);
+ assert.ok(batalla.impactos_humanos>=5,
+  'los combatientes en táctica atacar deben golpear repetidamente: '+batalla.impactos_humanos);
+ assert.ok(batalla.danio_total_humanos>0,'la ofensiva produce daño real');
+ assert.ok(batalla.hombres.some(h=>h.atacando_hasta>0),'se activan animaciones de ataque');
 });
