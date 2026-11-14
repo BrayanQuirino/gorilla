@@ -239,9 +239,9 @@ const iconos_suministros={
 };
 const beneficios={
  municion:'5 balas para recargar armas de fuego, una por arma; el sobrante queda en reserva.',
- energizante:'Recupera 35 de energía a 10 combatientes cercanos. Efecto de recuperación durante 15 s.',
+ energizante:'Recupera 35 puntos de agilidad de carrera a 10 combatientes cercanos. Recuperación acelerada durante 15 s.',
  botiquin:'Cura 25 PV a 5 combatientes. El recolector lleva la ayuda a sus compañeros.',
- comida:'Recupera 15 de energía a 15 combatientes.',
+ comida:'Reduce 15 puntos de fatiga al correr a 15 combatientes.',
  adrenalina:'Impulso de combate para 8 hombres durante 15 segundos.',
  cascos:'10 cascos visibles. Cada uno reduce un 20% del daño.',
  escudos:'6 escudos visibles. Reducen un 35% del daño.',
@@ -299,16 +299,16 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
   const vivos=batalla.hombres.filter(activo);
   const armados=vivos.filter(h=>h.objeto).length;
   const heridos=vivos.filter(h=>h.estado==='herido').length;
-  const cansados=vivos.filter(h=>h.energia<30).length;
+  const cansados=vivos.filter(h=>(h.fatiga_carrera||0)>70).length;
   const caidos=batalla.hombres.filter(h=>!activo(h)).length;
   const conArmaFuego=vivos.filter(h=>h.objeto?.tipo==='fuego'&&h.objeto.municion>0).length;
   const vidaEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.vida/h.vida_maxima,0)/vivos.length*100):0;
-  const energiaEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.energia,0)/vivos.length):0;
+  const agilidadEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+Math.max(60,100-(h.fatiga_carrera||0)*.4),0)/vivos.length):100;
   const coraje=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.valentia,0)/vivos.length):0;
   const indicadores=[
     {icon:'👥',etiqueta:'En combate',valor:vivos.length,sub:'de '+batalla.hombres.length},
     {icon:'🧰',etiqueta:'Armados',valor:armados,sub:conArmaFuego+' con arma de fuego'},
-    {icon:'🩹',etiqueta:'Heridos',valor:heridos,sub:cansados+' agotados'},
+    {icon:'🩹',etiqueta:'Heridos',valor:heridos,sub:cansados+' con agilidad reducida'},
     {icon:'💀',etiqueta:'Bajas',valor:caidos,sub:'fuera de combate'},
   ];
   const descripcionesTacticas={
@@ -320,7 +320,7 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
   };
   const orientacion=armados<Math.max(10,vivos.length*.3)?'Queda poco equipo armado: conviene buscar armas.'
     :heridos>vivos.length*.25?'Hay muchos heridos: considera huir y asignar paramédicos.'
-    :energiaEquipo<42?'El equipo está agotado: conviene reducir la presión y reagruparse.'
+    :agilidadEquipo<75?'El equipo corre más lento: reducir desplazamientos permite recuperar agilidad.'
     :coraje<45?'La valentía es baja: distraer y esconderse puede evitar bajas.'
     :'El equipo tiene recursos para presionar; ajusta los porcentajes según el terreno.';
   if(!abierto)return null;
