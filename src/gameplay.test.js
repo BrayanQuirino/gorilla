@@ -476,7 +476,7 @@ test('100 buscadores atraviesan cada arena sin quedar bloqueados en conjunto',()
     const zonas=new Set(batalla.hombres.map(h=>h.exploracion?.celda).filter(n=>n!==undefined));
     assert.ok(avanzaron>=60,arena+': más de la mitad deben desplazarse realmente; se movieron '+avanzaron);
     assert.ok(zonas.size>=6,arena+': distribuir rutas por diferentes sectores; encontrados '+zonas.size);
-    assert.ok(Math.hypot(batalla.gorila.x-gorila.x,batalla.gorila.y-gorila.y)>25,arena+': gorila activo');
+    assert.ok(batalla.resultado==='Victoria de los hombres'||Math.hypot(batalla.gorila.x-gorila.x,batalla.gorila.y-gorila.y)>25,arena+': gorila móvil salvo que haya sido derrotado');
   }
 });
 
