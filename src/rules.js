@@ -5,7 +5,7 @@ export const ARENAS = {
   claro: {nombre:'Claro del bosque', reserva:.20, cobertura:0.15, terreno:'bosque', categorias:['ropa','hogar','escenario','deportes'], puntos:[[205,125],[430,170],[620,480],[810,520]]},
   selva: {nombre:'Selva y ruinas', reserva:.28, cobertura:0.60, terreno:'selva', categorias:['escenario','hogar','deportes','taller'], puntos:[[160,150],[410,130],[660,490],[880,400]]},
   canon: {nombre:'Cañón rocoso', reserva:.35, cobertura:0.25, terreno:'canon', categorias:['escenario','taller','hogar','deportes'], puntos:[[140,410],[310,140],[680,155],[850,485]]},
-  hangar: {nombre:'Hangar abandonado', reserva:.60, cobertura:0.50, terreno:'industrial', categorias:['taller','oficina','armas_arcade','hogar'], puntos:[[160,120],[360,470],[680,140],[850,450]]},
+  hangar: {nombre:'Hangar abandonado', reserva:.60, cobertura:0.50, terreno:'industrial', categorias:['taller','oficina','exterior','hogar','armas_fuego'], puntos:[[160,120],[360,470],[680,140],[850,450]]},
 };
 export const TACTICAS = {
   atacar: {nombre:'Atacar', energia:1.7},
@@ -16,6 +16,7 @@ export const TACTICAS = {
   rescatar: {nombre:'Rescatar heridos', energia:1.0},
 };
 export const SUMINISTROS = {
+  municion: {nombre:'Caja de munición',costo:60,cantidad:5,balas:5},
   energizante: {nombre:'Energizantes', costo:30, cantidad:10, energia:35, efecto:'fatiga', efecto_duracion:15},
   botiquin: {nombre:'Botiquín', costo:45, cantidad:5, curacion:25},
   comida: {nombre:'Comida', costo:20, cantidad:15, energia:15},
@@ -59,13 +60,15 @@ export function sortear_inventario(catalogo, arena='claro', azar=Math.random, to
   const configuracion=ARENAS[arena]||ARENAS.claro;
   const cantidad=limitar(Math.round(total*configuracion.reserva),0,total);
   const elegibles=catalogo.objetos.filter(o=>configuracion.categorias.includes(o.categoria));
+  const probabilidades=catalogo.reglas.probabilidad_nivel;
   const posiciones=configuracion.puntos;
   return Array.from({length:cantidad},(_,i)=>{
-    const objeto=arena==='hangar'&&azar()<.065
-      ? {id:'hangar_pistola_'+i,nombre:'Pistola',categoria:'armas_fuego',variante:'arena',
-          tipo:'fuego',municion:6+azar_entero(azar,7),alcance:260,bono_fuerza_pb:0,
-          penalizacion_velocidad_pb:10,peso_g:850}
-      : elegibles[azar_entero(azar,elegibles.length)];
+    const n=azar();
+    let acumulado=0, nivel=1;
+    for(const [id,p] of Object.entries(probabilidades)){acumulado+=p;if(n<acumulado){nivel=Number(id);break;}}
+    let lista=elegibles.filter(o=>o.nivel===nivel);
+    if(!lista.length)lista=catalogo.objetos.filter(o=>o.nivel===nivel);
+    const objeto={...lista[azar_entero(azar,lista.length)]};
     const base=posiciones[i%posiciones.length];
     return {id:'suelo-'+i,objeto,x:limitar(base[0]+(azar()-.5)*110,20,980),
       y:limitar(base[1]+(azar()-.5)*90,20,620),recogido_por:null,visible:azar()>.45};
