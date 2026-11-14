@@ -332,7 +332,7 @@ export function objetivo_exploracion(b,h,dt=1/30) {
       y:limitar(54+row*(alto-108)/(rows-1)+jitterY,28,alto-28)};
   };
   const vencido=e.objetivo&&(distancia(h,e.objetivo)<27 || e.reloj>9.5 || (h.atasco||0)>1.1);
-  if(vencido && e.celda!==undefined){e.visitas[e.celda]=(e.visitas[e.celda]||0)+1;e.objetivo=null;}
+  if(vencido && e.celda!==undefined){e.visitas[e.celda]=(e.visitas[e.celda]||0)+1;e.objetivo=null;if((h.atasco||0)>1.1){h.atasco=0;h.progreso_ruta=null;}}
   if(!e.objetivo){
     let mejor=-Infinity,celda=0;
     for(let n=0;n<cols*rows;n++){
@@ -383,6 +383,7 @@ export function objetivo_distraccion(b,h,dt=1/30) {
     candidatos.sort((a,z)=>a.puntaje-z.puntaje);
     e.sector=candidatos[0].sector;
     e.objetivo=candidatos[0].p;
+    if(atascado){h.atasco=0;h.progreso_ruta=null;}
     e.origen_g={x:g.x,y:g.y};
     e.tiempo=0;
     e.visitas++;
