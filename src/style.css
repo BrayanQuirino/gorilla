@@ -451,3 +451,20 @@ html,body,#root{min-height:100%;margin:0}
  .juego-app .arena .panel-tactico-acciones .lista-suministros{grid-template-columns:1fr}
  .niveles-armas{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+
+/* Actual damage for each human, accessible directly in the Equipo tab. */
+.dano-individual{margin:10px 0 14px;padding:9px;border:1px solid #617a70;border-radius:8px;background:#152628;min-width:0}
+.dano-individual-titulo{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:7px}
+.dano-individual-titulo h3{margin:0!important;color:#edc877;font-size:1rem}
+.dano-individual-titulo small{color:#bac9c1;font-size:.72rem}
+.dano-individual input[type="search"]{box-sizing:border-box;width:100%;min-height:32px;padding:6px 9px;margin-bottom:7px;color:#f8ebcf;background:#0e2023;border:1px solid #57716a;border-radius:5px}
+.dano-tabla-contenedor{max-height:250px;overflow:auto;scrollbar-width:thin}
+.dano-tabla{width:100%;border-collapse:collapse;font-size:.78rem;white-space:nowrap}
+.dano-tabla th{position:sticky;top:0;background:#29413f;color:#f3d38d;text-align:left;z-index:1}
+.dano-tabla th,.dano-tabla td{padding:6px 5px;border-bottom:1px solid #3c5852}
+.dano-tabla td:last-child{color:#f4cd72}
+.dano-tabla td small{display:block;color:#a8bcb7;font-size:.7rem}
+.dano-tabla .combatiente-caido{opacity:.57}
+.nota-dano{margin:7px 0 0;color:#bfd0c3;font-size:.73rem;line-height:1.25}
+@media(max-width:480px){.dano-tabla{font-size:.68rem}.dano-tabla th,.dano-tabla td{padding:5px 3px}}
