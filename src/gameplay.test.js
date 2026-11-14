@@ -170,8 +170,9 @@ test('el agarre retiene al hombre y lo lanza en arco; la embestida proyecta a lo
   assert.equal(h.vuelo,undefined);
   assert.ok(h.vida <= h.vida_maxima * .08 + .001);
   const segundo=batalla.hombres[1];
-  Object.assign(g,{fase:'embestida',accion:'embestida',reloj:1,destino:{x:520,y:440},direccion_embestida:{x:1,y:0}});
-  Object.assign(segundo,{x:550,y:440,altura:g.altura});
+  Object.assign(g,{x:520,y:440,altura:0,fase:'embestida',accion:'embestida',reloj:1,
+    destino:{x:520,y:440},direccion_embestida:{x:1,y:0},impactados:new Set()});
+  Object.assign(segundo,{x:550,y:440,altura:0,vida:segundo.vida_maxima,estado:'normal',vuelo:null});
   avanzar_batalla(batalla,.05);
   assert.ok(segundo.vuelo);
 });
