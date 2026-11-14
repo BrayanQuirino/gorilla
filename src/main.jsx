@@ -98,7 +98,7 @@ function TablaDanoIndividual({hombres}){
  const [consulta,cambiar_consulta]=useState('');
  const lista=hombres.filter(h=>String(h.id).includes(consulta)||h.arquetipo.toLowerCase().includes(consulta.toLowerCase())||
    (h.objeto?.nombre||'').toLowerCase().includes(consulta.toLowerCase()));
- const decimal=n=>n.toFixed(4).replace(/0+$/,'').replace(/\\.$/,'');
+ const decimal=n=>n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
  return <section className="dano-individual" aria-label="Fuerza de daño de cada hombre">
   <div className="dano-individual-titulo"><h3>⚔️ Daño individual real (PV)</h3><small>Daño actual por impacto acertado, sin distancia ni apertura</small></div>
   <input aria-label="Buscar combatiente por número, arquetipo o arma" type="search" placeholder="Buscar #, arquetipo u objeto" value={consulta} onChange={e=>cambiar_consulta(e.target.value)}/>
