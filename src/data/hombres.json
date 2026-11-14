@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "descripcion": "Balance de los 20 arquetipos. Daño físico base sin armas; el combate puede aplicar penalizaciones por condiciones.",
+  "dano_fisico_minimo_base": 0.1,
+  "probabilidad_por_arquetipo_en_80_sorteos": 0.05,
+  "arquetipo_garantizado": 1,
+  "arquetipos": {
+    "Anciano": {
+      "vida_maxima": 10,
+      "dano_fisico": 0.1,
+      "probabilidad_sorteo": 0.05
+    },
+    "Adolescente": {
+      "vida_maxima": 16,
+      "dano_fisico": 0.1,
+      "probabilidad_sorteo": 0.05
+    },
+    "Oficinista": {
+      "vida_maxima": 18,
+      "dano_fisico": 0.1,
+      "probabilidad_sorteo": 0.05
+    },
+    "Científico": {
+      "vida_maxima": 18,
+      "dano_fisico": 0.1,
+      "probabilidad_sorteo": 0.05
+    },
+    "Turista": {
+      "vida_maxima": 18,
+      "dano_fisico": 0.1,
+      "probabilidad_sorteo": 0.05
+    },
+    "Estudiante": {
+      "vida_maxima": 19,
+      "dano_fisico": 0.12,
+      "probabilidad_sorteo": 0.05
+    },
+    "Aficionado": {
+      "vida_maxima": 20,
+      "dano_fisico": 0.14,
+      "probabilidad_sorteo": 0.05
+    },
+    "Malabarista": {
+      "vida_maxima": 20,
+      "dano_fisico": 0.15,
+      "probabilidad_sorteo": 0.05
+    },
+    "Repartidor": {
+      "vida_maxima": 21,
+      "dano_fisico": 0.15,
+      "probabilidad_sorteo": 0.05
+    },
+    "Paramédico": {
+      "vida_maxima": 23,
+      "dano_fisico": 0.15,
+      "probabilidad_sorteo": 0.05
+    },
+    "Campista": {
+      "vida_maxima": 22,
+      "dano_fisico": 0.17,
+      "probabilidad_sorteo": 0.05
+    },
+    "Corredor": {
+      "vida_maxima": 23,
+      "dano_fisico": 0.18,
+      "probabilidad_sorteo": 0.05
+    },
+    "Acróbata": {
+      "vida_maxima": 24,
+      "dano_fisico": 0.2,
+      "probabilidad_sorteo": 0.05
+    },
+    "Velocista": {
+      "vida_maxima": 24,
+      "dano_fisico": 0.2,
+      "probabilidad_sorteo": 0.05
+    },
+    "Atleta": {
+      "vida_maxima": 27,
+      "dano_fisico": 0.2,
+      "probabilidad_sorteo": 0.05
+    },
+    "Entrenador": {
+      "vida_maxima": 24,
+      "dano_fisico": 0.25,
+      "probabilidad_sorteo": 0.05
+    },
+    "Beisbolista": {
+      "vida_maxima": 25,
+      "dano_fisico": 0.27,
+      "probabilidad_sorteo": 0.05
+    },
+    "Musculoso": {
+      "vida_maxima": 30,
+      "dano_fisico": 0.3,
+      "probabilidad_sorteo": 0.05
+    },
+    "Boxeador": {
+      "vida_maxima": 28,
+      "dano_fisico": 0.4,
+      "probabilidad_sorteo": 0.05
+    },
+    "Tarzán": {
+      "vida_maxima": 35,
+      "dano_fisico": 0.5,
+      "probabilidad_sorteo": 0.05
+    }
+  }
+}
