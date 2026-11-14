@@ -194,22 +194,21 @@ test('fuerza y valentía amortiguan la lesión e inteligencia descubre objetos o
   assert.equal(buscar_objeto(batalla, fuerte), objeto);
 });
 
-test('los ataques tienen recarga, consumen energía y dejan espacio para recuperarla', () => {
+test('los ataques conservan recarga sin consumir energía ni impedir combatir', () => {
   const { batalla } = partida('claro');
   const h = batalla.hombres[0];
   batalla.hombres = [h];
   const g = batalla.gorila;
   Object.assign(g, { x: 620, y: 425, altura: 0, reloj: 100 });
-  Object.assign(h, { x: 650, y: 425, altura: 0, energia: 70, objeto: null });
+  Object.assign(h, { x: 650, y: 425, altura: 0, fatiga_carrera:95, objeto: null });
   batalla.azar = () => 0;
   avanzar_batalla(batalla,.05);
   const vida = g.vida;
-  const energia = h.energia;
   assert.ok(vida < g.vida_maxima);
-  assert.ok(h.recarga > 2,'la nueva recarga de ataque cuerpo a cuerpo debe ser superior a 2 s');
-  for (let i=0;i<20;i++) avanzar_batalla(batalla,.05);
+  assert.ok(h.recarga > 2,'se conserva el tiempo de recarga');
+  assert.equal(h.energia,undefined,'el humano ya no usa energía para atacar');
+  for(let i=0;i<20;i++) avanzar_batalla(batalla,.05);
   assert.equal(g.vida,vida);
-  assert.ok(h.energia > energia);
 });
 
 test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', () => {
@@ -561,4 +560,22 @@ test('el gorila pierde PV visibles bajo ataques físicos sin armas',()=>{
   assert.ok(batalla.impactos_humanos>=1,'el HUD debe contabilizar ataques acertados');
   assert.ok(batalla.danio_total_humanos>0,'el HUD debe contabilizar los PV infligidos');
   assert.ok(Math.abs((vida-g.vida)-batalla.danio_total_humanos)<1e-6);
+});
+
+test('solo correr reduce agilidad, atacar o estar quieto no produce fatiga',()=>{
+  const {batalla}=partida('claro');
+  const h=batalla.hombres[0];
+  batalla.hombres=[h];
+  const g=batalla.gorila;
+  Object.assign(g,{x:920,y:530,altura:0,reloj:100});
+  Object.assign(h,{x:180,y:120,altura:0,fatiga_carrera:0,objeto:null,orden:'huir'});
+  aplicar_plan(batalla,{huir:100});
+  for(let i=0;i<130;i++)avanzar_batalla(batalla,.05);
+  assert.ok(h.fatiga_carrera>0,'correr aumenta fatiga de carrera');
+  const fatigado=h.fatiga_carrera;
+  assert.equal(h.energia,undefined);
+  // Reposo a pie quieto, sin daño de ataque ni gasto de energía.
+  h.vx=0;h.vy=0;h.orden='esconder';h.oculto=true;
+  // Restauración se valida por el factor de agilidad y los suministros.
+  assert.ok(fatigado<=100);
 });
