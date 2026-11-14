@@ -175,11 +175,12 @@ const descripciones = {
 
 
 const iconos_suministros={
-  energizante:'⚡',botiquin:'🩹',comida:'🍲',adrenalina:'💉',
+  municion:'📦',energizante:'⚡',botiquin:'🩹',comida:'🍲',adrenalina:'💉',
   cascos:'🪖',escudos:'🛡️',chalecos:'🥋',barricada:'🧱',
   bates:'🏏',red:'🕸️',cuerdas:'🪢',refuerzos:'👥',inspiracion:'🔥'
 };
 const beneficios={
+ municion:'5 balas para recargar armas de fuego, una por arma; el sobrante queda en reserva.',
  energizante:'Recupera 35 de energía a 10 combatientes cercanos. Efecto de recuperación durante 15 s.',
  botiquin:'Cura 25 PV a 5 combatientes. El recolector lleva la ayuda a sus compañeros.',
  comida:'Recupera 15 de energía a 15 combatientes.',
