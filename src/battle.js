@@ -147,7 +147,7 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   const [vida,fuerza,tamano]=niveles[n-1];
   const arena=ARENAS[opciones.arena]?opciones.arena:'claro';
   const batalla = {
-    plan: { atacar: 100 }, activos_asignados: personajes.length, rescatadores_asignados:0, busqueda_en: 0, golpes_disponibles: 2,
+    plan: { atacar: 100 }, activos_asignados: personajes.length, rescatadores_asignados:0, busqueda_en: 0, golpes_disponibles: 5, danio_total_humanos:0, impactos_humanos:0,
     tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:0,bananas_ganadas:0,eventos:[],
     resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}, reserva:true})),
     municion_reserva:0,
@@ -439,10 +439,15 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   h.energia = limitar(h.energia + dt * (h.recarga > 0 ? 4.2 : 2.6) - (h.orden === 'huir' ? dt * 1.7 : 0), 0, 100);
   const rendimiento = condiciones_combate(h);
   const disparo = h.objeto?.tipo === 'fuego' && h.objeto.municion > 0;
-  const alcance = disparo ? h.objeto.alcance : g.radio + 27;
-  const amenazado = (g.fase === 'aviso' || g.fase === 'embestida') && g.accion !== 'rugido'
-    && g.destino && distancia(h, g.destino) < g.radio + 75
-    && Math.abs(h.altura - g.altura) < 35;
+  const alcance = disparo ? h.objeto.alcance : g.radio + 38;
+  // Solo esquivar si realmente estás en la trayectoria del siguiente ataque.
+  // Antes, el aviso impedía golpear a cualquier hombre cercano.
+  const amenazado = (g.fase === 'aviso' || g.fase === 'embestida') &&
+    g.accion !== 'rugido' && Math.abs(h.altura-g.altura)<35 &&
+    (g.accion==='barrido' ? g.objetivo===h && distancia(h,g)<radio_ataque(g,'barrido') :
+      g.accion==='golpe_area' ? distancia(h,g)<radio_ataque(g,'golpe_area')&&en_cono_golpe_area(g,h) :
+      g.accion==='embestida' ? distancia(h,g)<radio_ataque(g,'embestida')+18&&en_cono_embestida(g,h) :
+      g.accion==='agarre' ? g.sujeto===h : false);
   if (amenazado && h.orden !== 'huir' && h.valentia >= 22) {
     if (h.energia >= 6 && h.defendio_ataque !== g.ataques) {
       h.defendio_ataque = g.ataques;
@@ -568,7 +573,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 || h.energia < 14 ||
     cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
   b.golpes_disponibles -= 1;
-  h.recarga = (disparo ? 4.4 : 6.0) - h.radar.tecnica * .008;
+  h.recarga = (disparo ? 4.4 : 3.0) - h.radar.tecnica * .008;
   h.atacando_hasta = b.transcurrido + .38;
   h.energia -= disparo ? 10 : 15;
   if (disparo) {
@@ -583,8 +588,10 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     if(!disparo)consumir_durabilidad(b,h);
     const aplicado = Math.min(g.vida, danio);
     g.vida -= aplicado;
+    b.danio_total_humanos=(b.danio_total_humanos||0)+aplicado;
+    b.impactos_humanos=(b.impactos_humanos||0)+1;
     recompensa(b, aplicado);
-    registrar(b,'golpe_humano',{hombre:h.id,disparo});
+    registrar(b,'golpe_humano',{hombre:h.id,disparo,danio:aplicado});
   }
 }
 
@@ -1021,7 +1028,9 @@ export function avanzar_batalla(b,dt) {
     return false;
   });
   b.parpadeos = b.parpadeos.filter(p => b.transcurrido - p.aterrizaje < duracion_parpadeo);
-  b.golpes_disponibles = Math.min(2, b.golpes_disponibles + dt * 2.5);
+  // El límite anterior de 2.5 ataques/segundo hacía imperceptible el daño de 100 humanos.
+  // Sigue habiendo límite global y recarga por combatiente, pero hay turnos útiles.
+  b.golpes_disponibles = Math.min(5, b.golpes_disponibles + dt * 9);
   actualizar_vuelos(b);
   b.proyectiles=b.proyectiles.filter(p=>{
     p.transcurrido+=dt;
@@ -1035,7 +1044,10 @@ export function avanzar_batalla(b,dt) {
       disponible_en:b.transcurrido+1});
     if(b.gorila.vida>0) {
       const golpe=Math.min(b.gorila.vida,p.potencia);
-      b.gorila.vida-=golpe;recompensa(b,golpe);
+      b.gorila.vida-=golpe;
+      b.danio_total_humanos=(b.danio_total_humanos||0)+golpe;
+      b.impactos_humanos=(b.impactos_humanos||0)+1;
+      recompensa(b,golpe);
     }
     registrar(b,'impacto_objeto',{hombre:p.hombre,objeto:p.objeto.nombre});
     return false;
