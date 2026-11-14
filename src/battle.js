@@ -272,6 +272,14 @@ function recompensa(batalla,danio,dt=0) {
 export function agilidad_carrera(h){
   return Math.max(.60,1-(h.fatiga_carrera||0)*.004);
 }
+export function actualizar_fatiga_carrera(h,velocidad_real,dt){
+  const velocidad_propia=14+(h.velocidad_efectiva??h.radar.velocidad)*.72;
+  // Ritmo de carrera relativo: también aplica a ancianos y otros corredores lentos.
+  const corriendo=velocidad_real>Math.max(8,velocidad_propia*.35);
+  const recuperacion=h.mejoras?.some(m=>m.nombre==='fatiga')?22:12;
+  h.fatiga_carrera=limitar((h.fatiga_carrera||0)+(corriendo?dt*8:-dt*recuperacion),0,100);
+  return h.fatiga_carrera;
+}
 function caminar(h,d,dt,velocidad=1,arena='claro') {
   if(!d)return;
   const antes={x:h.x,y:h.y};
@@ -286,9 +294,7 @@ function caminar(h,d,dt,velocidad=1,arena='claro') {
   corregir_paso_humano(h,antes,arena);
   h.nadando=agua_humano(h,arena);
   const velocidad_real=distancia(h,antes)/Math.max(dt,.001);
-  // Correr >32 u/s agota progresivamente la agilidad; al bajar el ritmo, se recupera.
-  const recuperacion=h.mejoras?.some(m=>m.nombre==='fatiga')?22:12;
-  h.fatiga_carrera=limitar((h.fatiga_carrera||0)+(velocidad_real>32?dt*8:-dt*recuperacion),0,100);
+  actualizar_fatiga_carrera(h,velocidad_real,dt);
 }
 
 export function valor_objeto(o) {
