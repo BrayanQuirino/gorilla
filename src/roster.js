@@ -27,6 +27,8 @@ export const perfiles = {
 export const radar_arquetipo=Object.fromEntries(Object.entries(perfiles).map(([nombre,rasgos])=>
   [nombre,Object.fromEntries(habilidades.map(eje=>[eje,rasgos[eje]??50]))]));
 export const arquetipos=Object.keys(perfiles);
+export const vida_arquetipo={"Anciano":10,"Adolescente":16,"Oficinista":18,"Científico":18,"Turista":18,"Estudiante":19,"Aficionado":20,"Malabarista":20,"Repartidor":21,"Campista":22,"Corredor":23,"Paramédico":23,"Entrenador":24,"Acróbata":24,"Velocista":24,"Beisbolista":25,"Atleta":27,"Boxeador":28,"Musculoso":30,"Tarzán":35};
+export const vida_maxima_humano = arquetipo => vida_arquetipo[arquetipo] ?? 20;
 export function radar_personal(arquetipo, azar=Math.random) {
   const base=radar_arquetipo[arquetipo];
   return Object.fromEntries(habilidades.map(eje=>[eje,Math.max(5,Math.min(100,
@@ -44,20 +46,12 @@ function sortear_ponderado(entradas, azar) {
 }
 
 export function crear_sorteo_objetos(catalogo) {
-  const grupos = new Map();
-  for (const objeto of catalogo.objetos) {
-    const familia = objeto.id.slice(0, objeto.id.lastIndexOf('_'));
-    if (!grupos.has(objeto.categoria)) grupos.set(objeto.categoria, new Map());
-    const familias = grupos.get(objeto.categoria);
-    if (!familias.has(familia)) familias.set(familia, []);
-    familias.get(familia).push([objeto, objeto.peso_sorteo_variante]);
-  }
-  const categorias = Object.entries(catalogo.reglas.peso_sorteo_categoria)
-    .map(([categoria, peso]) => [[...grupos.get(categoria).values()], peso]);
-
-  return azar => {
-    const familias = sortear_ponderado(categorias, azar);
-    return sortear_ponderado(familias[Math.floor(azar() * familias.length)], azar);
+  const probabilidades=catalogo.reglas.probabilidad_nivel;
+  const niveles=Object.entries(probabilidades).map(([nivel,peso])=>({nivel:Number(nivel),peso,
+    objetos:catalogo.objetos.filter(o=>o.nivel===Number(nivel))}));
+  return azar=>{
+    const n=sortear_ponderado(niveles.map(n=>[n,n.peso]),azar);
+    return {...n.objetos[Math.floor(azar()*n.objetos.length)]};
   };
 }
 
