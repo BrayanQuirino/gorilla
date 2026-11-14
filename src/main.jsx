@@ -223,7 +223,7 @@ function Barra({ nombre, valor, maximo, detalle }) {
 }
 
 const descripciones = {
-  atacar: 'Se acercan por turnos. Se protegen automáticamente ante un ataque anunciado y recuperan energía entre golpes.',
+  atacar: 'Presionan al gorila continuamente y atacan cuando están al alcance; conservan sus recargas físicas.',
   huir: 'Se alejan. Su velocidad depende del daño recibido, la fuerza y la valentía.',
   esconder: 'Buscan rocas o estructuras que bloqueen la visión del gorila.',
   rescatar: 'Van hacia los incapacitados y los ayudan a levantarse.',
@@ -351,7 +351,7 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
           <div className="comando-barras">
             {[
               {nombre:'Salud media',n:vidaEquipo,color:'#7ed99b'},
-              {nombre:'Energía',n:energiaEquipo,color:'#eec36c'},
+              {nombre:'Agilidad al correr',n:agilidadEquipo,color:'#eec36c'},
               {nombre:'Valentía',n:coraje,color:'#8fc7f1'},
               {nombre:'Equipamiento',n:Math.round(armados/Math.max(1,vivos.length)*100),color:'#c9a4fc'},
             ].map(d=><div className="comando-medidor" key={d.nombre}>
