@@ -63,6 +63,37 @@ function Segmento({ titulo, grupos }) {
 function Indicador({titulo,valor,icono}) {
   return <div className="indicador"><span aria-hidden="true">{icono}</span><strong>{formato.format(valor)}</strong><small>{titulo}</small></div>;
 }
+export function resumen_armas_por_nivel(batalla) {
+  const recuento=[1,2,3,4,5].map(nivel=>({nivel,equipadas:0,suelo:0,total:0}));
+  for(const h of batalla.hombres){
+    if(activo(h)&&h.objeto){
+      const nivel=Math.min(5,Math.max(1,Math.floor(h.objeto.nivel||1)));
+      recuento[nivel-1].equipadas++;
+    }
+  }
+  for(const item of batalla.armas_suelo){
+    if(!item.recogido_por&&item.objeto){
+      const nivel=Math.min(5,Math.max(1,Math.floor(item.objeto.nivel||1)));
+      recuento[nivel-1].suelo++;
+    }
+  }
+  for(const fila of recuento)fila.total=fila.equipadas+fila.suelo;
+  return recuento;
+}
+function ResumenArmas({batalla}) {
+  const niveles=resumen_armas_por_nivel(batalla);
+  const equipadas=niveles.reduce((s,n)=>s+n.equipadas,0);
+  const suelo=niveles.reduce((s,n)=>s+n.suelo,0);
+  return <section className="resumen-armas" aria-label="Resumen de armas por nivel">
+    <div className="resumen-armas-encabezado"><h3>🧰 Inventario por nivel</h3><strong>{equipadas+suelo} objetos en juego</strong></div>
+    <div className="niveles-armas">{niveles.map(n=><div className={'nivel-arma nivel-arma-'+n.nivel} key={n.nivel}>
+      <span>NIVEL {['I','II','III','IV','V'][n.nivel-1]}</span><strong>{n.total}</strong>
+      <small>{n.equipadas} equipadas · {n.suelo} en arena</small>
+    </div>)}</div>
+    <div className="total-armas"><strong>TOTAL: {equipadas+suelo}</strong>
+      <span>{equipadas} equipadas · {suelo} en el suelo</span></div>
+  </section>;
+}
 function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
   const [seleccion,cambiar_seleccion]=useState(seleccionInicial);
   const vivos=batalla.hombres.filter(activo),total=batalla.hombres.length;
@@ -122,6 +153,7 @@ function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
         <Indicador titulo="Valentía %" valor={valentia} icono="⚡"/>
         <Indicador titulo="Objetos en arena" valor={batalla.armas_suelo.filter(o=>!o.recogido_por).length} icono="📦"/>
       </div>
+      <ResumenArmas batalla={batalla}/>
       <div className="equipo-radar"><h3>Radar del equipo completo</h3><Radar radar={promedio}/></div>
       <Segmento titulo="Estado del equipo" grupos={[
         {nombre:'Sanos',valor:Math.max(0,vivos.length-lesionados),color:'#71d58b'},
@@ -268,13 +300,14 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
   if(!abierto)return null;
   return <div className="estrategia-cortina" onMouseDown={e=>{if(e.target===e.currentTarget)cancelar();}}>
     <section className="menu-estrategia" role="dialog" aria-modal="true" aria-labelledby="titulo-estrategia">
-    <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Suministros'?'📦 Suministros':'⚔️ Tácticas'}</h2>
+    <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Equipo'?'📊 Equipo':categoria==='Suministros'?'📦 Suministros':'⚔️ Tácticas'}</h2>
       <button type="button" onClick={cancelar} aria-label="Cerrar menú y volver al campo">✕</button></header>
     <div className="tabs-retro">
-      <button aria-pressed={categoria!=='Suministros'} onClick={()=>cambiar_categoria('Combate')}>⚔️ Tácticas</button>
+      <button aria-pressed={categoria==='Combate'} onClick={()=>cambiar_categoria('Combate')}>⚔️ Tácticas</button>
       <button aria-pressed={categoria==='Suministros'} onClick={()=>cambiar_categoria('Suministros')}>📦 Suministros</button>
+      <button aria-pressed={categoria==='Equipo'} onClick={()=>cambiar_categoria('Equipo')}>📊 Equipo</button>
     </div>
-    <div className="panel-tactico-layout">
+    {categoria==='Equipo'?<div className="panel-equipo-integrado"><PanelEquipo batalla={batalla}/></div>:<div className="panel-tactico-layout">
       <section className="comando-panel comando-compartido" aria-label="Inteligencia táctica">
         <div className="comando-encabezado">
           <span className="comando-emblema" aria-hidden="true"><img className="comando-retrato" src={retrato_furia} alt=""/></span>
@@ -323,9 +356,7 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
             onClick={()=>cambiar_rescate(rescatar+1)}>+</button>
         </div>
       </div>
-      <div className="total-tactico"><span>⚙️ Asignación táctica</span><strong>{distribucion.total?100:0}%</strong></div>
-      <div className="reparto-real">🩺 Rescate: {rescatar} ({distribucion.porcentaje('rescatar').toFixed(1)}%) · Otras tácticas: {distribucion.restantes} ({porcentajeDisponible.toFixed(1)}%)</div>
-      <div className="progreso-total-tactico" aria-label="Distribución total del equipo"><span style={{width:distribucion.porcentaje('rescatar')+'%'}}/><span style={{width:porcentajeDisponible+'%'}}/></div>
+
       <div className="tacticas-todas">{entradas.map(([id,t])=>{
         const valor=plan[id]||0;
         return <div className="tactica-fila" key={id}>
@@ -340,9 +371,9 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
         </div>;
       })}</div>
     </>}
-    </div></div>
-    <footer><button onClick={cancelar}>Cancelar</button>
-      <button className="principal" onClick={reanudar} disabled={suma!==100}>Aplicar y jugar</button></footer>
+    </div></div>}
+    <footer><button onClick={cancelar}>Cerrar</button>
+      <button className="principal" onClick={reanudar} disabled={suma!==100}>{categoria==='Combate'?'Aplicar y jugar':'Volver al juego'}</button></footer>
     </section>
   </div>;
 }
@@ -541,6 +572,9 @@ function App() {
             <div className="estado" role="status">{batalla.resultado||
               (cargando_arena?'Cargando arena':iniciada?'Pausa':'Listos')}</div>}
           {victoria&&<div className="celebracion-victoria" aria-label="Victoria: los hombres celebran">🏆 ¡VICTORIA! <span>Los supervivientes celebran</span></div>}
+          {menu_abierto&&<MenuEstrategia abierto={menu_abierto} batalla={batalla} categoria={categoria}
+            cambiar_categoria={cambiar_categoria} plan={plan} cambiar_plan={cambiar_plan}
+            comprar={comprar} reanudar={reanudar} cancelar={cerrar_estrategia}/>}
           {rayos_x&&<div className="visor-rayos-x"><div className="visor-titulo">⌖ RAYOS X · {batalla.armas_suelo.filter(o=>!o.recogido_por).length} objetos</div><svg viewBox="0 0 1000 640" preserveAspectRatio="none" aria-label="Mapa de armas en la arena">{batalla.armas_suelo.filter(o=>!o.recogido_por).map(o=>{const vista=encuadre(batalla.arena);const x=vista.x+o.x*vista.ancho/ancho;const y=vista.y+o.y*vista.alto/alto;return <g key={o.id}><circle cx={x} cy={y} r={o.objeto?.tipo==='fuego'?19:13} fill="#6efae622" stroke="#60ffe8" strokeWidth="3"/><circle cx={x} cy={y} r="4" fill="#fff3a0"/></g>;})}</svg></div>}
           {anuncio&&<div className="segunda-vida" role="status" aria-label="Segunda vida del gorila">
             <img src={retrato_furia} alt=""/>
@@ -556,7 +590,7 @@ function App() {
               onClick={()=>abrir_estrategia('Combate')}>⚔️ Tácticas</button>}
           <button disabled={!iniciada||Boolean(batalla.resultado)||cargando_arena||anuncio}
             onClick={()=>abrir_estrategia('Suministros')}>📦 Suministros</button>
-          <button onClick={()=>{cambiar_arquetipo_abierto(null);cambiar_panel_movil('equipo');}}>📊 Equipo</button>
+          <button onClick={()=>abrir_estrategia('Equipo')}>📊 Equipo</button>
           <button aria-pressed={rayos_x} onClick={()=>cambiar_rayos_x(v=>!v)}>{rayos_x?'✕ Cerrar rayos X':'⌖ Rayos X'}</button>
         </div>
       </section>
@@ -579,9 +613,6 @@ function App() {
           <button className="principal reiniciar-partida" onClick={()=>{nueva_partida();cambiar_panel_movil(null);}}>↻ Nueva partida</button>
         </div>}
       </section></div>}
-    <MenuEstrategia abierto={menu_abierto} batalla={batalla} categoria={categoria}
-      cambiar_categoria={cambiar_categoria} plan={plan} cambiar_plan={cambiar_plan}
-      comprar={comprar} reanudar={reanudar} cancelar={cerrar_estrategia}/>
   </main>;
 }
 
