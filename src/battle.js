@@ -765,7 +765,7 @@ export function conducta_gorila(b,activos,dt){
   const p=g.memoria_movimiento??{x:g.x,y:g.y,restante:0,quieto:0,desvio:0};
   p.restante-=dt;p.desvio=Math.max(0,p.desvio-dt);
   const recorrido=Math.hypot(g.x-p.x,g.y-p.y);
-  const sinAvance=recorrido<5 && g.fase!=='agarre' && g.fase!=='aviso';
+  const sinAvance=recorrido<5 && g.fase!=='agarre';
   p.quieto=sinAvance?p.quieto+dt:Math.max(0,p.quieto-dt*1.5);
   if(p.restante<=0){p.x=g.x;p.y=g.y;p.restante=.7;}
   g.memoria_movimiento=p;
@@ -961,7 +961,7 @@ function actualizar_gorila(b,activos,dt) {
       registrar(b, 'gorila_distraido');
     }
     cooldown(g, 'carga', reglas.carga.recarga);
-  } else if ((cercanos >= 5 || (cercanos >= 2 && g.vida / g.vida_maxima < .38)) && habilitada(g, 'repliegue')) {
+  } else if (((cercanos >= 5 && cercanos < 8) || (cercanos >= 2 && g.vida / g.vida_maxima < .38)) && habilitada(g, 'repliegue')) {
     g.destino = salida_gorila(g, amenazas);
     g.fase = 'repliegue';
     g.reloj = 2.8;
