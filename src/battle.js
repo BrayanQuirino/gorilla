@@ -961,6 +961,13 @@ function actualizar_gorila(b,activos,dt) {
       registrar(b, 'gorila_distraido');
     }
     cooldown(g, 'carga', reglas.carga.recarga);
+  } else if ((cercanos >= 5 || (cercanos >= 2 && g.vida / g.vida_maxima < .38)) && habilitada(g, 'repliegue')) {
+    g.destino = salida_gorila(g, amenazas);
+    g.fase = 'repliegue';
+    g.reloj = 2.8;
+    cooldown(g, 'repliegue', salida.recarga);
+    registrar(b, 'gorila_se_repliega');
+    return;
   } else if (cercanos >= reglas.golpe_area.min_cercanos && habilitada(g, 'golpe_area')) {
     g.accion = 'golpe_area';
     const dx=presa.x-g.x,dy=presa.y-g.y;
@@ -971,13 +978,6 @@ function actualizar_gorila(b,activos,dt) {
   } else if (amenazas.some(h => cerca(h, g, radio_ataque(g, 'rugido'))) && habilitada(g, 'rugido')) {
     g.accion = 'rugido';
     cooldown(g, 'rugido', reglas.rugido.recarga);
-  } else if ((cercanos >= 5 || (cercanos >= 2 && g.vida / g.vida_maxima < .38)) && habilitada(g, 'repliegue')) {
-    g.destino = salida_gorila(g, amenazas);
-    g.fase = 'repliegue';
-    g.reloj = 2.8;
-    cooldown(g, 'repliegue', salida.recarga);
-    registrar(b, 'gorila_se_repliega');
-    return;
   } else if (alcanza_agarre(g, presa) && habilitada(g, 'agarre')) {
     g.accion = 'agarre';
     g.sujeto = presa;
