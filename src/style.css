@@ -385,3 +385,69 @@ html,body,#root{min-height:100%;margin:0}
 .suministro-descrito .suministro-descripcion{display:grid;gap:4px;min-width:0}
 .suministro-descrito:disabled .suministro-icono{opacity:.48;filter:grayscale(.75)}
 @media(max-width:560px){.suministro-descrito{grid-template-columns:34px minmax(0,1fr) auto;gap:6px!important;padding:7px!important}.suministro-descrito .suministro-icono{height:32px;width:32px;font-size:1.2rem}.suministro-descrito b{font-size:.85rem}}
+
+
+/* Integrated tactical desk: exactly the same drawable surface as the arena,
+   just like the X-ray view. Never a separate full-window dialog. */
+.juego-app .arena>.estrategia-cortina{
+  position:absolute!important;inset:0!important;z-index:30!important;
+  padding:0!important;display:flex!important;align-items:stretch!important;
+  justify-content:stretch!important;background:rgba(5,12,15,.96);
+  backdrop-filter:none;overflow:hidden!important;
+}
+.juego-app .arena>.estrategia-cortina>.menu-estrategia{
+  position:relative!important;inset:auto!important;margin:0!important;
+  box-sizing:border-box!important;width:100%!important;max-width:none!important;
+  height:100%!important;min-height:0!important;max-height:100%!important;
+  border-radius:0!important;border:1px solid #b99b61!important;
+  padding:clamp(5px,1vw,11px)!important;box-shadow:none!important;
+  overflow:hidden!important;display:flex!important;flex-direction:column!important;
+}
+.juego-app .arena .menu-cabecera{margin-bottom:4px!important;min-height:28px}
+.juego-app .arena .menu-cabecera h2{font-size:clamp(.85rem,1.5vw,1.12rem);margin:0}
+.juego-app .arena .menu-cabecera button{min-width:32px!important;min-height:28px!important;padding:2px 8px!important}
+.juego-app .arena .tabs-retro{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.juego-app .arena .tabs-retro button{min-width:0;min-height:32px;padding:4px 6px;font-size:clamp(.64rem,1.05vw,.9rem)}
+.juego-app .arena .panel-tactico-layout{min-height:0;flex:1;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:7px;margin-top:5px}
+.juego-app .arena .panel-tactico-layout .comando-compartido{min-width:0;padding:7px;gap:6px;margin:0;overflow:auto}
+.juego-app .arena .panel-tactico-acciones{min-width:0;padding:1px;overflow:auto}
+.juego-app .arena .tactica-medicos{margin:0;padding:7px;gap:5px}
+.juego-app .arena .tacticas-todas{gap:6px;margin-top:7px}
+.juego-app .arena .tactica-fila{padding:7px!important}
+.juego-app .arena .comando-encabezado{gap:6px}
+.juego-app .arena .comando-retrato{width:38px;height:38px}
+.juego-app .arena .comando-graficas{gap:6px;padding:6px}
+.juego-app .arena .comando-panel .comando-indicadores{gap:5px}
+.juego-app .arena .menu-estrategia>footer{margin-top:4px!important;padding:3px 0 0!important;gap:5px}
+.juego-app .arena .menu-estrategia>footer button{min-height:30px;padding:3px 9px}
+.juego-app .arena .panel-equipo-integrado{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:4px 2px}
+.juego-app .arena .panel-equipo-integrado>.panel-equipo{max-width:none;width:100%;box-sizing:border-box;overflow:visible;border:0;background:transparent;box-shadow:none;padding:0 4px}
+.juego-app .arena .panel-equipo-integrado .equipo-radar .radar{max-height:190px}
+.juego-app .arena .panel-equipo-integrado .arquetipos-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.resumen-armas{padding:10px;margin:10px 0;border:1px solid #60786b;border-radius:8px;background:linear-gradient(135deg,#19302d,#202b32)}
+.resumen-armas-encabezado{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.resumen-armas-encabezado h3{margin:0!important;color:#f3c66b}
+.resumen-armas-encabezado>strong{font-size:.82rem;color:#a6d6cd}
+.niveles-armas{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.nivel-arma{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;padding:8px 3px;border:1px solid #536960;border-radius:6px;background:#132324;text-align:center}
+.nivel-arma span{font-weight:800;font-size:.78rem;color:#e6c575}
+.nivel-arma strong{font-size:1.55rem;color:#f0e5cf;line-height:1}
+.nivel-arma small{font-size:.68rem;color:#b3c9c1}
+.nivel-arma-5{border-color:#9e765d;background:#342729}
+.total-armas{display:flex;justify-content:space-between;gap:9px;align-items:center;flex-wrap:wrap;margin-top:9px;border-top:1px solid #546459;padding-top:7px;color:#f2cf77}
+.total-armas span{font-size:.8rem;color:#c4d0c9}
+@media(max-width:760px){
+ .juego-app .arena .panel-tactico-layout{display:block;overflow-y:auto}
+ .juego-app .arena .panel-tactico-layout .comando-compartido{margin-bottom:7px;overflow:visible}
+ .juego-app .arena .panel-tactico-acciones{overflow:visible}
+ .juego-app .arena .panel-tactico-acciones .tacticas-todas{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .juego-app .arena .panel-equipo-integrado .arquetipos-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .niveles-armas{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
+ .nivel-arma{padding:5px 2px}.nivel-arma small{font-size:.57rem}
+}
+@media(max-width:450px){
+ .juego-app .arena .tabs-retro button{font-size:.62rem;padding:2px}
+ .juego-app .arena .panel-tactico-acciones .tacticas-todas{grid-template-columns:1fr}
+ .juego-app .arena .panel-tactico-acciones .lista-suministros{grid-template-columns:1fr}
+ .niveles-armas{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
