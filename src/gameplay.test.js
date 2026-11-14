@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import catalogo from './data/objetos.json' with {type:'json'};
+import balance_humano from './data/hombres.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
@@ -376,10 +377,31 @@ test('embestida: cono frontal exacto de 90 grados',()=>{
   assert.equal(en_cono_embestida(g,{x:500,y:500}),false,'detrás de la carga');
 });
 
+test('JSON humano: daño físico mínimo 0.10, vida sin alteración y probabilidades intactas',()=>{
+ assert.equal(Object.keys(balance_humano.arquetipos).length,20);
+ assert.equal(balance_humano.dano_fisico_minimo_base,.1);
+ assert.equal(balance_humano.arquetipos.Anciano.vida_maxima,10);
+ assert.equal(balance_humano.arquetipos['Tarzán'].vida_maxima,35);
+ assert.equal(balance_humano.arquetipos.Anciano.dano_fisico,.1);
+ assert.equal(balance_humano.arquetipos.Adolescente.dano_fisico,.1);
+ assert.equal(balance_humano.arquetipos.Oficinista.dano_fisico,.1);
+ assert.equal(balance_humano.arquetipos.Boxeador.dano_fisico,.4);
+ assert.equal(balance_humano.arquetipos['Tarzán'].dano_fisico,.5);
+ assert.ok(Object.values(balance_humano.arquetipos).every(h=>h.dano_fisico>=.1&&h.probabilidad_sorteo===.05));
+});
+test('el daño físico sin arma se calcula con la nueva escala, no el valor anterior',()=>{
+ const {batalla}=partida('claro');
+ for(const [nombre,valor] of [['Anciano',.1],['Oficinista',.1],['Boxeador',.4],['Tarzán',.5]]){
+  const h=batalla.hombres.find(persona=>persona.arquetipo===nombre);
+  h.objeto=null;
+  assert.ok(h);
+  assert.ok(Math.abs(danio_humano(h,false,1,0)-valor*Math.min(1,condiciones_combate(h).potencia))<1e-9,nombre);
+ }
+});
 test('balance: vida humana y daño del portador más eficiencia limitada del objeto',()=>{
  const {batalla}=partida('claro');const h=batalla.hombres.find(p=>p.arquetipo==='Oficinista');
  assert.equal(h.vida_maxima,18);
- h.objeto=null;assert.equal(danio_humano(h,false,1,0),.010*Math.min(1,condiciones_combate(h).potencia));
+ h.objeto=null;assert.equal(danio_humano(h,false,1,0),.10*Math.min(1,condiciones_combate(h).potencia));
  const sin=danio_humano(h,false,1,0);
  h.objeto={nombre:'Zapato',dano_maximo:.001,modo_uso:'empunable'};
  assert.ok(danio_humano(h,false,1,0)>sin);
