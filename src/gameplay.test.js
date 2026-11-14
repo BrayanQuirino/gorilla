@@ -319,7 +319,7 @@ test('arquetipos modifican potencia y velocidad sin depender de edad',()=>{
 
 test('tienda aprobada: 13 artículos y compras sin reservas de refuerzos',()=>{
   const {batalla}=partida();
-  assert.equal(Object.keys(SUMINISTROS).length,13);
+  assert.equal(Object.keys(SUMINISTROS).length,14);
   for(const id of ['trampa','senuelos','camuflaje','humo','radio','plan_maestro','bananas_extra'])
     assert.equal(Object.hasOwn(SUMINISTROS,id),false);
   batalla.bananas=600;
@@ -375,20 +375,33 @@ test('embestida: cono frontal exacto de 90 grados',()=>{
   assert.equal(en_cono_embestida(g,{x:500,y:500}),false,'detrás de la carga');
 });
 
-test('puños desarmados apenas dañan al gorila; las armas importan',()=>{
-  const {batalla}=partida('claro');
-  const h=batalla.hombres.find(p=>p.vida>0);
-  h.objeto=null;
-  const punio=danio_humano(h,false);
-  h.objeto={peso_g:420,tipo:'contundente'};
-  const zapato=danio_humano(h,false);
-  h.objeto={peso_g:2500,tipo:'contundente'};
-  const bate=danio_humano(h,false);
-  h.objeto={peso_g:1000,tipo:'fuego',municion:3};
-  const disparo=danio_humano(h,true);
-  assert.ok(punio>0 && punio<zapato*.25);
-  assert.ok(zapato<bate && bate<disparo);
-  assert.ok(punio<1.5,'golpe de puño casi sin efecto');
+test('balance: vida humana y daño del portador más eficiencia limitada del objeto',()=>{
+ const {batalla}=partida('claro');const h=batalla.hombres.find(p=>p.arquetipo==='Oficinista');
+ assert.equal(h.vida_maxima,18);
+ h.objeto=null;assert.equal(danio_humano(h,false,1,0),.010*Math.min(1,condiciones_combate(h).potencia));
+ const sin=danio_humano(h,false,1,0);
+ h.objeto={nombre:'Zapato',dano_maximo:.001,modo_uso:'empunable'};
+ assert.ok(danio_humano(h,false,1,0)>sin);
+ h.objeto={nombre:'Bate',dano_maximo:.025,modo_uso:'empunable'};
+ assert.ok(danio_humano(h,false,1,0)>sin);
+ const arma={nombre:'Escopeta',tipo:'fuego',dano_maximo:230,municion:1,modo_uso:'disparo'};
+ h.objeto=arma;
+ assert.ok(danio_humano(h,true,1,0)>50);
+ assert.ok(danio_humano(h,true,1,0)<=230);
+});
+test('los 1000 objetos tienen nivel, daño, durabilidad, modo y peso independientes',()=>{
+ assert.equal(catalogo.objetos.length,1000);
+ assert.ok(catalogo.objetos.every(o=>o.nivel>=1&&o.nivel<=5&&o.dano_maximo>=0&&o.modo_uso));
+ assert.equal(catalogo.reglas.probabilidad_nivel['5'],.0001);
+ assert.equal(catalogo.objetos.find(o=>o.nombre==='Zapato').dano_maximo,.001);
+ assert.equal(catalogo.objetos.find(o=>o.nombre==='Bate').dano_maximo,.025);
+ assert.equal(catalogo.objetos.find(o=>o.nombre==='Escopeta').dano_maximo,230);
+ assert.ok(catalogo.objetos.filter(o=>o.tipo==='fuego').every(o=>o.municion===1));
+});
+test('suministros incluyen munición para cinco armas y reserva',()=>{
+ assert.equal(SUMINISTROS.municion.balas,5);
+ const {batalla}=partida('claro');
+ batalla.bananas=60;assert.equal(comprar_suministro(batalla,'municion'),true);
 });
 
 test('búsqueda independiente recorre sectores en dos dimensiones',()=>{
