@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,objetivo_exploracion,desviar_peatones,conducta_gorila} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,objetivo_exploracion,objetivo_distraccion,desviar_peatones,conducta_gorila} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -456,4 +456,30 @@ test('100 buscadores atraviesan cada arena sin quedar bloqueados en conjunto',()
     assert.ok(zonas.size>=6,arena+': distribuir rutas por diferentes sectores; encontrados '+zonas.size);
     assert.ok(Math.hypot(batalla.gorila.x-gorila.x,batalla.gorila.y-gorila.y)>25,arena+': gorila activo');
   }
+});
+
+test('distractores reciben puntos fijos separados, no órbitas recalculadas',()=>{
+  const {batalla}=partida('claro');
+  batalla.hombres.forEach(h=>h.orden='distraer');
+  const hombres=batalla.hombres.slice(0,30);
+  const metas=hombres.map(h=>objetivo_distraccion(batalla,h,.033));
+  const coordenadas=new Set(metas.map(p=>Math.round(p.x/10)+','+Math.round(p.y/10)));
+  assert.ok(coordenadas.size>=8,'los puestos no están concentrados en una misma celda');
+  const h=hombres[0],meta={...metas[0]};
+  for(let i=0;i<90;i++){
+    h.x+=.12;h.y+=.1;
+    const siguiente=objetivo_distraccion(batalla,h,.033);
+    assert.ok(distancia(meta,siguiente)<.01,'no debe cambiar el objetivo cada fotograma');
+  }
+});
+test('mezcla de búsqueda y distracción mueve la mayoría de los 100 combatientes',()=>{
+ for(const arena of Object.keys(ARENAS)){
+  const {batalla}=partida(arena);
+  batalla.armas_suelo=[];
+  assert.equal(aplicar_plan(batalla,{buscar_armas:50,distraer:50}),true);
+  const inicio=batalla.hombres.map(h=>({x:h.x,y:h.y}));
+  for(let i=0;i<270&&!batalla.resultado;i++)avanzar_batalla(batalla,1/30);
+  const movidos=batalla.hombres.filter((h,i)=>distancia(h,inicio[i])>35).length;
+  assert.ok(movidos>=50,arena+': demasiado atasco entre distractores y buscadores: '+movidos);
+ }
 });
