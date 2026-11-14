@@ -589,7 +589,7 @@ function App() {
           <Barra nombre="Equipo" valor={activos} maximo={Math.max(100,batalla.hombres.length)} detalle={activos+' / '+batalla.hombres.length}/>
           <Barra nombre={'🦍 Nivel '+gorila.nivel+(en_furia(gorila)?' · Furia':'')}
             valor={gorila.vida} maximo={gorila.vida_maxima}
-            detalle={Math.ceil(gorila.vida/gorila.vida_maxima*100)+'%'}/>
+            detalle={Math.max(0,gorila.vida).toFixed(2)+' / '+gorila.vida_maxima+' PV · −'+(batalla.danio_total_humanos||0).toFixed(2)+' PV ('+(batalla.impactos_humanos||0)+' impactos)'}/>
         </div>
         <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} aria-label={ARENAS[batalla.arena].nombre}/>
