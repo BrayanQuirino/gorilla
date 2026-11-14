@@ -358,28 +358,65 @@ export function objetivo_exploracion(b,h,dt=1/30) {
 
 // Simple collision prediction against nearby walkers. A scout or attacker
 // steers around traffic rather than waiting until separation pushes them back.
+// Distractores ocupan puestos separados, no persiguen un vector tangencial
+// recalculado cada frame (eso producía círculos y bloqueos mutuos).
+export function objetivo_distraccion(b,h,dt=1/30) {
+  const g=b.gorila;
+  h.distraccion ??={sector:h.id%16,objetivo:null,tiempo:0,origen_g:null,visitas:0};
+  const e=h.distraccion;
+  e.tiempo+=dt;
+  const movio_g=e.origen_g&&distancia(e.origen_g,g)>48;
+  const llego=e.objetivo&&distancia(h,e.objetivo)<22;
+  const atascado=(h.atasco||0)>1.35;
+  if(!e.objetivo||movio_g||atascado||e.tiempo>7.5){
+    if(e.objetivo&&(atascado||e.tiempo>7.5))e.sector=(e.sector+5)%16;
+    const candidatos=Array.from({length:16},(_,delta)=>{
+      const sector=(e.sector+delta)%16;
+      const angulo=sector*2*Math.PI/16;
+      const radio=135+(h.id%3)*27;
+      const p={x:limitar(g.x+Math.cos(angulo)*radio,30,ancho-30),
+        y:limitar(g.y+Math.sin(angulo)*radio*.77,32,alto-32)};
+      const aliados=b.hombres.filter(o=>o!==h&&activo(o)&&o.orden==='distraer'&&o.distraccion?.sector===sector).length;
+      return {sector,p,puntaje:aliados*95+(obstaculo_humano(p,b.arena,12)?1000:0)+
+        distancia(h,p)*.025+delta*.6};
+    });
+    candidatos.sort((a,z)=>a.puntaje-z.puntaje);
+    e.sector=candidatos[0].sector;
+    e.objetivo=candidatos[0].p;
+    e.origen_g={x:g.x,y:g.y};
+    e.tiempo=0;
+    e.visitas++;
+  }
+  // Permanecer en su zona hasta que el gorila o la situación cambie.
+  return e.objetivo;
+}
+
 export function desviar_peatones(h,destino,vecinos,arena) {
   if(!destino || distancia(h,destino)<7)return destino;
   const dx=destino.x-h.x,dy=destino.y-h.y;
   const largo=Math.hypot(dx,dy)||1;
   const nx=dx/largo,ny=dy/largo;
-  let lateral=0,frente=0;
+  let repulsionX=0,repulsionY=0,bloqueos=0;
   for(const o of vecinos){
     if(o===h||!activo(o)||o.vuelo)continue;
     const px=o.x-h.x,py=o.y-h.y;
     const forward=px*nx+py*ny;
-    const side=px*(-ny)+py*nx;
-    if(forward< -9||forward>75||Math.abs(side)>35)continue;
-    const prioridad=(1-Math.max(0,forward)/75)* (1-Math.abs(side)/45);
-    const giro=Math.abs(side)>2?(side>0?-1:1):(h.id<o.id?-1:1);
-    lateral+=giro*prioridad;
-    frente+=prioridad;
+    const dst=Math.hypot(px,py);
+    if(forward< -12||forward>52||dst>43||dst<.01)continue;
+    // Solo repelente local: nunca se transforma el destino en una órbita.
+    const fuerza=(1-dst/43)*(1-Math.max(0,forward)/65);
+    repulsionX-=px/dst*fuerza;
+    repulsionY-=py/dst*fuerza;
+    bloqueos++;
   }
-  if(frente<.08)return destino;
-  const lado=limitar(lateral,-1.8,1.8);
-  const posible={x:limitar(h.x+nx*58-ny*lado*42,20,ancho-20),
-    y:limitar(h.y+ny*58+nx*lado*42,24,alto-24)};
-  return obstaculo_humano(posible,arena,7)?destino:posible;
+  if(!bloqueos)return destino;
+  const adelante=35;
+  const magnitud=Math.hypot(repulsionX,repulsionY)||1;
+  const evasion=limitar(bloqueos*7,0,16);
+  const candidato={x:limitar(h.x+nx*adelante+repulsionX/magnitud*evasion,20,ancho-20),
+    y:limitar(h.y+ny*adelante+repulsionY/magnitud*evasion,24,alto-24)};
+  if(obstaculo_humano(candidato,arena,7))return destino;
+  return candidato;
 }
 
 function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
@@ -446,12 +483,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       }
     }
   } else if (h.orden === 'distraer') {
-    const largo = Math.max(distancia_plana, 1);
-    const lado = h.id % 2 ? 1 : -1;
-    const ajuste = limitar((115 - distancia_plana) / 36, -2, 2);
-    const dx = (h.x - g.x) / largo;
-    const dy = (h.y - g.y) / largo;
-    destino = { x: h.x + 45 * (dx * ajuste - dy * lado), y: h.y + 45 * (dy * ajuste + dx * lado) };
+    destino = objetivo_distraccion(b,h,dt);
   } else if (h.orden === 'buscar_armas' ||
     (h.orden !== 'huir' && h.orden !== 'esconder' && buscar_objeto(b,h) &&
     distancia(h,buscar_objeto(b,h))<35)) {
@@ -492,8 +524,19 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const vecinos=b.hombres.filter(o=>o!==h&&activo(o)&&!o.vuelo&&
     Math.abs((o.altura||0)-(h.altura||0))<28&&distancia(h,o)<47);
   const delante=vecinos.filter(o=>(o.x-h.x)*(meta.x-h.x)+(o.y-h.y)*(meta.y-h.y)>0);
+  const transicion=distancia(h,meta);
+  if(h.orden==='buscar_armas'||h.orden==='distraer'){
+    const historial=h.progreso_ruta??{x:h.x,y:h.y,tiempo:0};
+    historial.tiempo+=dt;
+    if(historial.tiempo>1.2){
+      const recorrido=Math.hypot(h.x-historial.x,h.y-historial.y);
+      h.atasco=transicion>26&&recorrido<9?Math.max(h.atasco||0,1.5):Math.max(0,(h.atasco||0)-.7);
+      historial.x=h.x;historial.y=h.y;historial.tiempo=0;
+    }
+    h.progreso_ruta=historial;
+  } else h.progreso_ruta=null;
   const estancado=cerca_meta>24 && delante.length>=2 && Math.hypot(h.vx,h.vy)<16;
-  h.atasco = estancado ? Math.min(2,(h.atasco||0)+dt) : Math.max(0,(h.atasco||0)-dt*1.5);
+  h.atasco = estancado ? Math.min(2,(h.atasco||0)+dt) : Math.max(0,(h.atasco||0)-dt*.35);
   destino=desviar_peatones(h,destino,vecinos,b.arena);
   // Long-term deadlock: the scout rechecks another sector and tries again.
   if(h.orden==='buscar_armas'&&h.atasco>1.1&&h.exploracion)
