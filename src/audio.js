@@ -6,30 +6,51 @@ const TRACK_BY_ARENA = {claro:'music_a',selva:'music_b1',canon:'music_b2',hangar
 export function crear_audio_arcade(){
   let enabled=false, arena='claro', music=null, live=new Set(), last=new Map(), paused=false;
   let volumeMusic=.27, volumeEffects=.7, captureTimers=[];
+  const effectTimers=new Map();
+  const effectLimit=8;
   const urls = new Map();
   const url = name => {
     if(!urls.has(name)) urls.set(name, BASE + name + '.mp3');
     return urls.get(name);
   };
   const stopCapture = () => { for(const t of captureTimers) clearTimeout(t);captureTimers=[]; };
-  function sound(name, opts={}){
-    if(!enabled || typeof Audio==='undefined')return;
+  function cleanEffect(a){
+    if(!a||!live.has(a))return;
+    live.delete(a);
+    const timer=effectTimers.get(a);
+    if(timer!==undefined)clearTimeout(timer);
+    effectTimers.delete(a);
+    a.pause();
+    a.removeAttribute('src');
+  }
+  function stopEffects(){
+    stopCapture();
+    for(const a of [...live])cleanEffect(a);
+    last.clear();
+  }
+  function sound(name,opts={}){
+    if(!enabled||typeof Audio==='undefined')return;
     const now=performance.now();
-    const minGap=opts.minGap??0;
-    if(now-(last.get(name)||-Infinity)<minGap)return;
+    const gap=opts.minGap??110;
+    if(now-(last.get(name)??-Infinity)<gap)return;
     last.set(name,now);
+    // Keep simultaneous voices bounded even if impact events arrive in bursts.
+    if(live.size>=effectLimit)cleanEffect(live.values().next().value);
     const a=new Audio(url(name));
+    a.loop=false; // Effects are always one-shots; only arena music may loop.
     a.preload='auto';
     a.volume=Math.min(1,(opts.volume??1)*volumeEffects);
     a.playbackRate=opts.speed??1;
     live.add(a);
-    const clean=()=>{live.delete(a);a.src='';};
-    a.addEventListener('ended',clean,{once:true});
-    a.addEventListener('error',clean,{once:true});
-    a.play().catch(()=>{live.delete(a);});
-    if(opts.maxMs)setTimeout(()=>{a.pause();clean();},opts.maxMs);
+    a.addEventListener('ended',()=>cleanEffect(a),{once:true});
+    a.addEventListener('error',()=>cleanEffect(a),{once:true});
+    // Hard stop for missing/stuck media end events. No sound can run forever.
+    const hardStop=Math.min(4800,Math.max(120,opts.maxMs??3200));
+    effectTimers.set(a,setTimeout(()=>cleanEffect(a),hardStop));
+    a.play().catch(()=>cleanEffect(a));
     return a;
   }
+
   function startMusic(){
     if(!enabled||!music||typeof Audio==='undefined')return;
     const track=TRACK_BY_ARENA[arena]||'music_a';
@@ -39,6 +60,7 @@ export function crear_audio_arcade(){
       return;
     }
     music.pause();
+    music.removeAttribute('src');
     music=new Audio(url(track));
     music.dataset.track=track;
     music.loop=true;
@@ -57,10 +79,8 @@ export function crear_audio_arcade(){
       enabled=Boolean(active);
       paused=Boolean(segundaVida);
       if(!enabled){
-        stopCapture();
-        if(music){music.pause();music.currentTime=0;music=null;}
-        for(const a of live)a.pause();
-        live.clear();
+        stopEffects();
+        if(music){music.pause();music.currentTime=0;music.removeAttribute('src');music=null;}
         return;
       }
       if(!music&&typeof Audio!=='undefined')music=new Audio();
@@ -107,6 +127,6 @@ export function crear_audio_arcade(){
         default:return;
       }
     },
-    cerrar(){enabled=false;stopCapture();if(music)music.pause();music=null;for(const a of live)a.pause();live.clear();}
+    cerrar(){enabled=false;stopEffects();if(music){music.pause();music.removeAttribute('src');}music=null;}
   };
 }
