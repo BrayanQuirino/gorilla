@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades, arquetipos } from './roster.js';
-import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, distribucion_equipo, paramedicos_disponibles, duracion_segunda_vida, reanudar_segunda_vida, en_furia } from './battle.js';
+import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, distribucion_equipo, paramedicos_disponibles, duracion_segunda_vida, reanudar_segunda_vida, en_furia, danio_humano, dano_puno_arquetipo, eficiencia_arma, condiciones_combate } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
@@ -94,6 +94,34 @@ function ResumenArmas({batalla}) {
       <span>{equipadas} equipadas · {suelo} en el suelo</span></div>
   </section>;
 }
+function TablaDanoIndividual({hombres}){
+ const [consulta,cambiar_consulta]=useState('');
+ const lista=hombres.filter(h=>String(h.id).includes(consulta)||h.arquetipo.toLowerCase().includes(consulta.toLowerCase())||
+   (h.objeto?.nombre||'').toLowerCase().includes(consulta.toLowerCase()));
+ const decimal=n=>n.toFixed(4).replace(/0+$/,'').replace(/\\.$/,'');
+ return <section className="dano-individual" aria-label="Fuerza de daño de cada hombre">
+  <div className="dano-individual-titulo"><h3>⚔️ Daño individual real (PV)</h3><small>Daño actual por impacto acertado, sin distancia ni apertura</small></div>
+  <input aria-label="Buscar combatiente por número, arquetipo o arma" type="search" placeholder="Buscar #, arquetipo u objeto" value={consulta} onChange={e=>cambiar_consulta(e.target.value)}/>
+  <div className="dano-tabla-contenedor"><table className="dano-tabla">
+   <thead><tr><th>Humano</th><th>Objeto</th><th>Físico</th><th>Arma efectiva</th><th>Total PV</th></tr></thead>
+   <tbody>{lista.map(h=>{
+     const preparado=activo(h);
+     const disparo=h.objeto?.tipo==='fuego'&&h.objeto.municion>0;
+     const puño=dano_puno_arquetipo[h.arquetipo]??.015;
+     const factor=Math.min(1,condiciones_combate(h).potencia);
+     const fisico=disparo?0:puño*factor;
+     const total=preparado?danio_humano(h,disparo,1,0):0;
+     const extra=Math.max(0,total-fisico);
+     return <tr key={h.id} className={preparado?'':'combatiente-caido'}>
+       <td><strong>#{h.id}</strong> <small>{h.arquetipo}</small></td>
+       <td>{h.objeto?.nombre||'Sin arma'}{h.objeto?.tipo==='fuego'?<small>{h.objeto.municion>0?' · 1 bala':' · Descargada'}</small>:null}</td>
+       <td>{decimal(fisico)}</td><td>{decimal(extra)}</td><td><strong>{decimal(total)}</strong></td>
+     </tr>;
+   })}</tbody>
+  </table></div>
+  <p className="nota-dano">El objeto nunca supera su daño máximo del JSON. Inteligencia, técnica, precisión y estado del portador reducen la cifra. Los disparos no suman puñetazo.</p>
+ </section>;
+}
 function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
   const [seleccion,cambiar_seleccion]=useState(seleccionInicial);
   const vivos=batalla.hombres.filter(activo),total=batalla.hombres.length;
@@ -142,10 +170,7 @@ function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
         {habilidades.map((eje,i)=><div key={eje}><span>{etiquetas[i]}</span>
           <progress value={media(miembros)[eje]} max="100"/><strong>{Math.round(media(miembros)[eje])}</strong></div>)}
       </div>
-      <div className="comparativa-perfil">
-        <span>Daño potencial</span><strong>{Math.round(media(miembros).fuerza*.72+media(miembros).tecnica*.28)}/100</strong>
-        <span>Velocidad</span><strong>{Math.round(media(miembros).velocidad)}/100</strong>
-      </div>
+      <TablaDanoIndividual hombres={miembros}/>
     </>:<>
       <div className="indicadores">
         <Indicador titulo="Activos" valor={vivos.length} icono="👥"/>
@@ -154,6 +179,7 @@ function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
         <Indicador titulo="Objetos en arena" valor={batalla.armas_suelo.filter(o=>!o.recogido_por).length} icono="📦"/>
       </div>
       <ResumenArmas batalla={batalla}/>
+      <TablaDanoIndividual hombres={batalla.hombres}/>
       <div className="equipo-radar"><h3>Radar del equipo completo</h3><Radar radar={promedio}/></div>
       <Segmento titulo="Estado del equipo" grupos={[
         {nombre:'Sanos',valor:Math.max(0,vivos.length-lesionados),color:'#71d58b'},
