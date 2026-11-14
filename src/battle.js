@@ -160,7 +160,7 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
       const x = 53 + indice % 10 * 36;
       const y = 120 + Math.floor(indice / 10) * 43;
       const vida_maxima = vida_maxima_humano(personaje.arquetipo);
-      return {...personaje,objeto:personaje.objeto ? {...personaje.objeto} : null,x,y,vida:vida_maxima,vida_maxima,energia:100,vx:0,vy:0,miedo:0,
+      return {...personaje,objeto:personaje.objeto ? {...personaje.objeto} : null,x,y,vida:vida_maxima,vida_maxima,fatiga_carrera:0,vx:0,vy:0,miedo:0,
         recarga:0,reaccion:0,defensa:0,valentia:40+personaje.radar.temple*.48,orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,
         mejoras:[],buscando:null,oculto:false};
     }),
@@ -209,12 +209,12 @@ function aplicar_suministro(batalla,entrega,recolector) {
   if(!item)return;
   const humanos=batalla.hombres.filter(activo);
   const sujetos=[...humanos].sort((a,b)=>{
-    const score=h=>distancia(h,recolector||entrega)*.45+(h.energia+h.vida)*.5;
+    const score=h=>distancia(h,recolector||entrega)*.45+(100-(h.fatiga_carrera||0)+h.vida)*.5;
     return score(a)-score(b);
   }).slice(0,item.cantidad||0);
-  if(item.energia||item.curacion||item.proteccion||item.dano_extra||item.efecto==='adrenalina'){
+  if(item.recuperacion_carrera||item.curacion||item.proteccion||item.dano_extra||item.efecto==='adrenalina'){
     for(const h of sujetos){
-      h.energia=limitar(h.energia+(item.energia||0),0,100);
+      h.fatiga_carrera=limitar((h.fatiga_carrera||0)-(item.recuperacion_carrera||0),0,100);
       h.vida=limitar(h.vida+(item.curacion||0),0,h.vida_maxima);
       if(item.proteccion) {
         h.proteccion=Math.max(h.proteccion,item.proteccion);
@@ -247,7 +247,7 @@ function aplicar_suministro(batalla,entrega,recolector) {
       const posicion={x:x+(i-2)*25,y:y+35+Math.floor(i/3)*25};
       limitar_posicion(posicion,batalla.arena,6);
       batalla.hombres.push({id:base+i+1,arquetipo,radar,vida:vida_maxima,vida_maxima,
-        objeto:null,energia:100,x:posicion.x,y:posicion.y,altura:altura_humano(posicion,batalla.arena),
+        objeto:null,fatiga_carrera:0,x:posicion.x,y:posicion.y,altura:altura_humano(posicion,batalla.arena),
         vx:0,vy:0,vz:0,vuelo:null,recarga:0,reaccion:0,defensa:0,valentia:40+radar.temple*.48,
         orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,cascondo:false,chaleco:false,escudo:false,
         mejoras:[],buscando:null,oculto:false,fuerza_efectiva:radar.fuerza,velocidad_efectiva:radar.velocidad});
@@ -268,19 +268,29 @@ function recompensa(batalla,danio,dt=0) {
   const enteros=Math.floor(batalla.bananas_ganadas);
   if(enteros){batalla.bananas+=enteros;batalla.bananas_ganadas-=enteros;}
 }
+// Los humanos se fatigan exclusivamente por correr. No se gasta energía en atacar.
+export function agilidad_carrera(h){
+  return Math.max(.60,1-(h.fatiga_carrera||0)*.004);
+}
 function caminar(h,d,dt,velocidad=1,arena='claro') {
   if(!d)return;
   const antes={x:h.x,y:h.y};
   d=ruta_humano(h,d,arena);
   const distancia_restante=distancia(h,d);
-  const ritmo = (14 + h.velocidad_efectiva * .72) * (h.energia < 20 ? .67 : 1) * velocidad;
-  const giro=Math.min(1,dt*(3+h.radar.agilidad*.14));
+  const agilidad=agilidad_carrera(h);
+  const ritmo=(14+h.velocidad_efectiva*.72)*agilidad*velocidad;
+  const giro=Math.min(1,dt*(3+h.radar.agilidad*.14)*agilidad);
   const escala=distancia_restante>3?Math.min(ritmo,distancia_restante/Math.max(dt,.001))/distancia_restante:0;
   h.vx+=((d.x-h.x)*escala-h.vx)*giro;h.vy+=((d.y-h.y)*escala-h.vy)*giro;
   h.x=limitar(h.x+h.vx*dt,10,ancho-10);h.y=limitar(h.y+h.vy*dt,10,alto-10);
   corregir_paso_humano(h,antes,arena);
   h.nadando=agua_humano(h,arena);
+  const velocidad_real=distancia(h,antes)/Math.max(dt,.001);
+  // Correr >32 u/s agota progresivamente la agilidad; al bajar el ritmo, se recupera.
+  const recuperacion=h.mejoras?.some(m=>m.nombre==='fatiga')?22:12;
+  h.fatiga_carrera=limitar((h.fatiga_carrera||0)+(velocidad_real>32?dt*8:-dt*recuperacion),0,100);
 }
+
 export function valor_objeto(o) {
   if(!o)return 0;
   return o.tipo==='fuego'?100+(o.municion>0?(o.dano_maximo||60):0):(o.dano_maximo===undefined?1:o.dano_maximo*1000);
@@ -435,8 +445,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     + (efecto_vigente(b, 'inspiracion') ? 18 : 0), 0, 100);
   h.valentia += (confianza - h.valentia) * Math.min(1, dt * 1.4);
   const panico = h.valentia < 22;
-  h.estado = salud(h) <= .65 ? 'herido' : h.energia < 20 ? 'cansado' : panico ? 'panico' : 'normal';
-  h.energia = limitar(h.energia + dt * (h.recarga > 0 ? 4.2 : 2.6) - (h.orden === 'huir' ? dt * 1.7 : 0), 0, 100);
+  h.estado = salud(h) <= .65 ? 'herido' : panico ? 'panico' : 'normal';
   const rendimiento = condiciones_combate(h);
   const disparo = h.objeto?.tipo === 'fuego' && h.objeto.municion > 0;
   const alcance = disparo ? h.objeto.alcance : g.radio + 38;
@@ -449,10 +458,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       g.accion==='embestida' ? distancia(h,g)<radio_ataque(g,'embestida')+18&&en_cono_embestida(g,h) :
       g.accion==='agarre' ? g.sujeto===h : false);
   if (amenazado && h.orden !== 'huir' && h.valentia >= 22) {
-    if (h.energia >= 6 && h.defendio_ataque !== g.ataques) {
-      h.defendio_ataque = g.ataques;
-      h.energia -= 4;
-    }
+    if (h.defendio_ataque !== g.ataques) h.defendio_ataque = g.ataques;
     if (h.defendio_ataque === g.ataques) h.defensa = .22;
   }
   let destino = h;
@@ -555,7 +561,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const fuerza=h.radar.fuerza/100;
   const alcance_lanzamiento=70+fuerza*125;
   if(arrojable && h.orden==='atacar' && !panico && h.defensa<=0 &&
-      h.recarga<=0 && h.energia>=18 && cerca_g>g.radio+35 &&
+      h.recarga<=0 && cerca_g>g.radio+35 &&
       cerca_g<alcance_lanzamiento && b.golpes_disponibles>=1 &&
       b.azar()<(.13+fuerza*.28)) {
     const objeto=h.objeto;
@@ -565,17 +571,16 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       transcurrido:0,duracion:.35+Math.min(.23,cerca_g/600),hombre:h.id,
       potencia:(dano_puno_arquetipo[h.arquetipo]??dano_fisico_minimo_base)+(objeto.dano_maximo||0)*eficiencia_arma(h)};
     b.proyectiles.push(vuelo);
-    h.recarga=3.2;h.energia-=18;h.atacando_hasta=b.transcurrido+.4;
+    h.recarga=3.2;h.atacando_hasta=b.transcurrido+.4;
     b.golpes_disponibles-=1;
     registrar(b,'objeto_lanzado',{hombre:h.id,objeto:objeto.nombre});
     return;
   }
-  if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 || h.energia < 14 ||
+  if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 ||
     cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
   b.golpes_disponibles -= 1;
   h.recarga = (disparo ? 4.4 : 3.0) - h.radar.tecnica * .008;
   h.atacando_hasta = b.transcurrido + .38;
-  h.energia -= disparo ? 10 : 15;
   if (disparo) {
     h.objeto.municion=0;
     registrar(b, 'disparo', { hombre: h.id, restante: 0 });
