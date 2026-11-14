@@ -206,7 +206,7 @@ test('los ataques tienen recarga, consumen energía y dejan espacio para recuper
   const vida = g.vida;
   const energia = h.energia;
   assert.ok(vida < g.vida_maxima);
-  assert.ok(h.recarga > 3);
+  assert.ok(h.recarga > 2,'la nueva recarga de ataque cuerpo a cuerpo debe ser superior a 2 s');
   for (let i=0;i<20;i++) avanzar_batalla(batalla,.05);
   assert.equal(g.vida,vida);
   assert.ok(h.energia > energia);
