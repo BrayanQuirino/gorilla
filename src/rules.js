@@ -8,18 +8,18 @@ export const ARENAS = {
   hangar: {nombre:'Hangar abandonado', reserva:.60, cobertura:0.50, terreno:'industrial', categorias:['taller','oficina','exterior','hogar','armas_fuego'], puntos:[[160,120],[360,470],[680,140],[850,450]]},
 };
 export const TACTICAS = {
-  atacar: {nombre:'Atacar', energia:1.7},
-  huir: {nombre:'Huida', energia:2.0},
-  esconder: {nombre:'Esconderse', energia:.35},
-  buscar_armas: {nombre:'Buscar armas', energia:1.3},
-  distraer: {nombre:'Distraer', energia:1.4},
-  rescatar: {nombre:'Rescatar heridos', energia:1.0},
+  atacar: {nombre:'Atacar'},
+  huir: {nombre:'Huida'},
+  esconder: {nombre:'Esconderse'},
+  buscar_armas: {nombre:'Buscar armas'},
+  distraer: {nombre:'Distraer'},
+  rescatar: {nombre:'Rescatar heridos'},
 };
 export const SUMINISTROS = {
   municion: {nombre:'Caja de munición',costo:60,cantidad:5,balas:5},
-  energizante: {nombre:'Energizantes', costo:30, cantidad:10, energia:35, efecto:'fatiga', efecto_duracion:15},
+  energizante: {nombre:'Energizantes', costo:30, cantidad:10, recuperacion_carrera:35, efecto:'fatiga', efecto_duracion:15},
   botiquin: {nombre:'Botiquín', costo:45, cantidad:5, curacion:25},
-  comida: {nombre:'Comida', costo:20, cantidad:15, energia:15},
+  comida: {nombre:'Comida', costo:20, cantidad:15, recuperacion_carrera:15},
   adrenalina: {nombre:'Adrenalina', costo:65, cantidad:8, efecto:'adrenalina', efecto_duracion:15},
   cascos: {nombre:'Cascos', costo:45, cantidad:10, proteccion:.20},
   escudos: {nombre:'Escudos', costo:70, cantidad:6, proteccion:.35},
