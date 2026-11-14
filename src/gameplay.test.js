@@ -194,21 +194,37 @@ test('fuerza y valentía amortiguan la lesión e inteligencia descubre objetos o
   assert.equal(buscar_objeto(batalla, fuerte), objeto);
 });
 
-test('los ataques conservan recarga sin consumir energía ni impedir combatir', () => {
+test('golpes físicos cada 0.1 s, siempre acertados en rango y sin gasto de energía', () => {
   const { batalla } = partida('claro');
   const h = batalla.hombres[0];
   batalla.hombres = [h];
   const g = batalla.gorila;
-  Object.assign(g, { x: 620, y: 425, altura: 0, reloj: 100 });
+  Object.assign(g, { x: 620, y: 425, altura: 0, fase:'espera', reloj: 100 });
   Object.assign(h, { x: 650, y: 425, altura: 0, fatiga_carrera:95, objeto: null });
-  batalla.azar = () => 0;
-  avanzar_batalla(batalla,.05);
+  batalla.azar = () => .999999; // Antes hacía fallar casi todos los golpes.
   const vida = g.vida;
-  assert.ok(vida < g.vida_maxima);
-  assert.ok(h.recarga > 1.4,'se conserva el tiempo de recarga sin bloquear la ofensiva');
-  assert.equal(h.energia,undefined,'el humano ya no usa energía para atacar');
+  avanzar_batalla(batalla,.05);
+  assert.ok(g.vida < vida,'un golpe dentro del rango debe acertar incluso con azar desfavorable');
+  assert.ok(Math.abs(h.recarga-.1)<1e-9,'recarga física fija de 0.1 s');
+  assert.equal(h.energia,undefined,'el ataque no consume energía');
+  const golpes=batalla.impactos_humanos;
   for(let i=0;i<20;i++) avanzar_batalla(batalla,.05);
-  assert.equal(g.vida,vida);
+  assert.ok(batalla.impactos_humanos>golpes,'los golpes se repiten cada 0.1 s si sigue en rango');
+});
+test('disparo cada 1.5 s y acierto garantizado al estar en alcance',()=>{
+ const {batalla}=partida('claro');
+ const h=batalla.hombres[0],g=batalla.gorila;
+ batalla.hombres=[h];
+ Object.assign(g,{x:620,y:425,altura:0,fase:'espera',reloj:100});
+ Object.assign(h,{x:680,y:425,altura:0,recarga:0,objeto:{
+   nombre:'Arma de prueba',tipo:'fuego',modo_uso:'disparo',alcance:250,dano_maximo:1,municion:1
+ }});
+ batalla.azar=()=>.999999;
+ const vida=g.vida;
+ avanzar_batalla(batalla,.05);
+ assert.ok(g.vida<vida,'el disparo dentro del alcance debe impactar');
+ assert.ok(Math.abs(h.recarga-1.5)<1e-9);
+ assert.equal(h.objeto.municion,0,'la munición disponible sigue siendo obligatoria');
 });
 
 test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', () => {
