@@ -585,27 +585,26 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     return;
   }
   if (g.vida <= 0 || h.orden !== 'atacar' || h.defensa > 0 || h.recarga > 0 ||
-    cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
-  b.golpes_disponibles -= 1;
-  h.recarga = (disparo ? 4.4 : 2.1) - h.radar.tecnica * .006;
-  h.atacando_hasta = b.transcurrido + .38;
+    cerca_g > alcance || tiene_cobertura(g, h, b.arena)) return;
+  // Cada humano ejecuta el ataque con su propia recarga. No hay cupo global
+  // que impida golpear a otros combatientes que también estén al alcance.
+  h.recarga = disparo ? 1.5 : 0.1;
+  h.atacando_hasta = b.transcurrido + (disparo ? .38 : .1);
   if (disparo) {
     h.objeto.municion=0;
     registrar(b, 'disparo', { hombre: h.id, restante: 0 });
   }
-  const bono_estrategia = efecto_vigente(b, 'plan') ? .15 : 0;
-  const humo = efecto_vigente(b, 'humo') ? -.12 : 0;
-  if (azar_normalizado(b.azar) < limitar((.21 + h.radar.precision * .007) * rendimiento.potencia + bono_estrategia + humo, .05, .95)) {
-    const apertura = g.fase === 'recuperacion' ? 1.35 : 1;
-    const danio = danio_humano(h, disparo, apertura, cerca_g / alcance);
-    if(!disparo)consumir_durabilidad(b,h);
-    const aplicado = Math.min(g.vida, danio);
-    g.vida -= aplicado;
-    b.danio_total_humanos=(b.danio_total_humanos||0)+aplicado;
-    b.impactos_humanos=(b.impactos_humanos||0)+1;
-    recompensa(b, aplicado);
-    registrar(b,'golpe_humano',{hombre:h.id,disparo,danio:aplicado});
-  }
+  // Los ataques válidos aciertan siempre. La cercanía, salud y armas todavía
+  // determinan cuántos PV causa cada impacto, no su probabilidad de acertar.
+  const apertura = g.fase === 'recuperacion' ? 1.35 : 1;
+  const danio = danio_humano(h, disparo, apertura, cerca_g / alcance);
+  if(!disparo)consumir_durabilidad(b,h);
+  const aplicado = Math.min(g.vida, danio);
+  g.vida -= aplicado;
+  b.danio_total_humanos=(b.danio_total_humanos||0)+aplicado;
+  b.impactos_humanos=(b.impactos_humanos||0)+1;
+  recompensa(b, aplicado);
+  registrar(b,'golpe_humano',{hombre:h.id,disparo,danio:aplicado});
 }
 
 function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
