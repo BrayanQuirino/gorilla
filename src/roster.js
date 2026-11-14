@@ -1,4 +1,5 @@
 import { ARENAS, sortear_inventario, resumir_equipo } from './rules.js';
+import balance_humano from './data/hombres.json' with {type:'json'};
 export const habilidades = ['fuerza','velocidad','inteligencia','temple','precision','agilidad','estrategia','tecnica'];
 
 // Arquetipos originales: todos son adultos. Sin modificadores por edad.
@@ -27,8 +28,10 @@ export const perfiles = {
 export const radar_arquetipo=Object.fromEntries(Object.entries(perfiles).map(([nombre,rasgos])=>
   [nombre,Object.fromEntries(habilidades.map(eje=>[eje,rasgos[eje]??50]))]));
 export const arquetipos=Object.keys(perfiles);
-export const vida_arquetipo={"Anciano":10,"Adolescente":16,"Oficinista":18,"Científico":18,"Turista":18,"Estudiante":19,"Aficionado":20,"Malabarista":20,"Repartidor":21,"Campista":22,"Corredor":23,"Paramédico":23,"Entrenador":24,"Acróbata":24,"Velocista":24,"Beisbolista":25,"Atleta":27,"Boxeador":28,"Musculoso":30,"Tarzán":35};
-export const vida_maxima_humano = arquetipo => vida_arquetipo[arquetipo] ?? 20;
+export const vida_arquetipo=Object.fromEntries(Object.entries(balance_humano.arquetipos).map(([nombre,datos])=>[nombre,datos.vida_maxima]));
+export const vida_maxima_humano=arquetipo=>vida_arquetipo[arquetipo]??20;
+export const dano_puno_arquetipo=Object.fromEntries(Object.entries(balance_humano.arquetipos).map(([nombre,datos])=>[nombre,Math.max(balance_humano.dano_fisico_minimo_base,datos.dano_fisico)]));
+export const dano_fisico_minimo_base=balance_humano.dano_fisico_minimo_base;
 export function radar_personal(arquetipo, azar=Math.random) {
   const base=radar_arquetipo[arquetipo];
   return Object.fromEntries(habilidades.map(eje=>[eje,Math.max(5,Math.min(100,
