@@ -33,7 +33,7 @@ export const SUMINISTROS = {
 };
 export const VENTAJAS_GORILA = {
   furia: {umbral_vida:.30, duracion:12, recarga:20, fuerza:1.30, velocidad:1.15},
-  golpe_area: {min_cercanos:8, recarga:3},
+  golpe_area: {min_cercanos:2, recarga:3},
   carga: {min_cercanos:11, recarga:5},
   agarre: {recarga:3},
   rugido: {recarga:10},
