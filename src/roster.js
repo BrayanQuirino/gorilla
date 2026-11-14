@@ -51,7 +51,7 @@ export function crear_sorteo_objetos(catalogo) {
     objetos:catalogo.objetos.filter(o=>o.nivel===Number(nivel))}));
   return azar=>{
     const n=sortear_ponderado(niveles.map(n=>[n,n.peso]),azar);
-    return {...n.objetos[Math.floor(azar()*n.objetos.length)]};
+    return n.objetos[Math.floor(azar()*n.objetos.length)];
   };
 }
 
