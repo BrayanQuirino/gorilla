@@ -147,7 +147,7 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   const [vida,fuerza,tamano]=niveles[n-1];
   const arena=ARENAS[opciones.arena]?opciones.arena:'claro';
   const batalla = {
-    plan: { atacar: 100 }, activos_asignados: personajes.length, rescatadores_asignados:0, busqueda_en: 0, golpes_disponibles: 5, danio_total_humanos:0, impactos_humanos:0,
+    plan: { atacar: 100 }, activos_asignados: personajes.length, rescatadores_asignados:0, busqueda_en: 0, golpes_disponibles: 6, danio_total_humanos:0, impactos_humanos:0,
     tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:0,bananas_ganadas:0,eventos:[],
     resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}, reserva:true})),
     municion_reserva:0,
@@ -483,7 +483,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       aplicar_suministro(b,paquete.entrega,h);
       registrar(b,'suministro_recogido',{hombre:h.id,suministro:paquete.entrega.tipo});
     }
-  } else if (h.orden === 'huir' || (h.orden === 'atacar' && panico)) {
+  } else if (h.orden === 'huir') {
     destino = { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
   } else if (h.orden === 'esconder' && !h.oculto) {
     destino = refugio(h, g, b.arena) ?? { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
@@ -502,9 +502,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     }
   } else if (h.orden === 'distraer') {
     destino = objetivo_distraccion(b,h,dt);
-  } else if (h.orden === 'buscar_armas' ||
-    (h.orden !== 'huir' && h.orden !== 'esconder' && buscar_objeto(b,h) &&
-    distancia(h,buscar_objeto(b,h))<35)) {
+  } else if (h.orden === 'buscar_armas') {
     const objeto = buscar_objeto(b, h);
     h.buscando = objeto?.id ?? null;
     if(objeto) h.exploracion=null;
@@ -528,8 +526,12 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       destino=objetivo_exploracion(b,h,dt);
     }
   } else if (puesto !== undefined && !(disparo && cerca_g < alcance * .85)) {
-    const angulo = (puesto % 11) * Math.PI * 2 / 11 + Math.floor(puesto / 11) * .18;
-    const radio = g.radio + 19 + Math.floor(puesto / 11) * 35;
+    // Relevo de ofensiva: nunca enviar a los combatientes a una novena
+    // circunferencia donde no puedan golpear. Quienes están más cerca
+    // ocupan primero los puestos de contacto.
+    const anillo = Math.floor(puesto / 24);
+    const angulo = (puesto % 24) * Math.PI * 2 / 24 + anillo * .17;
+    const radio = g.radio + 23 + Math.min(anillo,4) * 12;
     destino = { x: g.x + Math.cos(angulo) * radio, y: g.y + Math.sin(angulo) * radio };
   }
   if (amenazado && h.defensa > 0 && h.orden === 'atacar') destino = { x: 2 * h.x - g.destino.x, y: 2 * h.y - g.destino.y };
@@ -566,7 +568,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const arrojable=h.objeto?.modo_uso==='arrojadizo'&&puede_utilizar_objeto(h,h.objeto);
   const fuerza=h.radar.fuerza/100;
   const alcance_lanzamiento=70+fuerza*125;
-  if(arrojable && h.orden==='atacar' && !panico && h.defensa<=0 &&
+  if(arrojable && h.orden==='atacar' && h.defensa<=0 &&
       h.recarga<=0 && cerca_g>g.radio+35 &&
       cerca_g<alcance_lanzamiento && b.golpes_disponibles>=1 &&
       b.azar()<(.13+fuerza*.28)) {
@@ -582,10 +584,10 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     registrar(b,'objeto_lanzado',{hombre:h.id,objeto:objeto.nombre});
     return;
   }
-  if (g.vida <= 0 || h.orden !== 'atacar' || panico || h.defensa > 0 || h.recarga > 0 ||
+  if (g.vida <= 0 || h.orden !== 'atacar' || h.defensa > 0 || h.recarga > 0 ||
     cerca_g > alcance || tiene_cobertura(g, h, b.arena) || b.golpes_disponibles < 1) return;
   b.golpes_disponibles -= 1;
-  h.recarga = (disparo ? 4.4 : 3.0) - h.radar.tecnica * .008;
+  h.recarga = (disparo ? 4.4 : 2.1) - h.radar.tecnica * .006;
   h.atacando_hasta = b.transcurrido + .38;
   if (disparo) {
     h.objeto.municion=0;
@@ -1041,7 +1043,7 @@ export function avanzar_batalla(b,dt) {
   b.parpadeos = b.parpadeos.filter(p => b.transcurrido - p.aterrizaje < duracion_parpadeo);
   // El límite anterior de 2.5 ataques/segundo hacía imperceptible el daño de 100 humanos.
   // Sigue habiendo límite global y recarga por combatiente, pero hay turnos útiles.
-  b.golpes_disponibles = Math.min(5, b.golpes_disponibles + dt * 9);
+  b.golpes_disponibles = Math.min(6, b.golpes_disponibles + dt * 12);
   actualizar_vuelos(b);
   b.proyectiles=b.proyectiles.filter(p=>{
     p.transcurrido+=dt;
@@ -1082,7 +1084,9 @@ export function avanzar_batalla(b,dt) {
     asignar_plan(b);
     b.busqueda_en = b.transcurrido + 2;
   }
-  const puestos = new Map(disponibles.filter(h => h.orden === 'atacar' && h.valentia >= 22).map((h, i) => [h, i]));
+  const atacantes_ordenados=disponibles.filter(h=>h.orden==='atacar')
+    .sort((a,z)=>distancia(a,b.gorila)-distancia(z,b.gorila)||a.id-z.id);
+  const puestos=new Map(atacantes_ordenados.map((h,i)=>[h,i]));
   const turno = Math.floor(b.transcurrido * 2.5) % activos.length;
   for (let i = 0; i < activos.length; i++) {
     const h = activos[(i + turno) % activos.length];
