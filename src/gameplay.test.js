@@ -541,3 +541,24 @@ test('rugido solo reduce valentía: no PV ni miedo',()=>{
  assert.ok(h.valentia<90,'rugido redujo valentía');
  assert.ok(h.rugido_hasta>batalla.transcurrido);
 });
+
+test('el gorila pierde PV visibles bajo ataques físicos sin armas',()=>{
+  const {batalla}=partida('claro');
+  batalla.hombres=batalla.hombres.slice(0,14);
+  assert.equal(aplicar_plan(batalla,{atacar:100}),true);
+  const g=batalla.gorila;
+  Object.assign(g,{x:610,y:410,altura:0,fase:'espera',reloj:1e5,vida:650,vida_maxima:650});
+  // Combatientes con rango para golpear; los turnos y las esquivas no los bloquearán.
+  batalla.hombres.forEach((h,i)=>{
+    const theta=2*Math.PI*i/batalla.hombres.length;
+    Object.assign(h,{x:g.x+Math.cos(theta)*49,y:g.y+Math.sin(theta)*49,
+      altura:0,recarga:0,defensa:0,valentia:90,energia:100,objeto:null});
+  });
+  batalla.azar=()=>0;
+  const vida=g.vida;
+  for(let i=0;i<120;i++)avanzar_batalla(batalla,1/30);
+  assert.ok(g.vida<vida,'el equipo debe hacer daño físico real al gorila');
+  assert.ok(batalla.impactos_humanos>=1,'el HUD debe contabilizar ataques acertados');
+  assert.ok(batalla.danio_total_humanos>0,'el HUD debe contabilizar los PV infligidos');
+  assert.ok(Math.abs((vida-g.vida)-batalla.danio_total_humanos)<1e-6);
+});
