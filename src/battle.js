@@ -75,7 +75,7 @@ function anunciar_segunda_vida(b) {
 
 export const velocidad_gorila = { persecucion: 117, repliegue: 106, embestida: 210 };
 export function radio_ataque(g, accion = g.accion) {
-  return ({ rugido: 145, golpe_area: g.radio + 75, agarre: g.radio + 54,
+  return ({ rugido: 145, golpe_area: g.radio + 32, agarre: g.radio + 54,
     embestida: g.radio + 34, barrido: g.radio + 38 })[accion] ?? g.radio + 38;
 }
 export function rango_golpe_gorila(g) {
@@ -430,7 +430,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   h.mejoras = h.mejoras.filter(mejora => mejora.restante > 0);
   const templanza = h.radar.temple / 100;
   h.miedo = Math.max(0, h.miedo - dt * (cerca_g > 175 ? 8 : 2));
-  const confianza = limitar(40 + templanza * 48 - h.miedo * .56 - (1 - salud(h)) * 26
+  const confianza = limitar(40 + templanza * 48 - h.miedo * .56 - ((h.rugido_hasta||0)>b.transcurrido?20:0) - (1 - salud(h)) * 26
     - (1 - cantidad_activos / 100) * 24 + (1 - g.vida / g.vida_maxima) * 18
     + (efecto_vigente(b, 'inspiracion') ? 18 : 0), 0, 100);
   h.valentia += (confianza - h.valentia) * Math.min(1, dt * 1.4);
@@ -623,7 +623,7 @@ function empujar_por_contacto(b, hombres) {
   for (const h of hombres) {
     if ((h.empuje_disponible ?? 0) > b.transcurrido || Math.abs(h.altura - g.altura) >= 22 || !cerca(h, g, radio)) continue;
     h.empuje_disponible = b.transcurrido + .4;
-    aplicar_danio_humano(b, h, h.vida_maxima * .0005, 0);
+    // La colisión empuja, pero jamás quita PV.
     const dx = h.x - g.x;
     const dy = h.y - g.y;
     const largo = Math.hypot(dx, dy) || 1;
@@ -664,25 +664,47 @@ function actualizar_vuelos(b) {
   }
 }
 
+// Frontal 45° total (22.5° a cada lado), fijado al iniciar el ataque.
+export function en_cono_golpe_area(g,h){
+  const dir=g.direccion_golpe_area||{x:g.mira_izquierda?-1:1,y:0};
+  const magnitud=Math.hypot(dir.x,dir.y)||1;
+  const dx=h.x-g.x,dy=h.y-g.y,dist=Math.hypot(dx,dy);
+  return dist<.001||(dx*dir.x+dy*dir.y)/(dist*magnitud)>=Math.cos(Math.PI/8)-1e-9;
+}
 function resolver_ataque(b,activos) {
-  const g = b.gorila;
-  const radio = radio_ataque(g);
-  for(const h of activos) {
-    const cercania = Math.hypot(distancia(h, g), (h.altura - g.altura) * 1.35);
-    if (cercania > radio) continue;
-    if(g.accion==='rugido'){h.miedo=limitar(h.miedo+38,0,100);continue;}
-    const factor = (g.accion === 'golpe_area' ? .95 : 1) * (1 - .48 * cercania / radio);
-    if (g.accion === 'barrido' && g.objetivo && h !== g.objetivo) continue;
-    if (h.vuelo || tiene_cobertura(h, g, b.arena)) continue;
-    if (g.accion === 'embestida') impacto_embestida(b, h);
-    else {
-      danar_hombre(b, h, factor);
-      if (g.accion === 'golpe_area') lanzar(b, h, g, 94);
+  const g=b.gorila;
+  const radio=radio_ataque(g);
+  if(g.accion==='rugido'){
+    // Psychological effect only: never damage or increase fear.
+    for(const h of activos){
+      if(distancia(h,g)>radio)continue;
+      h.valentia=limitar(h.valentia-20,0,100);
+      h.rugido_hasta=b.transcurrido+6;
+    }
+  }else{
+    let candidatos=activos.filter(h=>{
+      const cercania=Math.hypot(distancia(h,g),(h.altura-g.altura)*1.35);
+      return cercania<=radio&&!h.vuelo&&!tiene_cobertura(h,g,b.arena);
+    });
+    if(g.accion==='golpe_area'){
+      candidatos=candidatos.filter(h=>en_cono_golpe_area(g,h))
+        .sort((a,z)=>distancia(a,g)-distancia(z,g)).slice(0,3);
+    }
+    for(const h of candidatos){
+      const cercania=Math.hypot(distancia(h,g),(h.altura-g.altura)*1.35);
+      const factor=(g.accion==='golpe_area'?.95:1)*(1-.48*cercania/radio);
+      if(g.accion==='barrido'&&g.objetivo&&h!==g.objetivo)continue;
+      if(g.accion==='embestida')impacto_embestida(b,h);
+      else{
+        danar_hombre(b,h,factor);
+        if(g.accion==='golpe_area')lanzar(b,h,g,94);
+      }
     }
   }
-  g.fase = 'recuperacion';
-  g.reloj = g.accion === 'golpe_area' ? .46 : en_furia(g) ? .65 : 1.15;
+  g.fase='recuperacion';
+  g.reloj=g.accion==='golpe_area'?.46:en_furia(g)?.65:1.15;
 }
+
 function impacto_embestida(b, h) {
   const g = b.gorila;
   g.impactados ??= new Set();
@@ -941,6 +963,9 @@ function actualizar_gorila(b,activos,dt) {
     cooldown(g, 'carga', reglas.carga.recarga);
   } else if (cercanos >= reglas.golpe_area.min_cercanos && habilitada(g, 'golpe_area')) {
     g.accion = 'golpe_area';
+    const dx=presa.x-g.x,dy=presa.y-g.y;
+    const longitud=Math.hypot(dx,dy)||1;
+    g.direccion_golpe_area={x:dx/longitud,y:dy/longitud};
     g.reloj = .35;
     cooldown(g, 'golpe_area', reglas.golpe_area.recarga);
   } else if (amenazas.some(h => cerca(h, g, radio_ataque(g, 'rugido'))) && habilitada(g, 'rugido')) {
