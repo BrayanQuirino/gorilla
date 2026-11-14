@@ -588,7 +588,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     cerca_g > alcance || tiene_cobertura(g, h, b.arena)) return;
   // Cada humano ejecuta el ataque con su propia recarga. No hay cupo global
   // que impida golpear a otros combatientes que también estén al alcance.
-  h.recarga = disparo ? 1.5 : 0.1;
+  h.recarga = disparo ? 1.5 : 1;
   h.atacando_hasta = b.transcurrido + (disparo ? .38 : .1);
   if (disparo) {
     h.objeto.municion=0;
@@ -721,7 +721,7 @@ function resolver_ataque(b,activos) {
     }
   }
   g.fase='recuperacion';
-  g.reloj=g.accion==='golpe_area'?.46:en_furia(g)?.65:1.15;
+  g.reloj=g.accion==='golpe_area'?.46:g.accion==='barrido'?.38:en_furia(g)?.65:1.15;
 }
 
 function impacto_embestida(b, h) {
@@ -994,6 +994,10 @@ function actualizar_gorila(b,activos,dt) {
     g.direccion_golpe_area={x:dx/longitud,y:dy/longitud};
     g.reloj = .35;
     cooldown(g, 'golpe_area', reglas.golpe_area.recarga);
+  } else if (distancia(g, presa) <= radio_ataque(g, 'barrido') && g.ataques % 3 !== 2) {
+    // Prioritize regular physical strikes over repeated roars/grabs when prey is in range.
+    g.accion = 'barrido';
+    g.reloj = .22;
   } else if (amenazas.some(h => cerca(h, g, radio_ataque(g, 'rugido'))) && habilitada(g, 'rugido')) {
     g.accion = 'rugido';
     cooldown(g, 'rugido', reglas.rugido.recarga);
