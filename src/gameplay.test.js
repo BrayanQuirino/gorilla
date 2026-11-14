@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,objetivo_exploracion,objetivo_distraccion,desviar_peatones,conducta_gorila} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,en_cono_golpe_area,objetivo_exploracion,objetivo_distraccion,desviar_peatones,conducta_gorila} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -291,7 +291,7 @@ test('la embestida requiere once hombres y el golpe de área anuncia y recarga m
   }
 });
 
-test('empuje de contacto aplica 0.05 % de vida inicial sin repetir cada cuadro', () => {
+test('contacto sin ataque empuja pero nunca daña', () => {
   const { batalla } = partida('claro');
   batalla.hombres = batalla.hombres.slice(0, 1);
   aplicar_plan(batalla, {});
@@ -300,7 +300,7 @@ test('empuje de contacto aplica 0.05 % de vida inicial sin repetir cada cuadro',
   Object.assign(g, { x: 610, y: 450, altura: 0, reloj: 100 });
   Object.assign(h, { x: 630, y: 450, altura: 0 });
   avanzar_batalla(batalla, .05);
-  assert.ok(Math.abs(h.vida - h.vida_maxima * .9995) < .0001);
+  assert.equal(h.vida,h.vida_maxima,'el contacto sin ataque no reduce la vida');
   const vida = h.vida;
   h.x = 630;
   avanzar_batalla(batalla, .05);
@@ -482,4 +482,39 @@ test('mezcla de búsqueda y distracción mueve la mayoría de los 100 combatient
   const movidos=batalla.hombres.filter((h,i)=>distancia(h,inicio[i])>35).length;
   assert.ok(movidos>=50,arena+': demasiado atasco entre distractores y buscadores: '+movidos);
  }
+});
+
+test('golpe frontal limita a 45 grados y un máximo de tres víctimas',()=>{
+ const {batalla}=partida('claro');
+ const g=batalla.gorila;
+ Object.assign(g,{x:600,y:400,altura:0,fase:'aviso',accion:'golpe_area',reloj:0,
+   direccion_golpe_area:{x:1,y:0}});
+ const objetivos=batalla.hombres.slice(0,6);
+ batalla.hombres=objetivos;
+ for(let i=0;i<6;i++){
+   const h=objetivos[i];
+   Object.assign(h,{x:630+i*4,y:i<4?400:460,altura:0,
+     vida:100,vida_maxima:100,orden:'huir',proteccion:0,defensa:0});
+ }
+ assert.equal(en_cono_golpe_area(g,{x:640,y:400}),true);
+ assert.equal(en_cono_golpe_area(g,{x:640,y:440}),false);
+ assert.equal(en_cono_golpe_area(g,{x:560,y:400}),false);
+ avanzar_batalla(batalla,.05);
+ const golpeados=objetivos.filter(h=>h.vida<100);
+ assert.ok(golpeados.length<=3,'jamás más de tres víctimas');
+ assert.ok(golpeados.length>=1,'al menos un objetivo frontal');
+ assert.ok(objetivos.slice(4).every(h=>h.vida===100),'sin daño fuera del cono');
+});
+test('rugido solo reduce valentía: no PV ni miedo',()=>{
+ const {batalla}=partida('claro'),g=batalla.gorila;
+ const h=batalla.hombres[0];
+ batalla.hombres=[h];
+ Object.assign(g,{x:600,y:400,altura:0,fase:'aviso',accion:'rugido',reloj:0});
+ Object.assign(h,{x:630,y:400,altura:0,vida:h.vida_maxima,valentia:95,miedo:0,orden:'huir'});
+ const antes=h.vida;
+ avanzar_batalla(batalla,.05);
+ assert.equal(h.vida,antes);
+ assert.equal(h.miedo,0);
+ assert.ok(h.valentia<90,'rugido redujo valentía');
+ assert.ok(h.rugido_hasta>batalla.transcurrido);
 });
