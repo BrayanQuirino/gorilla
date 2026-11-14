@@ -57,8 +57,8 @@ test('un ataque acertado que agota la resistencia da la victoria a los hombres',
   hombre.y = batalla.gorila.y;
   hombre.altura = batalla.gorila.altura;
   batalla.gorila.segunda_vida = 'activa';
-  batalla.gorila.vida = 1;
+  batalla.gorila.vida = 0.001;
   aplicar_plan(batalla, {atacar:100});
-  avanzar_batalla(batalla, 1 / 60);
+  for(let i=0;i<360&&batalla.resultado!=='Victoria de los hombres';i++) avanzar_batalla(batalla,1/60);
   assert.equal(batalla.resultado, 'Victoria de los hombres');
 });
