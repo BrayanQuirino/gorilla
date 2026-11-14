@@ -5,7 +5,7 @@ import balance_humano from './data/hombres.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,en_cono_golpe_area,objetivo_exploracion,objetivo_distraccion,desviar_peatones,conducta_gorila} from './battle.js';
+import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,en_cono_golpe_area,objetivo_exploracion,objetivo_distraccion,desviar_peatones,conducta_gorila,agilidad_carrera,actualizar_fatiga_carrera} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -562,20 +562,19 @@ test('el gorila pierde PV visibles bajo ataques físicos sin armas',()=>{
   assert.ok(Math.abs((vida-g.vida)-batalla.danio_total_humanos)<1e-6);
 });
 
-test('solo correr reduce agilidad, atacar o estar quieto no produce fatiga',()=>{
+test('solo correr reduce agilidad y al parar se recupera',()=>{
   const {batalla}=partida('claro');
   const h=batalla.hombres[0];
-  batalla.hombres=[h];
-  const g=batalla.gorila;
-  Object.assign(g,{x:920,y:530,altura:0,reloj:100});
-  Object.assign(h,{x:180,y:120,altura:0,fatiga_carrera:0,objeto:null,orden:'huir'});
-  aplicar_plan(batalla,{huir:100});
-  for(let i=0;i<130;i++)avanzar_batalla(batalla,.05);
-  assert.ok(h.fatiga_carrera>0,'correr aumenta fatiga de carrera');
+  h.fatiga_carrera=0;
+  const base=h.radar.agilidad;
+  const factorInicial=agilidad_carrera(h);
+  const velocidadPropia=14+h.velocidad_efectiva*.72;
+  for(let i=0;i<150;i++)actualizar_fatiga_carrera(h,velocidadPropia*.8,.05);
+  assert.ok(h.fatiga_carrera>0,'correr acumula fatiga');
+  assert.ok(agilidad_carrera(h)<factorInicial,'correr reduce agilidad para moverse');
+  assert.equal(h.radar.agilidad,base,'los atributos innatos no cambian');
   const fatigado=h.fatiga_carrera;
-  assert.equal(h.energia,undefined);
-  // Reposo a pie quieto, sin daño de ataque ni gasto de energía.
-  h.vx=0;h.vy=0;h.orden='esconder';h.oculto=true;
-  // Restauración se valida por el factor de agilidad y los suministros.
-  assert.ok(fatigado<=100);
+  for(let i=0;i<100;i++)actualizar_fatiga_carrera(h,0,.05);
+  assert.ok(h.fatiga_carrera<fatigado,'descansar recupera agilidad');
+  assert.equal(h.energia,undefined,'el humano no usa energía');
 });
