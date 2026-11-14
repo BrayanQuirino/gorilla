@@ -67,7 +67,7 @@ export function sortear_inventario(catalogo, arena='claro', azar=Math.random, to
     let acumulado=0, nivel=1;
     for(const [id,p] of Object.entries(probabilidades)){acumulado+=p;if(n<acumulado){nivel=Number(id);break;}}
     let lista=elegibles.filter(o=>o.nivel===nivel);
-    if(!lista.length)lista=catalogo.objetos.filter(o=>o.nivel===nivel);
+    if(!lista.length)lista=elegibles;
     const objeto={...lista[azar_entero(azar,lista.length)]};
     const base=posiciones[i%posiciones.length];
     return {id:'suelo-'+i,objeto,x:limitar(base[0]+(azar()-.5)*110,20,980),
