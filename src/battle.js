@@ -1,4 +1,4 @@
-import { arquetipos, radar_personal, vida_maxima_humano } from './roster.js';
+import { arquetipos, radar_personal, vida_maxima_humano, dano_puno_arquetipo, dano_fisico_minimo_base } from './roster.js';
 import { ARENAS, TACTICAS, SUMINISTROS, VENTAJAS_GORILA, limitar, distancia } from './rules.js';
 import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio, ruta_humano, corregir_paso_humano, agua_humano, altura_humano, obstaculo_humano } from './terreno.js';
 export { ancho, alto };
@@ -28,13 +28,13 @@ function puede_actuar(h, g) {
 
 // Gorilla hide is resistant to bare fists. Weapons still matter; firearms
 // retain their own stopping power. No artificial instant kills from fists.
-export const dano_puno_arquetipo={Anciano:.005,Adolescente:.009,Oficinista:.010,'Científico':.010,Turista:.010,Estudiante:.012,Aficionado:.014,Malabarista:.015,Repartidor:.015,Campista:.017,Corredor:.018,'Paramédico':.015,Entrenador:.025,'Acróbata':.020,Velocista:.020,Beisbolista:.027,Atleta:.020,Boxeador:.040,Musculoso:.030,'Tarzán':.050};
+export { dano_puno_arquetipo } from './roster.js';
 export const eficiencia_arma=h=>limitar((h.radar.tecnica*.5+h.radar.inteligencia*.3+h.radar.precision*.2)/100,0,1);
 export const puede_utilizar_objeto=(h,o)=>!o||o.modo_uso!=='arrojadizo'||h.radar.fuerza>=(o.fuerza_minima_lanzamiento||0);
 export function danio_humano(h,disparo=false,apertura=1,cercania=0){
  const o=h.objeto,fuego=disparo&&o?.tipo==='fuego';
  const extra=o&&puede_utilizar_objeto(h,o)&&(o.tipo!=='fuego'||fuego)?Math.max(0,o.dano_maximo||0)*eficiencia_arma(h):0;
- const base=fuego?0:(dano_puno_arquetipo[h.arquetipo]??.015);
+ const base=fuego?0:(dano_puno_arquetipo[h.arquetipo]??dano_fisico_minimo_base);
  return (base+extra)*Math.min(1,condiciones_combate(h).potencia)*limitar(apertura,0,1)*(1-.30*limitar(cercania,0,1));
 }
 function consumir_durabilidad(b,h){
@@ -558,7 +558,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     equipar(h,null);
     const vuelo={objeto,inicio,fin:{x:g.x,y:g.y},x:h.x,y:h.y,
       transcurrido:0,duracion:.35+Math.min(.23,cerca_g/600),hombre:h.id,
-      potencia:(dano_puno_arquetipo[h.arquetipo]??.015)+(objeto.dano_maximo||0)*eficiencia_arma(h)};
+      potencia:(dano_puno_arquetipo[h.arquetipo]??dano_fisico_minimo_base)+(objeto.dano_maximo||0)*eficiencia_arma(h)};
     b.proyectiles.push(vuelo);
     h.recarga=3.2;h.energia-=18;h.atacando_hasta=b.transcurrido+.4;
     b.golpes_disponibles-=1;
