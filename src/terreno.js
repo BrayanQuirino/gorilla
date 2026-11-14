@@ -235,7 +235,7 @@ export function separar_personajes(hombres, gorila, vueltas = 4) {
         const b = hombres[j];
         // Scouts share the narrow lanes: yield and pass one another instead
         // of being pushed back to their starting spots every simulation tick.
-        if(a.orden==='buscar_armas' && b.orden==='buscar_armas'){
+        if(['buscar_armas','distraer'].includes(a.orden) && ['buscar_armas','distraer'].includes(b.orden)){
           const ddx=b.x-a.x,ddy=b.y-a.y;
           const dst=Math.hypot(ddx,ddy);
           if(dst>=18)continue;
@@ -272,7 +272,7 @@ export function separar_personajes(hombres, gorila, vueltas = 4) {
   // Try nearby slots when a character is still significantly inside another.
   const ubicados = [];
   for (const hombre of hombres) {
-    if (hombre.orden!=='buscar_armas'&&ubicados.some(otro => superpuestos(hombre, otro, .88))) {
+    if (!['buscar_armas','distraer'].includes(hombre.orden)&&ubicados.some(otro => superpuestos(hombre, otro, .88))) {
       reubicar(hombre, hombres, gorila, radio);
     }
     ubicados.push(hombre);
