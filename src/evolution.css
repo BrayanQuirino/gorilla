@@ -1,0 +1,23 @@
+.evo-ui{color:#f0efd9;display:flex;flex-direction:column;min-height:0;flex:1;gap:9px}
+.evo-top{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.evo-top h3{font-size:1.2rem;margin:0;color:#f6cc79}.evo-top p{font-size:.79rem;color:#b9c9c0;margin:3px 0}
+.evo-balance{font-weight:800;white-space:nowrap;font-size:1.2rem;background:#1c2926;padding:8px 12px;border:1px solid #b28d4a;border-radius:10px;text-align:right}
+.evo-balance small{display:block;font-size:.66rem;color:#b8c9bd;font-weight:500}
+.evo-filtros{display:flex;gap:5px;flex-wrap:wrap}.evo-filtros button{background:#1b2829;color:#e3e9dc;border:1px solid var(--familia,#78868a);border-radius:7px;padding:5px 9px;font-size:.75rem}
+.evo-filtros button[aria-pressed=true]{background:#546c62;color:white;box-shadow:inset 0 0 0 1px #d6d9b5}
+.evo-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,270px);gap:11px;min-height:0;flex:1}
+.evo-scroll{min-height:310px;max-height:65vh;overflow:auto;background:radial-gradient(ellipse at center,#1b3434,#101b20 70%);border:1px solid #48685d;border-radius:12px;scrollbar-width:thin;display:flex;align-items:center;justify-content:center}
+.evo-svg{display:block;width:100%;min-width:700px;max-width:1100px;height:auto;overflow:visible}
+.evo-hex{cursor:pointer;transition:opacity .16s;outline:none}.evo-hex:hover polygon,.evo-hex:focus polygon{stroke-width:4;filter:brightness(1.3)}.evo-hex.is-selected polygon{filter:drop-shadow(0 0 7px var(--hex-color));fill:#41534b}.evo-hex.is-owned polygon{fill:#233d37}.evo-hex.is-muted{opacity:.22}
+.evo-hex text{text-anchor:middle;fill:#f5f5ed;pointer-events:none;font-family:system-ui,sans-serif}.evo-hex-icon{font-size:13px}.evo-hex-title{font-size:10px;font-weight:700}.evo-hex-cost{font-size:9px;fill:#fbd58a!important}
+.evo-detalle{background:#1a2929;border:1px solid #53665b;border-radius:11px;padding:13px;display:flex;flex-direction:column;gap:9px;min-height:0;overflow:auto;max-height:65vh}
+.evo-detalle-title{display:flex;gap:10px;align-items:center;border-bottom:2px solid;padding-bottom:8px}.evo-detalle-title>span{font-size:1.8rem}.evo-detalle-title small{color:#bed0c5}.evo-detalle-title h3{margin:0;font-size:1.1rem;color:#f6db95}
+.evo-detalle p{font-size:.89rem;line-height:1.45;margin:2px 0}.evo-detalle h4{font-size:.82rem;margin:5px 0 0;color:#cfdbcb}
+.evo-dato{display:flex;justify-content:space-between;gap:8px;font-size:.81rem}.evo-dato strong{color:#9beaab}
+.evo-requisitos{display:flex;flex-wrap:wrap;gap:5px}.evo-requisitos button,.evo-requisitos span{border:1px solid #647d72;background:#293d38;color:#edf4e8;font-size:.76rem;border-radius:7px;padding:5px 7px}.evo-requisitos button.comprado{border-color:#73ba86;color:#aef6b6}
+.evo-comprar{background:#d19f3e;color:#16201d;border:1px solid #ffe19a;border-radius:9px;font-weight:800;padding:11px;margin-top:auto;min-height:43px}
+.evo-comprar:disabled{opacity:.55;cursor:not-allowed}.evo-leyenda{font-size:.73rem;margin:0;color:#b8c7bc}
+.juego-app .arena .menu-estrategia:has(.evo-ui){max-width:1400px!important;width:min(1400px,calc(100vw - 24px))!important;height:min(96dvh,920px)!important}
+.juego-app .arena .menu-estrategia:has(.evo-ui) .evo-ui{overflow:hidden}
+.juego-app .arena .menu-estrategia:has(.evo-ui) .evo-layout{min-height:0;overflow:hidden}
+@media(max-width:800px){.evo-layout{grid-template-columns:1fr;overflow:auto!important}.evo-scroll{min-height:330px;max-height:52vh;justify-content:start}.evo-detalle{max-height:none;min-height:250px}.evo-svg{min-width:690px}.evo-top h3{font-size:1rem}.evo-top p{font-size:.72rem}.evo-balance{font-size:1rem}.juego-app .arena .menu-estrategia:has(.evo-ui) .evo-ui{overflow:auto}}
