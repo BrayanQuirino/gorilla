@@ -7,6 +7,8 @@ import { crear_dibujante } from './arena.js';
 import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import { encuadre } from './terreno.js';
+import PanalEvolucion from './EvolutionTree.jsx';
+import {comprar_habilidad} from './evolution.js';
 import retrato_furia from './art/gorila-segunda-vida.webp';
 import { crear_audio_arcade } from './audio.js';
 import './style.css';
@@ -253,7 +255,7 @@ const beneficios={
  refuerzos:'Llegan 5 hombres nuevos de arquetipos aleatorios, en cualquier momento.',
  inspiracion:'Inspira al equipo y eleva su valentía durante 20 segundos.'
 };
-function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambiar_plan,comprar,reanudar,cancelar}){
+function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambiar_plan,comprar,comprarEvolucion,reanudar,cancelar}){
   const maxRescate=paramedicos_disponibles(batalla);
   const rescatar=plan.rescatar||0;
   const entradas=Object.entries(TACTICAS).filter(([id])=>id!=='rescatar');
@@ -326,14 +328,15 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambia
   if(!abierto)return null;
   return <div className="estrategia-cortina" onMouseDown={e=>{if(e.target===e.currentTarget)cancelar();}}>
     <section className="menu-estrategia" role="dialog" aria-modal="true" aria-labelledby="titulo-estrategia">
-    <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Equipo'?'📊 Equipo':categoria==='Suministros'?'📦 Suministros':'⚔️ Tácticas'}</h2>
+    <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Equipo'?'📊 Equipo':categoria==='Suministros'?'📦 Suministros':categoria==='Evolucion'?'🍯 Evolución':'⚔️ Tácticas'}</h2>
       <button type="button" onClick={cancelar} aria-label="Cerrar menú y volver al campo">✕</button></header>
     <div className="tabs-retro">
       <button aria-pressed={categoria==='Combate'} onClick={()=>cambiar_categoria('Combate')}>⚔️ Tácticas</button>
       <button aria-pressed={categoria==='Suministros'} onClick={()=>cambiar_categoria('Suministros')}>📦 Suministros</button>
+      <button aria-pressed={categoria==='Evolucion'} onClick={()=>cambiar_categoria('Evolucion')}>🍯 Evolución</button>
       <button aria-pressed={categoria==='Equipo'} onClick={()=>cambiar_categoria('Equipo')}>📊 Equipo</button>
     </div>
-    {categoria==='Equipo'?<div className="panel-equipo-integrado"><PanelEquipo batalla={batalla}/></div>:<div className="panel-tactico-layout">
+    {categoria==='Equipo'?<div className="panel-equipo-integrado"><PanelEquipo batalla={batalla}/></div>:categoria==='Evolucion'?<PanalEvolucion batalla={batalla} comprar={comprarEvolucion}/>:<div className="panel-tactico-layout">
       <section className="comando-panel comando-compartido" aria-label="Inteligencia táctica">
         <div className="comando-encabezado">
           <span className="comando-emblema" aria-hidden="true"><img className="comando-retrato" src={retrato_furia} alt=""/></span>
@@ -564,6 +567,13 @@ function App() {
     cambiar_pausa(false);
   }
 
+  function comprarEvolucion(id){
+    if(comprar_habilidad(batalla,id)){
+      actualizar_panel(v=>v+1);
+      ultimo_cuadro.current?.();
+    }
+  }
+
   function comprar(id) {
     if (comprar_suministro(batalla, id)) {
       actualizar_panel(v => v + 1);
@@ -600,7 +610,7 @@ function App() {
           {victoria&&<div className="celebracion-victoria" aria-label="Victoria: los hombres celebran">🏆 ¡VICTORIA! <span>Los supervivientes celebran</span></div>}
           {menu_abierto&&<MenuEstrategia abierto={menu_abierto} batalla={batalla} categoria={categoria}
             cambiar_categoria={cambiar_categoria} plan={plan} cambiar_plan={cambiar_plan}
-            comprar={comprar} reanudar={reanudar} cancelar={cerrar_estrategia}/>}
+            comprar={comprar} comprarEvolucion={comprarEvolucion} reanudar={reanudar} cancelar={cerrar_estrategia}/>}
           {rayos_x&&<div className="visor-rayos-x"><div className="visor-titulo">⌖ RAYOS X · {batalla.armas_suelo.filter(o=>!o.recogido_por).length} objetos</div><svg viewBox="0 0 1000 640" preserveAspectRatio="none" aria-label="Mapa de armas en la arena">{batalla.armas_suelo.filter(o=>!o.recogido_por).map(o=>{const vista=encuadre(batalla.arena);const x=vista.x+o.x*vista.ancho/ancho;const y=vista.y+o.y*vista.alto/alto;return <g key={o.id}><circle cx={x} cy={y} r={o.objeto?.tipo==='fuego'?19:13} fill="#6efae622" stroke="#60ffe8" strokeWidth="3"/><circle cx={x} cy={y} r="4" fill="#fff3a0"/></g>;})}</svg></div>}
           {anuncio&&<div className="segunda-vida" role="status" aria-label="Segunda vida del gorila">
             <img src={retrato_furia} alt=""/>
