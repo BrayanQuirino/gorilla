@@ -21,3 +21,6 @@
 .juego-app .arena .menu-estrategia:has(.evo-ui) .evo-ui{overflow:hidden}
 .juego-app .arena .menu-estrategia:has(.evo-ui) .evo-layout{min-height:0;overflow:hidden}
 @media(max-width:800px){.evo-layout{grid-template-columns:1fr;overflow:auto!important}.evo-scroll{min-height:330px;max-height:52vh;justify-content:start}.evo-detalle{max-height:none;min-height:250px}.evo-svg{min-width:690px}.evo-top h3{font-size:1rem}.evo-top p{font-size:.72rem}.evo-balance{font-size:1rem}.juego-app .arena .menu-estrategia:has(.evo-ui) .evo-ui{overflow:auto}}
+
+.juego-app .arena .tabs-retro:has(button[aria-pressed]){grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:520px){.juego-app .arena .tabs-retro:has(button[aria-pressed]){grid-template-columns:repeat(2,minmax(0,1fr))}}
