@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {HABILIDADES_EVOLUCION,POR_ID,geometria_panal,bonificacion_efectiva,comprar_habilidad,nivel_habilidad,costo_habilidad,disponible_habilidad} from './evolution.js';
+
+const DIRECCIONES=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+test('unique skills and valid acyclic prerequisites',()=>{
+ assert.equal(HABILIDADES_EVOLUCION.length,45);
+ assert.equal(new Set(HABILIDADES_EVOLUCION.map(s=>s.id)).size,45);
+ const visited=new Set(), visiting=new Set();
+ const visit=(id)=>{if(visited.has(id))return;assert.ok(!visiting.has(id),'cycle '+id);visiting.add(id);for(const p of POR_ID[id].requisitos){assert.ok(POR_ID[p],'missing '+p);visit(p)}visiting.delete(id);visited.add(id)};
+ HABILIDADES_EVOLUCION.forEach(h=>visit(h.id));
+});
+test('honeycomb is one continuous hexagonal structure with unique tiles',()=>{
+ const grid=geometria_panal(),nodes=Object.entries(grid);
+ assert.equal(nodes.length,HABILIDADES_EVOLUCION.length+1);
+ assert.equal(new Set(nodes.map(([,p])=>p.q+','+p.r)).size,nodes.length);
+ const seen=new Set(['BASE']);
+ let progress=true;
+ while(progress){progress=false;for(const [id,p] of nodes){if(seen.has(id))continue;
+  if(nodes.some(([other,q])=>seen.has(other)&&DIRECCIONES.some(([x,y])=>p.q-q.q===x&&p.r-q.r===y))){seen.add(id);progress=true;}
+ }}
+ assert.equal(seen.size,nodes.length);
+});
+test('buying attribute skill raises all birth attributes without erasing differences',()=>{
+ const b={bananas:1000,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[{radar:{inteligencia:80,agilidad:40},valentia:55},{radar:{inteligencia:40,agilidad:30},valentia:45}]};
+ assert.equal(comprar_habilidad(b,'E01'),true);
+ assert.equal(b.hombres[0].radar.inteligencia,84);
+ assert.equal(b.hombres[1].radar.inteligencia,42);
+ assert.equal(nivel_habilidad(b,'E01'),1);
+ assert.equal(comprar_habilidad(b,'E01'),true);
+ assert.equal(b.hombres[0].radar.inteligencia,88);
+ assert.equal(b.hombres[1].radar.inteligencia,44);
+ assert.equal(b.hombres[0].radar_base.inteligencia,80);
+ assert.equal(b.hombres[0].radar.agilidad,40);
+});
+test('prerequisites, affordability and cap are enforced',()=>{
+ const b={bananas:35,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[]};
+ assert.equal(disponible_habilidad(b,'S04'),false);
+ assert.equal(comprar_habilidad(b,'S04'),false);
+ assert.equal(comprar_habilidad(b,'S01'),true);
+ assert.equal(disponible_habilidad(b,'S04'),true);
+ assert.equal(comprar_habilidad(b,'S04'),false);
+ b.bananas=1000;assert.equal(comprar_habilidad(b,'S04'),true);
+ assert.equal(comprar_habilidad(b,'S04'),false);
+ assert.equal(bonificacion_efectiva(90,5),100);
+});
