@@ -489,16 +489,16 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
     destino = { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
   } else if (h.orden === 'esconder' && !h.oculto) {
     destino = refugio(h, g, b.arena) ?? { x: 2 * h.x - g.x, y: 2 * h.y - g.y };
-  } else if (h.orden === 'rescatar' && h.arquetipo==='Paramédico') {
+  } else if (h.orden === 'rescatar' && h.arquetipo==='Paramédico' && (tiene_habilidad(b,'P04')||!Object.keys(b.evolucion||{}).length)) {
     const caido = b.hombres.filter(p => p.estado === 'incapacitado' && !p.vuelo)
       .sort((a, z) => distancia(h, a) - distancia(h, z))[0];
     if (caido) {
       destino = caido;
       if (distancia(h, caido) < 38 && h.recarga <= 0) {
         caido.estado = 'herido';
-        caido.vida = Math.max(8, caido.vida_maxima * .15);
+        caido.vida = Math.max(8, caido.vida_maxima * (tiene_habilidad(b,'P08')?.28:.15));
         caido.orden = b.plan.atacar ? 'atacar' : Object.keys(b.plan)[0];
-        h.recarga = 8;
+        h.recarga = tiene_habilidad(b,'P11')?5:8;
         registrar(b, 'rescate', { hombre: caido.id, paramedico: h.id });
       }
     }
@@ -512,7 +512,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
       destino = objeto;
       if (distancia(h, objeto) < 48) objeto.descubierto = true;
       const inteligencia = h.radar.inteligencia / 100;
-      if (distancia(h, objeto) < 14 + inteligencia * 11) {
+      if (distancia(h, objeto) < 14 + inteligencia * 11 + (tiene_habilidad(b,'P03')?6:0)) {
         if (h.objeto) {
           b.armas_suelo.push({ id: 'relevo-' + h.id + '-' + b.transcurrido, objeto: h.objeto,
             x: h.x, y: h.y, visible: true, recogido_por: null, disponible_en: b.transcurrido + 5 });
@@ -540,6 +540,9 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   if(h.orden==='atacar' && tiene_habilidad(b,'S05') && h.vida<h.vida_maxima*.34 && distancia_plana<g.radio+92){destino=tiene_habilidad(b,'S08')?(refugio(h,g,b.arena)??{x:2*h.x-g.x,y:2*h.y-g.y}):{x:2*h.x-g.x,y:2*h.y-g.y};}
   if(h.orden==='atacar' && tiene_habilidad(b,'A08') && puesto!==undefined && !amenazado){const lado=puesto%2===0?1:-1;const angulo=Math.atan2(h.y-g.y,h.x-g.x)+lado*.65;destino={x:g.x+Math.cos(angulo)*(g.radio+26),y:g.y+Math.sin(angulo)*(g.radio+26)};}
   if (h.defensa > 0) destino = { x: limitar(destino.x, 14, ancho - 14), y: limitar(destino.y, 14, alto - 14) };
+  if(tiene_habilidad(b,'E03')&&h.orden==='atacar'&&h.vida<h.vida_maxima*.3&&distancia_plana<100) destino={x:2*h.x-g.x,y:2*h.y-g.y};
+  if(tiene_habilidad(b,'S12')&&h.orden==='atacar'&&h.vida<h.vida_maxima*.45&&distancia_plana<125) destino=refugio(h,g,b.arena)??destino;
+  if(tiene_habilidad(b,'P05')&&h.orden==='atacar'&&h.vida<h.vida_maxima*.4&&distancia_plana<115) destino=refugio(h,g,b.arena)??destino;
   const ritmo = (h.orden === 'huir' ? 1.3 : h.orden === 'esconder' ? .83 : 1) * (h.radar.velocidad/Math.max(1,h.radar_base?.velocidad||h.radar.velocidad));
   // Crowd navigation: move tangentially around dense clusters, rather than
   // repeatedly pushing through the same allies and oscillating in place.
@@ -602,7 +605,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   // determinan cuántos PV causa cada impacto, no su probabilidad de acertar.
   const apertura = g.fase === 'recuperacion' ? 1.35 : 1;
   const aliados_cerca=b.hombres.filter(otro=>otro!==h&&activo(otro)&&distancia(otro,h)<75).length;
-  const bono_grupal=tiene_habilidad(b,'A07')&&aliados_cerca>=2?1.10:1;
+  const bono_grupal=tiene_habilidad(b,'A07')&&aliados_cerca>=2?1.10+(tiene_habilidad(b,'A11')?.08:0):1;
   const danio = danio_humano(h, disparo, apertura, cerca_g / alcance)*(disparo?1:(tiene_habilidad(b,'A04')?1.10:1))*bono_grupal*(tiene_habilidad(b,'E08')&&h.oculto?1.25:1);
   if(!disparo)consumir_durabilidad(b,h);
   const aplicado = Math.min(g.vida, danio);
@@ -618,7 +621,7 @@ function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
   const g=b.gorila;
   const cobertura=b.suministros.some(s=>s.tipo==='barricada'&&s.construccion<=0&&s.vida>0&&distancia(h,s)<80)?0.60:1;
   const [minimo, maximo] = rango_golpe_gorila(g);
-  const esquiva=tiene_habilidad(b,'S04')&&h.defensa>0&&!lanzamiento&&limitar(.08+h.radar.agilidad*.002+(tiene_habilidad(b,'S07')?.12:0)+(tiene_habilidad(b,'S10')?.10:0),0,.58);
+  const esquiva=tiene_habilidad(b,'S04')&&h.defensa>0&&!lanzamiento&&limitar(.08+h.radar.agilidad*.002+(tiene_habilidad(b,'S07')?.12:0)+(tiene_habilidad(b,'S10')?.10:0)+(tiene_habilidad(b,'E07')?.06:0)+(tiene_habilidad(b,'E10')?.06:0),0,.65);
   if(esquiva&&b.azar()<esquiva){b.evasion_total=(b.evasion_total||0)+1;registrar(b,'esquiva',{hombre:h.id});b.bananas+=2;if(tiene_habilidad(b,'A09'))h.recarga=Math.min(h.recarga,.15);return;}
   const defensa = h.defensa > 0 ? .76 - h.radar.agilidad * .002 : 1;
   const azar = azar_normalizado(b.azar);
