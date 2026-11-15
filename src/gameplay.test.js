@@ -194,7 +194,7 @@ test('fuerza y valentía amortiguan la lesión e inteligencia descubre objetos o
   assert.equal(buscar_objeto(batalla, fuerte), objeto);
 });
 
-test('golpes físicos cada 0.1 s, siempre acertados en rango y sin gasto de energía', () => {
+test('golpes físicos cada 1 s, siempre acertados en rango y sin gasto de energía', () => {
   const { batalla } = partida('claro');
   const h = batalla.hombres[0];
   batalla.hombres = [h];
@@ -205,11 +205,11 @@ test('golpes físicos cada 0.1 s, siempre acertados en rango y sin gasto de ener
   const vida = g.vida;
   avanzar_batalla(batalla,.05);
   assert.ok(g.vida < vida,'un golpe dentro del rango debe acertar incluso con azar desfavorable');
-  assert.ok(Math.abs(h.recarga-.1)<1e-9,'recarga física fija de 0.1 s');
+  assert.ok(Math.abs(h.recarga-1)<1e-9,'recarga física fija de 1 s');
   assert.equal(h.energia,undefined,'el ataque no consume energía');
   const golpes=batalla.impactos_humanos;
   for(let i=0;i<20;i++) avanzar_batalla(batalla,.05);
-  assert.ok(batalla.impactos_humanos>golpes,'los golpes se repiten cada 0.1 s si sigue en rango');
+  assert.ok(batalla.impactos_humanos>golpes,'los golpes se repiten cada 1 s si sigue en rango');
 });
 test('disparo cada 1.5 s y acierto garantizado al estar en alcance',()=>{
  const {batalla}=partida('claro');
