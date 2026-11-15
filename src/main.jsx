@@ -626,6 +626,7 @@ function App() {
               onClick={()=>abrir_estrategia('Combate')}>⚔️ Tácticas</button>}
           <button disabled={!iniciada||Boolean(batalla.resultado)||cargando_arena||anuncio}
             onClick={()=>abrir_estrategia('Suministros')}>📦 Suministros</button>
+          <button disabled={Boolean(batalla.resultado)||anuncio} onClick={()=>abrir_estrategia('Evolucion')}>🍯 Evolución</button>
           <button onClick={()=>abrir_estrategia('Equipo')}>📊 Equipo</button>
           <button aria-pressed={rayos_x} onClick={()=>cambiar_rayos_x(v=>!v)}>{rayos_x?'✕ Cerrar rayos X':'⌖ Rayos X'}</button>
         </div>
