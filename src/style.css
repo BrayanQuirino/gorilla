@@ -479,3 +479,19 @@ html,body,#root{width:100%;max-width:100%;overflow-x:hidden}
 .juego-app .arena canvas{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:fill!important;aspect-ratio:auto!important}
 .juego-app .arena>.estrategia-cortina{width:100%!important}
 @media(max-width:760px){.juego-app{padding:3px!important}.juego-app .arena canvas{object-fit:fill!important}}
+
+
+/* Rendering integrity: artwork and sprites share the native 1000:640
+   projection. Fill the stage with framing rather than stretching pixels. */
+.juego-app .arena{
+ background:radial-gradient(ellipse at center,#273b30 0%,#132321 70%,#0d1618 100%)!important;
+}
+.juego-app .arena canvas{
+ width:100%!important;height:100%!important;
+ aspect-ratio:1000 / 640!important;
+ object-fit:contain!important;
+ image-rendering:pixelated;
+}
+@media(max-width:760px){
+ .juego-app .arena canvas{object-fit:contain!important;aspect-ratio:1000 / 640!important}
+}
