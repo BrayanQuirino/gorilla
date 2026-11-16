@@ -62,8 +62,6 @@ function rockShape(parent,c,x,y,z,rx,ry,rz,seed=0){
 }
 function environment(scene,arena){
  const palette=terrainColors[arena]||terrainColors.selva;
- scene.background=new THREE.Color(palette.fog);
- scene.fog=new THREE.FogExp2(palette.fog,.019);
  const ground=material(palette.ground,.98);
  const field=mesh(new THREE.PlaneGeometry(18,13,44,32),ground,scene,0,-.065,0);
  field.rotation.x=-Math.PI/2;field.castShadow=false;field.receiveShadow=true;
@@ -223,7 +221,7 @@ function makeHumans(scene){
     scratchObj.position.z+=-x*sa+z*ca;
     scratchObj.position.y+=y*scale;
     scratchObj.scale.set(s[0]*scale*(hidden?.00001:1),s[1]*scale*(hidden?.00001:1),s[2]*scale*(hidden?.00001:1));
-    if(name==='shadow')scratchObj.scale.set(.33,.23,1);
+    if(name==='shadow')scratchObj.scale.set(hidden?.00001:.33,hidden?.00001:.23,1);
     scratchObj.updateMatrix();o.setMatrixAt(i,scratchObj.matrix);
     let c=team;
     if(name==='pelvis'||name.includes('Thigh')||name.includes('Shin'))c=new THREE.Color(0x343e4c);
@@ -349,6 +347,7 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   if(humans)scene.remove(humans.root);
   if(gorilla)scene.remove(gorilla.root);
   if(sundries)scene.remove(sundries.root);
+  stage=null;humans=null;gorilla=null;sundries=null;
  }
  function prepare(arena){
   clearArena();
@@ -361,7 +360,8 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   sundries=makeSundries(stage);
   activeArena=arena;
   const c=terrainColors[arena]||terrainColors.selva;
-  scene.fog.color.setHex(c.fog);
+  scene.background=new THREE.Color(c.fog);
+  scene.fog=new THREE.FogExp2(c.fog,.018);
  }
  const onLost=e=>{e.preventDefault();onFailure?.(new Error('Se perdió el contexto WebGL 3D'))};
  canvas.addEventListener('webglcontextlost',onLost);events.push(['webglcontextlost',onLost]);
