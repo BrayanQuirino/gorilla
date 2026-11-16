@@ -13,9 +13,16 @@ const bases = {
   canon: [[471, 324, 112, 29, 72], [347, 311, 52, 20, 48], [455, 452, 69, 24, 49], [708, 427, 49, 22, 48], [567, 353, 45, 21, 42], [369, 558, 73, 20, 66], [60, 333, 75, 24, 57]],
   hangar: [[273, 299, 68, 23, 71], [539, 304, 61, 21, 60], [806, 332, 54, 22, 64], [379, 387, 67, 21, 63], [98, 389, 55, 22, 156], [523, 451, 52, 22, 59], [730, 478, 57, 23, 75]],
 };
+// One source of truth for 2D/2.5D stage props, footprint collision,
+// and cover. Each prop has a visible solid base and its own height.
+const tipos={claro:['roca','roca','roca','arbol','roca','arbol'],
+ selva:['ruina','roca','ruina','arbol','ruina','arbol','roca'],
+ canon:['roca','roca','roca','roca','roca','roca','roca'],
+ hangar:['contenedor','caja','contenedor','caja','contenedor','caja','contenedor']};
 const obstaculos = Object.fromEntries(Object.entries(bases).map(([arena, lista]) => {
   const vista = encuadre(arena);
-  return [arena, lista.map(([x, y, rx, ry, altura]) => ({
+  return [arena, lista.map(([x, y, rx, ry, altura],indice) => ({
+    tipo:tipos[arena][indice],id:arena+'-'+indice,
     altura,
     x: (x - vista.x) * ancho / vista.ancho,
     y: (y - vista.y) * alto / vista.alto,
@@ -23,6 +30,8 @@ const obstaculos = Object.fromEntries(Object.entries(bases).map(([arena, lista])
     ry: ry * alto / vista.alto,
   }))];
 }));
+
+export function obstaculos_escena(arena){return obstaculos[arena]||[];}
 
 // Human routes are constrained by ground-level cliffs and large rock masses.
 // Rivers and bridges stay traversable. Gorilla height/climbing is unchanged.
@@ -42,17 +51,17 @@ export function obstaculo_humano(p, arena, margen=13) {
   return (obstaculos[arena]||[]).some(o =>
     ((p.x-o.x)/(o.rx+margen))**2+((p.y-o.y)/(o.ry+margen))**2 < 1);
 }
-export function ruta_humano(actor, destino, arena) {
+export function ruta_humano(actor, destino, arena, margen=17) {
   if(!destino)return destino;
   // New spawns and knockback positions may overlap a cliff's clearance margin.
   // Escape outward first instead of freezing against the collision boundary.
   for(const o of obstaculos[arena]||[]){
-    const nx=(actor.x-o.x)/(o.rx+17),ny=(actor.y-o.y)/(o.ry+18);
+    const nx=(actor.x-o.x)/(o.rx+margen),ny=(actor.y-o.y)/(o.ry+margen+1);
     const d=Math.hypot(nx,ny);
     if(d<1 && !paso_construido(actor,arena)){
       const angle=d>0.001?Math.atan2(ny,nx):actor.id%2?0:Math.PI;
-      return {x:limitar(o.x+Math.cos(angle)*(o.rx+29),14,ancho-14),
-        y:limitar(o.y+Math.sin(angle)*(o.ry+32),22,alto-22)};
+      return {x:limitar(o.x+Math.cos(angle)*(o.rx+margen+12),14,ancho-14),
+        y:limitar(o.y+Math.sin(angle)*(o.ry+margen+15),22,alto-22)};
     }
   }
   const lista=(obstaculos[arena]||[]);
@@ -60,7 +69,7 @@ export function ruta_humano(actor, destino, arena) {
   let bloque=null, tPrimero=2;
   for(const o of lista){
     const dx=destino.x-actor.x,dy=destino.y-actor.y;
-    const rx=o.rx+17,ry=o.ry+18;
+    const rx=o.rx+margen,ry=o.ry+margen+1;
     const a=(dx/rx)**2+(dy/ry)**2;
     if(a<1e-8)continue;
     const ox=(actor.x-o.x)/rx,oy=(actor.y-o.y)/ry;
@@ -78,11 +87,11 @@ export function ruta_humano(actor, destino, arena) {
   // Go around the mountain on the shorter tangent side; stick to the same
   // side briefly to prevent oscillating between both flanks every frame.
   const o=bloque;
-  const theta=Math.atan2((actor.y-o.y)/(o.ry+20),(actor.x-o.x)/(o.rx+20));
+  const theta=Math.atan2((actor.y-o.y)/(o.ry+margen+3),(actor.x-o.x)/(o.rx+margen+3));
   const candidate=(side)=>{
     const angle=theta+side*.63;
-    return {x:limitar(o.x+Math.cos(angle)*(o.rx+32),14,ancho-14),
-      y:limitar(o.y+Math.sin(angle)*(o.ry+35),22,alto-22)};
+    return {x:limitar(o.x+Math.cos(angle)*(o.rx+margen+15),14,ancho-14),
+      y:limitar(o.y+Math.sin(angle)*(o.ry+margen+18),22,alto-22)};
   };
   let lado=actor.rodeo?.key===lista.indexOf(o)&&actor.rodeo?.restante>0
     ?actor.rodeo.lado
@@ -91,17 +100,17 @@ export function ruta_humano(actor, destino, arena) {
   actor.rodeo={key:lista.indexOf(o),lado,restante:Math.max(0,(actor.rodeo?.restante||0)-.016)};
   return candidate(lado);
 }
-export function corregir_paso_humano(actor, antes, arena){
-  if(paso_construido(actor,arena)||!obstaculo_humano(actor,arena,12))return;
+export function corregir_paso_humano(actor, antes, arena, margen=12){
+  if(paso_construido(actor,arena)||!obstaculo_humano(actor,arena,margen))return;
   // Try sliding along the cliff rather than snapping through the mountain.
   const x={x:actor.x,y:antes.y},y={x:antes.x,y:actor.y};
-  if(!obstaculo_humano(x,arena,12)){actor.y=antes.y;actor.vy=0;return;}
-  if(!obstaculo_humano(y,arena,12)){actor.x=antes.x;actor.vx=0;return;}
+  if(!obstaculo_humano(x,arena,margen)){actor.y=antes.y;actor.vy=0;return;}
+  if(!obstaculo_humano(y,arena,margen)){actor.x=antes.x;actor.vx=0;return;}
   const enclosing=(obstaculos[arena]||[]).find(o=>
-    ((antes.x-o.x)/(o.rx+12))**2+((antes.y-o.y)/(o.ry+12))**2<1);
+    ((antes.x-o.x)/(o.rx+margen))**2+((antes.y-o.y)/(o.ry+margen))**2<1);
   if(enclosing){
-    const dist=p=>((p.x-enclosing.x)/(enclosing.rx+12))**2+
-      ((p.y-enclosing.y)/(enclosing.ry+12))**2;
+    const dist=p=>((p.x-enclosing.x)/(enclosing.rx+margen))**2+
+      ((p.y-enclosing.y)/(enclosing.ry+margen))**2;
     if(dist(actor)>dist(antes))return;
   }
   actor.x=antes.x;actor.y=antes.y;actor.vx*=.3;actor.vy*=.3;
