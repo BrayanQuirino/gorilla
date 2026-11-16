@@ -5,7 +5,7 @@ import {HABILIDADES_EVOLUCION,POR_ID,geometria_panal,geometria_panal_estado,habi
 const DIRECCIONES=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
 test('unique skills and valid acyclic prerequisites',()=>{
  assert.equal(HABILIDADES_EVOLUCION.length,48);
- assert.equal(new Set(HABILIDADES_EVOLUCION.map(s=>s.id)).size,45);
+ assert.equal(new Set(HABILIDADES_EVOLUCION.map(s=>s.id)).size,HABILIDADES_EVOLUCION.length);
  const visited=new Set(), visiting=new Set();
  const visit=(id)=>{if(visited.has(id))return;assert.ok(!visiting.has(id),'cycle '+id);visiting.add(id);for(const p of POR_ID[id].requisitos){assert.ok(POR_ID[p],'missing '+p);visit(p)}visiting.delete(id);visited.add(id)};
  HABILIDADES_EVOLUCION.forEach(h=>visit(h.id));
