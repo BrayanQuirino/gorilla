@@ -148,6 +148,7 @@ class Mesh {
   const strong=/Musculoso|Boxeador|Tarzán/.test(h.arquetipo||'');
   const size=(strong?1.13:1)*(h.arquetipo==='Anciano'?.85:1);
   if(!alive){this.ellipsoid(x,.10,z,.45,.12,.25,color(120,95,74),seed);return;}
+  this.ellipsoid(x,.018,z,.25,.014,.17,color(40,64,52),seed+5,7,3);
   const v=Math.hypot(h.vx||0,h.vy||0),yaw=v>3?Math.atan2(h.vx,h.vy):0;
   const si=Math.sin(yaw),co=Math.cos(yaw);
   const P=(sx,y,sz)=>[x+sx*co+sz*si,a+y,z-sx*si+sz*co];
@@ -186,6 +187,7 @@ class Mesh {
   const move=g.movimiento>2,walk=move?Math.sin(t*7)*.19:0;
   const striking=['aviso','agarre','embestida'].includes(g.fase);
   const y=a+.75*k+(move?Math.abs(walk)*.14:0);
+  this.ellipsoid(x,.025,z,.78*k,.019,.46*k,color(40,59,50),1001,9,3);
   if(g.vida<=0){this.ellipsoid(x,.24,z,.85*k,.22*k,.47*k,fur,10);return;}
   this.ellipsoid(x,y,z,.65*k,.63*k,.53*k,fur,7,12,7);
   this.ellipsoid(x,y+.12*k,z+.26*k,.47*k,.53*k,.43*k,shade(fur,1.07),8,10,6);
@@ -224,7 +226,9 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
  const pos=gl.getAttribLocation(prog,'aPosition'),nor=gl.getAttribLocation(prog,'aNormal'),col=gl.getAttribLocation(prog,'aColor');
  const projection=gl.getUniformLocation(prog,'uProjection'),light=gl.getUniformLocation(prog,'uLight');
  const meshes=new Map();
- let destroyed=false,previousArena=null,frames=0;
+ let destroyed=false,previousArena=null,frames=0,zoom=1;
+ const onWheel=e=>{e.preventDefault();zoom=clamp(zoom*(e.deltaY>0?1.09:.91),.82,1.40);actualizar?.();};
+ canvas.addEventListener('wheel',onWheel,{passive:false});
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.disable(gl.CULL_FACE);
  function frame(b){
   if(destroyed||gl.isContextLost())return false;
@@ -239,7 +243,7 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
   dynamic.gorila(b.gorila,t);
   const aspect=canvas.width/Math.max(1,canvas.height);
   const eye=[11.7,15.0,17.8],target=[0,.05,0];
-  const m=matrix(ortho(aspect>1.5?7.75:9.2,aspect),lookAt(eye,target));
+  const m=matrix(ortho((aspect>1.5?5.9:8.0)*zoom,aspect),lookAt(eye,target));
   gl.viewport(0,0,canvas.width,canvas.height);
   gl.clearColor(...pal.sky,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   gl.useProgram(prog);gl.uniformMatrix4fv(projection,false,new Float32Array(m));
@@ -255,6 +259,6 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
   draw(new Float32Array(dynamic.vertices),dynamic.count);
   frames++;return true;
  }
- frame.liberar=()=>{destroyed=true;gl.deleteBuffer(buffer);gl.deleteProgram(prog);meshes.clear();};
+ frame.liberar=()=>{destroyed=true;canvas.removeEventListener('wheel',onWheel);gl.deleteBuffer(buffer);gl.deleteProgram(prog);meshes.clear();};
  return frame;
 }
