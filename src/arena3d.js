@@ -313,7 +313,10 @@ function dibujarObstaculo(quads,o,vista){
  const luz=industrial?[.73,.82,.79,-3]:ruin?[.80,.70,.48,-3]:[.74,.77,.68,-3];
  // Distinct contact shadow makes the footprint readable in all arenas.
  rectangulo(quads,x,y+ry*.18,w*1.08,Math.max(5,ry*.55),y-.5,[.11,.15,.14,-.78]);
- if(o.tipo==='arbol'){
+ if(o.tipo==='puente'){
+   rectangulo(quads,x,y,w,h*.25,y+1,[.56,.44,.29,-3]);
+   for(let k=-2;k<=2;k++)rectangulo(quads,x+k*w*.17,y-h*.11,w*.09,h*.2,y+1,[.77,.62,.39,-3]);
+ }else if(o.tipo==='arbol'){
    rectangulo(quads,x,y-ry*.48,Math.max(10,rx*.26),h*.95,y+1,[.39,.25,.16,-3]);
    rectangulo(quads,x,y-h*.96,w*.95,h*.62,y+1,[.20,.43,.28,-3]);
    rectangulo(quads,x-w*.12,y-h*1.06,w*.48,h*.18,y+1,[.43,.64,.34,-3]);
