@@ -34,7 +34,7 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
  const visibles=useMemo(()=>habilidades_visibles(batalla),[batalla,revision]);
  const ubicaciones=useMemo(()=>geometria_panal_estado(batalla),[batalla,revision]);
  const visibleIds=useMemo(()=>new Set(visibles.map(h=>h.id)),[visibles]);
- const cells=useMemo(()=>[BASE,...visibles].map(h=>{
+ const cells=useMemo(()=>visibles.map(h=>{
   const {q,r}=ubicaciones[h.id];
   return {...h,x:Math.sqrt(3)*RADIO*(q+r/2),y:RADIO*1.5*r};
  }),[visibles,ubicaciones]);
@@ -76,12 +76,12 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
   </header>
   <div className="evo-filtros">
    <button aria-pressed={filtrar==='TODAS'} onClick={()=>setFiltrar('TODAS')}>Todas</button>
-   {Object.entries(FAMILIAS).map(([id,r])=><button key={id} aria-pressed={filtrar===id}
+   {Object.entries(FAMILIAS).filter(([id])=>id!=='P'||visibles.some(h=>h.raiz==='P')).map(([id,r])=><button key={id} aria-pressed={filtrar===id}
     style={{'--familia':r.color}} onClick={()=>setFiltrar(id)}>{r.icono} {r.nombre}</button>)}
   </div>
   <div className="evo-layout">
-   <div className="evo-scroll" tabIndex={0} aria-label="Panal de habilidades visibles; usa el desplazamiento para explorar">
-    <svg className="evo-svg" viewBox={view} style={{width:Math.max(610,Math.round(bounds.maxX-bounds.minX))+'px'}} role="group" aria-label="Panal de habilidades conectadas">
+   <div className="evo-scroll" tabIndex={0} aria-label="Mapa completo de habilidades visibles, ajustado al espacio disponible sin desplazamiento">
+    <svg className="evo-svg" viewBox={view} preserveAspectRatio="xMidYMid meet" role="group" aria-label="Panal de habilidades conectadas">
      {cells.map(h=>{
       const base=h.id==='BASE';
       const lvl=base?1:nivel_habilidad(batalla,h.id);
@@ -137,6 +137,6 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
     </>}
    </aside>
   </div>
-  <p className="evo-leyenda">⚔️ Atacar · 🛡️ Supervivencia · 🧠 Estrategia · 🤝 Apoyo. Solo aparecen habilidades cuyos requisitos ya se han cumplido; cada color identifica su raíz.</p>
+  <p className="evo-leyenda">⚔️ Atacar · 🛡️ Supervivencia · 🧠 Estrategia · 🤝 Apoyo (se desbloquea después). Solo aparecen habilidades cuyos requisitos ya se han cumplido; cada color identifica su raíz.</p>
  </div>;
 }
