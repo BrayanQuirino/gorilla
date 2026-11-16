@@ -5,7 +5,7 @@ import balance_humano from './data/hombres.json' with {type:'json'};
 import {habilidades,arquetipos,radar_arquetipo,crear_sorteo_objetos,preparar_equipo} from './roster.js';
 import {altura_terreno, actualizar_altura} from './terreno.js';
 import {ARENAS,TACTICAS,SUMINISTROS,distancia} from './rules.js';
-import {crear_batalla,aplicar_plan,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,en_cono_golpe_area,objetivo_exploracion,objetivo_distraccion,desviar_peatones,conducta_gorila,agilidad_carrera,actualizar_fatiga_carrera} from './battle.js';
+import {crear_batalla,aplicar_plan,decidir_accion_humano,actualizar_ia_humana,avanzar_batalla,comprar_suministro,duracion_entrega,paracaidas_visible,buscar_objeto,paramedicos_disponibles,distribucion_equipo,condiciones_combate,en_furia,reanudar_segunda_vida,danio_humano,en_cono_embestida,en_cono_golpe_area,objetivo_exploracion,objetivo_distraccion,desviar_peatones,conducta_gorila,agilidad_carrera,actualizar_fatiga_carrera} from './battle.js';
 
 function rng(seed=42){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function partida(arena='hangar'){
@@ -612,4 +612,30 @@ test('ofensiva continua: el grupo ataca repetidamente pese a la baja valentía',
   'los combatientes en táctica atacar deben golpear repetidamente: '+batalla.impactos_humanos);
  assert.ok(batalla.danio_total_humanos>0,'la ofensiva produce daño real');
  assert.ok(batalla.hombres.some(h=>h.atacando_hasta>0),'se activan animaciones de ataque');
+});
+
+test('la IA automática cambia conducta solo cuando hay evolución y contexto',()=>{
+ const {batalla}=partida('claro');
+ batalla.automatico=true;
+ const h=batalla.hombres[0];
+ batalla.gorila.x=h.x+25;batalla.gorila.y=h.y;
+ h.vida=h.vida_maxima*.15;
+ assert.equal(decidir_accion_humano(batalla,h),'atacar','sin habilidades sobrevive con su ataque inicial');
+ batalla.evolucion.S02=1;batalla.evolucion.S05=1;
+ assert.equal(decidir_accion_humano(batalla,h),'huir','con Retirada se repliega si está herido');
+ actualizar_ia_humana(batalla,true);
+ assert.equal(h.orden,'huir');
+ h.vida=h.vida_maxima;
+ actualizar_ia_humana(batalla,true);
+ assert.equal(h.orden,'atacar','cuando recupera salud vuelve al combate');
+});
+test('la nueva economía produce menos de una banana por segundo de supervivencia sin daño',()=>{
+ const {batalla}=partida('claro');
+ batalla.automatico=true;
+ assert.equal(batalla.bananas,35);
+ const antes=batalla.bananas;
+ // Recompensa temporal: 0.18 bananas por segundo.
+ batalla.gorila.fase='espera';batalla.gorila.reloj=100;
+ for(let i=0;i<10;i++)avanzar_batalla(batalla,.05);
+ assert.ok(batalla.bananas-antes<=1,'el tiempo por sí solo no debe financiar mejoras rápidamente');
 });
