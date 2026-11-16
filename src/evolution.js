@@ -193,6 +193,19 @@ function costo_mapa(positions,edges){
  }
  return score;
 }
+// Score only the edges and compactness affected by a move/swap. This makes
+// the full 48-skill map fast enough to recompute after a purchase.
+function costo_local(positions,edges,cambiados){
+ const ids=new Set(cambiados.filter(Boolean));
+ let score=0;
+ for(const [a,b,peso] of edges){
+  if(!ids.has(a)&&!ids.has(b))continue;
+  const d=distancia_hex(positions.get(a),positions.get(b));
+  score+=peso*Math.max(0,d-1)**2;
+ }
+ for(const id of ids)if(id!=='BASE')score+=.30*distancia_hex(positions.get(id),base_hex)**2;
+ return score;
+}
 export function geometria_panal_estado(b){
  const visibles=habilidades_visibles(b);
  const edges=aristas_relacionadas(visibles);
@@ -235,9 +248,11 @@ export function geometria_panal_estado(b){
    for(const cell of candidates.values()){
     const other=occupied.get(clave_hex(cell));
     if(other==='BASE'||other===id)continue;
+    const affected=[id,other];
+    const previous=costo_local(positions,edges,affected);
     positions.set(id,cell);
     if(other)positions.set(other,original);
-    const next=costo_mapa(positions,edges);
+    const next=score+costo_local(positions,edges,affected)-previous;
     if(next<bestScore-1e-7){bestScore=next;best={cell,other};}
     positions.set(id,original);
     if(other)positions.set(other,cell);
