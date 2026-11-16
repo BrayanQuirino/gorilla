@@ -70,3 +70,38 @@
 .evo-ui .evo-comprar:disabled:not(:first-child){color:#f1e8cb}
 @media(max-width:800px){.evo-scroll{min-height:270px!important;max-height:48vh!important}.evo-svg{min-width:0!important}}
 @media(prefers-reduced-motion:reduce){.evo-hex.is-flash polygon,.evo-hex.is-flash .evo-hex-title,.evo-hex.is-new polygon{animation:none!important}}
+
+
+/* V3: the full (up to 45 skills) honeycomb fits the stage, no nested scroll.
+   SVG uses its dynamic viewBox, so each newly revealed tile rescales to fit. */
+.juego-app .arena .evo-ui{min-height:0!important;overflow:hidden!important;gap:5px!important}
+.juego-app .arena .evo-top{flex:0 0 auto}
+.juego-app .arena .evo-filtros{flex:0 0 auto;gap:4px}
+.juego-app .arena .evo-filtros button{min-height:27px;padding:3px 7px}
+.juego-app .arena .evo-layout{flex:1 1 auto;min-height:0!important;overflow:hidden!important;display:grid;grid-template-columns:minmax(0,1fr) clamp(185px,21%,255px);gap:7px}
+.juego-app .arena .evo-scroll{display:flex!important;align-items:center!important;justify-content:center!important;width:100%;height:100%;min-width:0!important;min-height:0!important;max-height:none!important;overflow:hidden!important;padding:4px!important;scrollbar-width:none}
+.juego-app .arena .evo-svg{display:block!important;width:100%!important;height:100%!important;min-width:0!important;max-width:100%!important;max-height:100%!important;flex:1 1 auto;overflow:visible}
+.juego-app .arena .evo-detalle{height:100%;max-height:none;min-height:0;overflow:auto;padding:9px}
+.evo-hex.is-owned polygon.evo-hex-cuerpo,
+.evo-hex.is-selected.is-owned polygon.evo-hex-cuerpo,
+.evo-hex.is-owned:not(.is-selected) polygon.evo-hex-cuerpo{
+ fill:var(--hex-color)!important;stroke:#ffe6aa!important;stroke-width:2.7;
+ filter:drop-shadow(0 0 6px var(--hex-color));
+}
+.evo-hex.is-owned polygon.evo-hex-cristal{fill:url(#evo-glass)!important;stroke:none!important;opacity:1;filter:none!important}
+.evo-hex.is-owned text,.evo-hex.is-owned .evo-hex-cost{fill:white!important;text-shadow:none}
+.evo-hex.is-flash polygon.evo-hex-cuerpo{animation:evo-compra-color 1.4s ease-out}
+.evo-hex.is-flash polygon.evo-hex-cristal{animation:evo-compra-vidrio 1.4s ease-out}
+@keyframes evo-compra-color{0%{fill:#ffef97;filter:drop-shadow(0 0 22px #ffe77b)}40%{fill:var(--hex-color);filter:drop-shadow(0 0 17px var(--hex-color))}100%{fill:var(--hex-color);filter:drop-shadow(0 0 6px var(--hex-color))}}
+@keyframes evo-compra-vidrio{0%{opacity:.12}45%{opacity:.9}100%{opacity:1}}
+@media(max-width:800px){
+ .juego-app .arena .evo-layout{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(125px,31%)!important;gap:4px!important;overflow:hidden!important}
+ .juego-app .arena .evo-scroll{height:100%!important;min-height:0!important;max-height:none!important;overflow:hidden!important}
+ .juego-app .arena .evo-svg{height:100%!important;min-width:0!important}
+ .juego-app .arena .evo-detalle{height:100%!important;max-height:none!important;overflow:auto!important;padding:5px!important;font-size:.78rem}
+ .juego-app .arena .evo-detalle h3{font-size:.83rem!important}
+ .juego-app .arena .evo-requisitos button{font-size:.64rem;padding:3px}
+ .juego-app .arena .evo-leyenda{font-size:.57rem}
+ .juego-app .arena .evo-top p{display:none}
+}
+@media(prefers-reduced-motion:reduce){.evo-hex.is-flash polygon.evo-hex-cuerpo,.evo-hex.is-flash polygon.evo-hex-cristal{animation:none}}
