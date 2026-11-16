@@ -35,11 +35,18 @@ function makeProgram(gl){
  'vec3 p=aPosition;vec3 normal=aNormal;',
  'if(uInstanced>0.5){',
  'float yaw=aInstanceInfo.x;float c=cos(yaw);float s=sin(yaw);',
- 'float moving=clamp(aInstanceInfo.w,0.0,1.0);',
+ 'float moving=clamp(mod(aInstanceInfo.w,2.0),0.0,1.0);',
+ 'float attack=mod(floor(aInstanceInfo.w/2.0),2.0);',
+ 'float dodge=mod(floor(aInstanceInfo.w/4.0),2.0);',
+ 'float flying=mod(floor(aInstanceInfo.w/8.0),2.0);',
  'float gait=sin(uTime*9.0+aInstanceInfo.z)*moving;',
  'if(p.y<0.45){p.z+=gait*sign(p.x)*0.12;}',
  'else if(p.y<0.92&&abs(p.x)>0.2){p.z-=gait*sign(p.x)*0.09;}',
  'p.y+=abs(gait)*0.036;',
+ 'if(p.x>0.18&&p.y>0.38&&p.y<0.96){p.z-=attack*max(0.0,sin(uTime*22.0+aInstanceInfo.z))*0.40;}',
+ 'p.x+=dodge*p.y*0.13;',
+ 'if(flying>0.5){float a=uTime*8.0+aInstanceInfo.z;float y=p.y-0.58;',
+ 'p.y=0.58+y*cos(a)-p.z*sin(a);p.z=y*sin(a)+p.z*cos(a);}',
  'p=vec3(p.x*c+p.z*s,p.y,-p.x*s+p.z*c)*aInstanceInfo.y+aInstancePosition;',
  'normal=vec3(normal.x*c+normal.z*s,normal.y,-normal.x*s+normal.z*c);',
  '}',
@@ -318,7 +325,8 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
    const location=point(h),moving=Math.hypot(h.vx||0,h.vy||0);
    const yaw=moving>3?Math.atan2(h.vx,h.vy):0;
    const bodyScale=1+(h.arquetipo==='Boxeador'?.035:0);
-   batches.get(group).push(...location,yaw,bodyScale,h.id*.72,clamp(moving/28,0,1));
+   const action=clamp(moving/28,0,.99)+((h.atacando_hasta||0)>t?2:0)+(h.defensa>0?4:0)+(h.vuelo?8:0);
+   batches.get(group).push(...location,yaw,bodyScale,h.id*.72,action);
    if(h.objeto){
     const [x,a,z]=location;
     dynamic.tube([x+.19,a+.46,z],[x+.24,a+.43,z-.30],
