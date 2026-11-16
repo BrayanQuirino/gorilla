@@ -69,7 +69,7 @@ test('cannot refund an evolution required by a purchased descendant',()=>{
 test('progressive reveal ignores banana balance and requires every parent',()=>{
  const b={evolucion:{},bananas:0,resultado:''};
  const first=habilidades_visibles(b);
- assert.equal(first.length,10,'only ten roots visible initially');
+ assert.equal(first.length,3,'only Atacar, Supervivencia and Estrategia visible initially');
  assert.equal(visible_habilidad(b,'A10'),false);
  b.evolucion.A07=1;
  assert.equal(visible_habilidad(b,'A10'),false,'Cerco needs Flanqueo too');
@@ -95,4 +95,17 @@ test('Cerco touches both Ataque grupal and Flanqueo on the hex map',()=>{
  const map=geometria_panal_estado(b);
  assert.equal(distancia_hex(map.A10,map.A07),1,'Cerco beside Ataque grupal');
  assert.equal(distancia_hex(map.A10,map.A08),1,'Cerco beside Flanqueo');
+});
+
+test('the evolution starts with three top-level roots, then reveals descendants',()=>{
+ const b={evolucion:{},bananas:0,resultado:''};
+ assert.deepEqual(habilidades_visibles(b).map(h=>h.id),['A01','S01','E01']);
+ assert.equal(visible_habilidad(b,'P01'),false,'Apoyo is not available until Intelligence');
+ assert.equal(visible_habilidad(b,'S02'),false);
+ b.evolucion.E01=1;
+ assert.equal(visible_habilidad(b,'P01'),true);
+ assert.equal(visible_habilidad(b,'P02'),true);
+ b.evolucion.A01=1;
+ assert.equal(visible_habilidad(b,'A02'),true);
+ assert.equal(visible_habilidad(b,'A03'),true);
 });
