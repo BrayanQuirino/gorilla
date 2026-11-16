@@ -43,3 +43,30 @@
 .ia-roles strong{color:#e7d491}
 .juego-app .arena .tabs-retro{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 @media(max-width:800px){.evo-layout{display:flex;flex-direction:column;overflow:auto!important}.evo-scroll{max-height:52vh!important;flex:none!important;min-height:300px!important}.evo-svg{min-width:790px!important}.evo-detalle{flex:none!important;overflow:visible!important;max-height:none!important}.ia-roles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Progressive honeycomb: every tile has the same geometric radius; no fillers. */
+.evo-scroll{overflow:auto!important;display:block!important;min-height:270px!important;max-height:60vh!important;scrollbar-gutter:stable;overscroll-behavior:contain;background:radial-gradient(ellipse at 50% 35%,#1a3432,#111d22 75%)}
+.evo-svg{display:block!important;max-width:none!important;min-width:0!important;height:auto!important;margin:0!important;overflow:visible}
+.evo-hex{cursor:pointer;transform-box:fill-box;transform-origin:center}
+.evo-hex polygon{transition:fill .25s ease,stroke .25s ease,filter .25s ease}
+.evo-hex.is-available polygon{fill:#192b2e;stroke-width:2.5}
+.evo-hex.is-owned:not(.is-selected) polygon{fill:#315740;filter:drop-shadow(0 0 4px rgba(124,242,150,.35))}
+.evo-hex.is-owned .evo-hex-cost{fill:#bdffb6!important;font-weight:800}
+.evo-hex.is-flash polygon{animation:evo-pulso-compra 1.55s cubic-bezier(.2,.8,.2,1)}
+.evo-hex.is-flash .evo-hex-title{animation:evo-brillo-texto 1.55s ease}
+.evo-hex.is-new polygon{animation:evo-descubrimiento 1.2s ease-out}
+.evo-hex.is-selected polygon{stroke-width:4!important;filter:drop-shadow(0 0 9px var(--hex-color))}
+@keyframes evo-pulso-compra{
+  0%{fill:#fff6ae;stroke:#ffec82;stroke-width:7;filter:drop-shadow(0 0 24px #fce08d)}
+  38%{fill:#e0b95b;stroke:#fff7ce;stroke-width:6;filter:drop-shadow(0 0 18px #e6cf69)}
+  100%{fill:#315740;stroke:var(--hex-color);stroke-width:2;filter:drop-shadow(0 0 5px rgba(124,242,150,.35))}
+}
+@keyframes evo-brillo-texto{0%,25%{font-weight:900;fill:#fffde3}100%{font-weight:700;fill:#f5f5ed}}
+@keyframes evo-descubrimiento{
+  0%{opacity:.12;stroke-width:5;filter:drop-shadow(0 0 14px #e5e5b0)}
+  100%{opacity:1;stroke-width:2.5;filter:none}
+}
+.evo-ui .evo-comprar:disabled{opacity:.77}
+.evo-ui .evo-comprar:disabled:not(:first-child){color:#f1e8cb}
+@media(max-width:800px){.evo-scroll{min-height:270px!important;max-height:48vh!important}.evo-svg{min-width:0!important}}
+@media(prefers-reduced-motion:reduce){.evo-hex.is-flash polygon,.evo-hex.is-flash .evo-hex-title,.evo-hex.is-new polygon{animation:none!important}}
