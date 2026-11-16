@@ -72,9 +72,10 @@ test('progressive reveal ignores banana balance and requires every parent',()=>{
  assert.equal(first.length,3,'only Atacar, Supervivencia and Estrategia visible initially');
  assert.equal(visible_habilidad(b,'A10'),false);
  b.evolucion.A07=1;
- assert.equal(visible_habilidad(b,'A10'),false,'Cerco needs Flanqueo too');
+ assert.equal(visible_habilidad(b,'A10'),true,'Cerco becomes visible when one parent has evolved');
+ assert.equal(disponible_habilidad(b,'A10'),false,'Buying still requires both parents');
  b.evolucion.A08=1;
- assert.equal(visible_habilidad(b,'A10'),true,'Cerco revealed immediately when both parents owned');
+ assert.equal(visible_habilidad(b,'A10'),true,'Cerco remains revealed with both parents');
  assert.ok(habilidades_visibles(b).some(h=>h.id==='A10'));
  assert.equal(bananas_faltantes({...b,bananas:87},'A10'),3);
  assert.equal(bananas_faltantes({...b,bananas:0},'A10'),90);
@@ -112,4 +113,15 @@ test('the evolution starts with three top-level roots, then reveals descendants'
  assert.equal(visible_habilidad(b,'A01'),true);
  assert.equal(visible_habilidad(b,'A02'),true);
  assert.equal(visible_habilidad(b,'A03'),true);
+});
+
+test('only the purchased frontier is revealed; unrelated agility stays hidden',()=>{
+ const b={bananas:999,evolucion:{A00:1,E00:1,E01:1,A01:1}};
+ assert.equal(visible_habilidad(b,'S01'),false,'Agilidad remains hidden until buying Supervivencia');
+ assert.equal(visible_habilidad(b,'S00'),true,'Supervivencia is a visible primary root');
+ assert.equal(visible_habilidad(b,'A04'),true,'Golpe potente touches purchased Fuerza');
+ assert.equal(visible_habilidad(b,'E04'),true,'Observación touches purchased Inteligencia');
+ assert.equal(visible_habilidad(b,'S07'),false,'Reflejos stays hidden without any purchased parent');
+ assert.equal(disponible_habilidad(b,'P08'),false,'Visible combined skills remain locked without all prerequisites');
+ assert.equal(visible_habilidad(b,'P08'),true,'Combined skills are previewed from purchased Inteligencia');
 });
