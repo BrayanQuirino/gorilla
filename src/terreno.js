@@ -129,6 +129,27 @@ export function corregir_paso_humano(actor,antes,arena,margen=12){
  }
  actor.vx*=.3;actor.vy*=.3;
 }
+// The gorilla may step/climb onto selected rock/ruin meshes while humans
+// must go around them. Industrial crates and solid trees are never climbable.
+export const obstaculo_escalable=o=>o.tipo==='roca'||o.tipo==='ruina';
+export function corregir_paso_gorila(actor,antes,arena,margen=20){
+ const bloqueados=obstaculos_escena(arena).filter(o=>!obstaculo_escalable(o));
+ for(let intento=0;intento<12;intento++){
+  const o=bloqueados.find(o=>
+   ((actor.x-o.x)/(o.rx+margen))**2+((actor.y-o.y)/(o.ry+margen))**2<1);
+  if(!o)break;
+  const dx=actor.x-o.x,dy=actor.y-o.y,rx=o.rx+margen+2,ry=o.ry+margen+2;
+  if(Math.abs(dx/rx)>Math.abs(dy/ry))
+   actor.x=o.x+(dx>=0?1:-1)*rx;
+  else actor.y=o.y+(dy>=0?1:-1)*ry;
+  actor.x=limitar(actor.x,10,ancho-10);
+  actor.y=limitar(actor.y,10,alto-10);
+ }
+ const inside=bloqueados.some(o=>((actor.x-o.x)/(o.rx+margen))**2+
+  ((actor.y-o.y)/(o.ry+margen))**2<1);
+ if(inside){actor.x=antes.x;actor.y=antes.y;actor.vx=0;actor.vy=0;}
+}
+
 export function agua_humano(p,arena) {
   const vista=encuadre(arena);
   const x=vista.x+p.x*vista.ancho/ancho;
