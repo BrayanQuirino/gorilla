@@ -1,6 +1,6 @@
 // A fixed oblique camera projects the battle plane into the painted arenas.
 // Painted silhouettes supply per-pixel occlusion for upright actor billboards.
-import { ancho, alto, encuadre } from './terreno.js';
+import { ancho, alto, encuadre, obstaculos_escena } from './terreno.js';
 import { duracion_entrega, paracaidas_visible, radio_ataque, en_furia } from './battle.js';
 import { limitar } from './rules.js';
 import fotogramas from './art/sprites.json';
@@ -299,6 +299,33 @@ function dibujarGorila(quads, g, x, y, tiempo, espejo) {
 
 }
 
+// In the 2.5D scene, paint the exact same solid footprint that is used
+// for collision, cover and routing. Depth sorting keeps fighters behind
+// obstacles occluded and prevents the flat painted-mat illusion.
+function dibujarObstaculo(quads,o,vista){
+ const {x,y}=proyectar(o,vista);
+ const rx=o.rx*vista.ancho/ancho,ry=o.ry*vista.alto/alto;
+ const w=rx*1.85,h=ry*1.7;
+ const industrial=o.tipo==='contenedor'||o.tipo==='caja';
+ const ruin=o.tipo==='ruina';
+ const color=industrial?[.38,.49,.55,-3]:ruin?[.59,.51,.37,-3]:[.48,.55,.51,-3];
+ const oscuro=industrial?[.18,.29,.34,-3]:[.28,.32,.30,-3];
+ const luz=industrial?[.73,.82,.79,-3]:ruin?[.80,.70,.48,-3]:[.74,.77,.68,-3];
+ // Distinct contact shadow makes the footprint readable in all arenas.
+ rectangulo(quads,x,y+ry*.18,w*1.08,Math.max(5,ry*.55),y-.5,[.11,.15,.14,-.78]);
+ if(o.tipo==='arbol'){
+   rectangulo(quads,x,y-ry*.48,Math.max(10,rx*.26),h*.95,y+1,[.39,.25,.16,-3]);
+   rectangulo(quads,x,y-h*.96,w*.95,h*.62,y+1,[.20,.43,.28,-3]);
+   rectangulo(quads,x-w*.12,y-h*1.06,w*.48,h*.18,y+1,[.43,.64,.34,-3]);
+ }else{
+   rectangulo(quads,x,y-h*.38,w,h*.78,y+1,color);
+   rectangulo(quads,x+w*.31,y-h*.34,w*.23,h*.67,y+1,oscuro);
+   rectangulo(quads,x-w*.06,y-h*.81,w*.77,Math.max(5,h*.17),y+1,luz);
+   if(industrial)for(let k=-2;k<=2;k++)
+     rectangulo(quads,x+k*w*.15,y-h*.32,Math.max(2,w*.02),h*.48,y+1,oscuro);
+ }
+}
+
 function cuadro(quads, batalla, mirando) {
   const g = batalla.gorila;
   const tiempo = batalla.transcurrido+(batalla.celebracion||0);
@@ -311,6 +338,7 @@ function cuadro(quads, batalla, mirando) {
       -1, rugido ? oro : [1, .39, .21, .95], tiempo * 1.1);
   }
   const actores = [
+    ...obstaculos_escena(batalla.arena).map(o=>({...o,esEscenario:true})),
     ...batalla.armas_suelo.filter(objeto => !objeto.recogido_por && (objeto.reserva ? objeto.descubierto : objeto.visible)),
     ...batalla.suministros,
     ...batalla.hombres,
@@ -318,7 +346,9 @@ function cuadro(quads, batalla, mirando) {
   ].sort((a, b) => a.y - b.y);
   for (const actor of actores) {
     const { x, y } = proyectar(actor, vista);
-    if (actor === g) {
+    if (actor.esEscenario) {
+      dibujarObstaculo(quads,actor,vista);
+    } else if (actor === g) {
       const avance = (g.destino?.x ?? ancho / 2) - g.x;
       if (Math.abs(avance) > 4) mirando.set(g, avance < 0);
       dibujarGorila(quads, g, x, y, tiempo, g.mira_izquierda ?? mirando.get(g) ?? true);
