@@ -389,7 +389,7 @@ function App() {
         indice_sonido.current=evento.id;
         if(sonido && iniciada && !pausa_activa && evento.tipo!=='segunda_vida')audio.current?.efecto(evento.tipo,evento);
       }
-      if (ahora - ultimo_panel >= 100) {
+      if (ahora - ultimo_panel >= (VISTA_THREE_PREVIEW?250:100)) {
         ultimo_panel = ahora;
         actualizar_panel(valor => valor + 1);
       }
