@@ -200,6 +200,7 @@ class Mesh {
   const angry=g.furia_permanente||g.furia>0||g.segunda_vida==='activa';
   const fur=angry?color(118,69,54):color(75,72,67),face=angry?color(164,92,67):color(110,108,96);
   const move=g.movimiento>2,walk=move?Math.sin(t*7)*.19:0;
+  const climbing=(g.trepando_hasta||0)>(g.navegacion_reloj||0);
   const striking=['aviso','agarre','embestida'].includes(g.fase);
   const y=a+.75*k+(move?Math.abs(walk)*.14:0);
   this.ellipsoid(x,.025,z,.78*k,.019,.46*k,color(40,59,50),1001,9,3);
@@ -210,8 +211,8 @@ class Mesh {
   this.ellipsoid(x,y+.19*k,z+.77*k,.30*k,.19*k,.25*k,face,12,9,4);
   for(const side of [-1,1]){
    const shoulder=[x+side*.51*k,y+.19*k,z+.14*k];
-   const elbow=[x+side*.75*k,a+.47*k,z+.33*k+walk*side];
-   const hand=[x+side*.77*k,a+.14*k+(striking?.27*k:0),z+.79*k+walk*side];
+   const elbow=[x+side*.75*k,a+(.47+(climbing?.27:0))*k,z+.33*k+walk*side];
+   const hand=[x+side*.77*k,a+(.14+(striking?.27:0)+(climbing?.34:0))*k,z+.79*k+walk*side];
    this.tube(shoulder,elbow,.23*k,.18*k,fur,9);
    this.tube(elbow,hand,.20*k,.17*k,fur,8);
    this.ellipsoid(...hand,.20*k,.16*k,.21*k,face,18+side,8,4);
@@ -359,4 +360,12 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
   gl.deleteProgram(prog);meshes.clear();templates.clear();
  };
  return frame;
+}
+
+export function diagnostico_geometria_moba(arena){
+ const mesh=new Mesh();
+ mesh.terrain(arena);
+ return {arena,vertices:mesh.count,obstaculos:obstaculos_escena(arena).length,
+  limites:{x:ancho/SCALE,z:alto/SCALE},
+  colores:palettes[arena]||palettes.claro};
 }
