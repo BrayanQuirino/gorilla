@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {HABILIDADES_EVOLUCION,POR_ID,geometria_panal,bonificacion_efectiva,comprar_habilidad,nivel_habilidad,costo_habilidad,disponible_habilidad,reembolso_habilidad,revertir_habilidad,bloqueos_reembolso} from './evolution.js';
+import {HABILIDADES_EVOLUCION,POR_ID,geometria_panal,geometria_panal_estado,habilidades_visibles,visible_habilidad,bananas_faltantes,distancia_hex,bonificacion_efectiva,comprar_habilidad,nivel_habilidad,costo_habilidad,disponible_habilidad,reembolso_habilidad,revertir_habilidad,bloqueos_reembolso} from './evolution.js';
 
 const DIRECCIONES=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
 test('unique skills and valid acyclic prerequisites',()=>{
@@ -64,4 +64,35 @@ test('cannot refund an evolution required by a purchased descendant',()=>{
  assert.equal(revertir_habilidad(b,'S01'),false);
  assert.equal(revertir_habilidad(b,'S04'),true);
  assert.equal(revertir_habilidad(b,'S01'),true);
+});
+
+test('progressive reveal ignores banana balance and requires every parent',()=>{
+ const b={evolucion:{},bananas:0,resultado:''};
+ const first=habilidades_visibles(b);
+ assert.equal(first.length,10,'only ten roots visible initially');
+ assert.equal(visible_habilidad(b,'A10'),false);
+ b.evolucion.A07=1;
+ assert.equal(visible_habilidad(b,'A10'),false,'Cerco needs Flanqueo too');
+ b.evolucion.A08=1;
+ assert.equal(visible_habilidad(b,'A10'),true,'Cerco revealed immediately when both parents owned');
+ assert.ok(habilidades_visibles(b).some(h=>h.id==='A10'));
+ assert.equal(bananas_faltantes({...b,bananas:87},'A10'),3);
+ assert.equal(bananas_faltantes({...b,bananas:0},'A10'),90);
+});
+test('dynamic honeycomb never overlaps cells as more skills become visible',()=>{
+ for(const level of [0,1,2]){
+  const bought=level===0?{}:level===1?{A01:1,A02:1,A03:1,S01:1,E01:1,E02:1,P01:1,P02:1}:
+   Object.fromEntries(HABILIDADES_EVOLUCION.map(h=>[h.id,1]));
+  const b={evolucion:bought,bananas:0};
+  const positions=geometria_panal_estado(b);
+  const ids=Object.keys(positions);
+  assert.equal(ids.length,1+habilidades_visibles(b).length);
+  assert.equal(new Set(Object.values(positions).map(p=>p.q+','+p.r)).size,ids.length,'all tiles unique');
+ }
+});
+test('Cerco touches both Ataque grupal and Flanqueo on the hex map',()=>{
+ const b={bananas:0,evolucion:Object.fromEntries(HABILIDADES_EVOLUCION.map(h=>[h.id,1]))};
+ const map=geometria_panal_estado(b);
+ assert.equal(distancia_hex(map.A10,map.A07),1,'Cerco beside Ataque grupal');
+ assert.equal(distancia_hex(map.A10,map.A08),1,'Cerco beside Flanqueo');
 });
