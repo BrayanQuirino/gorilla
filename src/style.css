@@ -495,3 +495,20 @@ html,body,#root{width:100%;max-width:100%;overflow-x:hidden}
 @media(max-width:760px){
  .juego-app .arena canvas{object-fit:contain!important;aspect-ratio:1000 / 640!important}
 }
+
+
+/* Original premium MOBA presentation: no pixel font, sprites or 2D-art scaling. */
+.juego-app.modo-moba{font-family:Rajdhani,Inter,system-ui,sans-serif;background:linear-gradient(145deg,#0d2026,#152d2b 52%,#122229);color:#e7f0e4}
+.juego-app.modo-moba .marca h1,
+.juego-app.modo-moba .marca p,
+.juego-app.modo-moba .celebracion-victoria,
+.juego-app.modo-moba button,
+.juego-app.modo-moba h2,
+.juego-app.modo-moba h3{font-family:Rajdhani,Inter,system-ui,sans-serif!important;letter-spacing:.015em}
+.juego-app.modo-moba .arena{border:1px solid #769b86;border-radius:10px;box-shadow:0 0 0 2px #0d2026,0 12px 45px #040d1280,inset 0 2px #c4dcb62d;background:#263e3f!important}
+.juego-app.modo-moba .arena canvas{image-rendering:auto!important;object-fit:contain!important}
+.juego-app.modo-moba .marcador{border-radius:8px;background:linear-gradient(90deg,#173238,#244037 60%,#19323c);border:1px solid #587c75}
+.juego-app.modo-moba .nombre-arena{font-weight:700;letter-spacing:.07em;text-transform:uppercase;background:#183438cc;border:1px solid #7ea59588;border-radius:5px;padding:3px 9px}
+.juego-app.modo-moba .controles-arcade button{border-radius:8px;background:linear-gradient(#355448,#1c3833);border-color:#6b9a83;color:#f2f0d8}
+.juego-app.modo-moba .controles-arcade button.principal{background:linear-gradient(#b58c49,#725a34);border-color:#efcb83;color:#fff7df}
+.juego-app.modo-moba .evo-scroll{background:radial-gradient(ellipse at center,#244440,#12262c 78%)}
