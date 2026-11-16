@@ -4,7 +4,7 @@ import catalogo from './data/objetos.json';
 import { crear_sorteo_objetos, preparar_equipo, habilidades, arquetipos } from './roster.js';
 import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, distribucion_equipo, paramedicos_disponibles, duracion_segunda_vida, reanudar_segunda_vida, en_furia, danio_humano, dano_puno_arquetipo, eficiencia_arma, condiciones_combate } from './battle.js';
 import { crear_dibujante } from './arena.js';
-import { crear_dibujante_3d } from './arena3d.js';
+import { crear_dibujante_moba } from './arena-moba.js';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import { encuadre } from './terreno.js';
 import PanalEvolucion from './EvolutionTree.jsx';
@@ -350,7 +350,7 @@ function App() {
     };
     try {
       const render = modo_visual === '3d'
-        ? crear_dibujante_3d(canvas.current, () => ultimo_cuadro.current?.(), fallo)
+        ? crear_dibujante_moba(canvas.current, () => ultimo_cuadro.current?.(), fallo)
         : crear_dibujante(canvas.current);
       dibujar.current = render;
       return () => {
@@ -522,7 +522,7 @@ function App() {
           <button onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}} aria-label="Cerrar">✕</button></div>
         {panel_movil==='equipo'?<PanelEquipo batalla={batalla} seleccionInicial={arquetipo_abierto}/>:<div className="ajustes-panel ajustes-cuadricula">
           <label>Vista<select value={modo_visual} onChange={e=>{cambiar_arte_listo(false);cambiar_modo_visual(e.target.value);}}>
-            <option value="3d">Arcade 2.5D</option><option value="2d">Retro 2D</option></select></label>
+            <option value="3d">Arena MOBA 3D</option><option value="2d">Retro 2D</option></select></label>
           <label>Arena<select value={arena_elegida} onChange={e=>{const id=e.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>
             {Object.entries(ARENAS).map(([id,item])=><option key={id} value={id}>{item.nombre}</option>)}</select></label>
           <label>Dificultad<select value={dificultad} onChange={e=>{const n=Number(e.target.value);cambiar_dificultad(n);nueva_partida(n);}}>
