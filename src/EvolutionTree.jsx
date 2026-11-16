@@ -11,7 +11,7 @@ const puntos=Array.from({length:6},(_,i)=>{
  const a=(60*i-30)*Math.PI/180;
  return [RADIO*Math.cos(a),RADIO*Math.sin(a)].join(',');
 }).join(' ');
-const BASE={id:'BASE',nombre:'Humanos',raiz:'BASE',beneficio:'Los humanos nacen con sus atributos y arquetipos. Atacar es su comportamiento inicial.',requisitos:[]};
+const BASE={id:'BASE',nombre:'Humano básico',raiz:'BASE',beneficio:'Los humanos nacen con sus atributos y arquetipos. Atacar es su comportamiento inicial.',requisitos:[]};
 const TEXTO_LARGO=12;
 function texto_hex(nombre){
  const words=nombre.split(' '),lines=[''];
@@ -24,7 +24,7 @@ function texto_hex(nombre){
 }
 
 export default function PanalEvolucion({batalla,comprar,revertir}){
- const [seleccion,setSeleccion]=useState('A00');
+ const [seleccion,setSeleccion]=useState('BASE');
  const [filtrar,setFiltrar]=useState('TODAS');
  const [animacion,setAnimacion]=useState(null);
  const ultimaCompra=[...batalla.eventos].reverse().find(e=>e.tipo==='evolucion'||e.tipo==='evolucion_revertida');
@@ -34,7 +34,7 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
  const visibles=useMemo(()=>habilidades_visibles(batalla),[batalla,revision]);
  const ubicaciones=useMemo(()=>geometria_panal_estado(batalla),[batalla,revision]);
  const visibleIds=useMemo(()=>new Set(visibles.map(h=>h.id)),[visibles]);
- const cells=useMemo(()=>visibles.map(h=>{
+ const cells=useMemo(()=>[BASE,...visibles].map(h=>{
   const {q,r}=ubicaciones[h.id];
   return {...h,x:Math.sqrt(3)*RADIO*(q+r/2),y:RADIO*1.5*r};
  }),[visibles,ubicaciones]);
@@ -71,7 +71,7 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
 
  return <div className="evo-ui" aria-label="Panal de evolución humana">
   <header className="evo-top">
-   <div><h3>🍯 Evolución humana</h3><p>El mapa se revela al adquirir habilidades. Las bananas determinan la compra, no la aparición.</p></div>
+   <div><h3>🍯 Evolución humana</h3><p>Solo aparecen evoluciones conectadas a compras realizadas. Los requisitos completos siguen siendo obligatorios.</p></div>
    <div className="evo-balance">🍌 {Math.floor(batalla.bananas)} <small>{adquiridas} / {HABILIDADES_EVOLUCION.length} descubiertas</small></div>
   </header>
   <div className="evo-filtros">
@@ -99,7 +99,7 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
       const glow=animacion?.id===h.id;
       const nuevo=nuevos.has(h.id)&&ultimaCompra?.id===animacion?.evento;
       return <g key={h.id}
-       className={'evo-hex '+(selected?'is-selected ':'')+(lvl?'is-owned ':'')+(muted?'is-muted ':'')+
+       className={'evo-hex '+(base?'is-base ':'')+(selected?'is-selected ':'')+(lvl?'is-owned ':'')+(muted?'is-muted ':'')+
         (glow?'is-flash ':'')+(nuevo?'is-new ':'')+(!lvl?'is-available ':'')}
        role="button" tabIndex={0} aria-label={h.nombre+(lvl?', nivel '+lvl:', disponible para evolucionar')}
        style={{'--hex-color':color}} transform={`translate(${h.x},${h.y})`}
@@ -109,7 +109,7 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
        {lvl>0&&<polygon className="evo-hex-cristal" points={puntos} fill="url(#evo-glass)" pointerEvents="none"/>}
        <text className="evo-hex-icon" y={words.length>2?-24:-21}>{base?'👥':lvl?'✦':'◆'}</text>
        {words.map((line,i)=><text key={i} className="evo-hex-title" y={-5+(i-(words.length-1)/2)*11}>{line}</text>)}
-       <text className="evo-hex-cost" y="31">{base?'BASE':lvl?'✓ Nv. '+lvl:'🍌 '+costo_habilidad(batalla,h.id)}</text>
+       <text className="evo-hex-cost" y="31">{base?'ORIGEN':lvl?'✓ Nv. '+lvl:!disponible_habilidad(batalla,h.id)?'🔒 Requisitos':'🍌 '+costo_habilidad(batalla,h.id)}</text>
       </g>;
      })}
     </svg>
@@ -118,7 +118,7 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
     <div className="evo-detalle-title" style={{borderColor:seleccionado?FAMILIAS[seleccionado.raiz].color:'#e7b959'}}>
      <span>{seleccionado?FAMILIAS[seleccionado.raiz].icono:'👥'}</span>
      <div><small>{seleccionado?FAMILIAS[seleccionado.raiz].nombre:'Origen evolutivo'}</small>
-      <h3>{seleccionado?.nombre||'Humanos (base)'}</h3></div>
+      <h3>{seleccionado?.nombre||'Humano básico'}</h3></div>
     </div>
     <p>{seleccionado?.beneficio||BASE.beneficio}</p>
     {seleccionado&&<>
