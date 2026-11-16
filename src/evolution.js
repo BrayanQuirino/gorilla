@@ -117,35 +117,140 @@ export function revertir_habilidad(b,id){
  return true;
 }
 
-// Build a single connected axial hex grid. Every added tile touches an occupied cell.
-// Parent proximity is weighted above color grouping; cross-root dependencies remain explicit.
-const DIRECCIONES=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
-const distancia_hex=(a,b)=>Math.max(Math.abs(a.q-b.q),Math.abs(a.r-b.r),Math.abs((a.q+a.r)-(b.q+b.r)));
-export function geometria_panal(){
- const ubicaciones=new Map([['BASE',{q:0,r:0}]]);
- const pendientes=new Set(HABILIDADES_EVOLUCION.map(h=>h.id));
- const origen={A:{q:3,r:-1},S:{q:-2,r:-2},E:{q:-3,r:2},P:{q:2,r:3}};
- let intentos=0;
- while(pendientes.size&&intentos++<100){
-  let cambio=false;
-  for(const h of HABILIDADES_EVOLUCION){
-   if(!pendientes.has(h.id)||h.requisitos.some(id=>!ubicaciones.has(id)))continue;
-   const ocupadas=[...ubicaciones.values()];
-   const candidatos=new Map();
-   for(const p of ocupadas)for(const [dq,dr] of DIRECCIONES){
-    const c={q:p.q+dq,r:p.r+dr};const key=c.q+','+c.r;
-    if(!ocupadas.some(v=>v.q===c.q&&v.r===c.r))candidatos.set(key,c);
-   }
-   const parents=h.requisitos.length?h.requisitos.map(id=>ubicaciones.get(id)):[ubicaciones.get('BASE')];
-   const ancla=origen[h.raiz];
-   const sibling=[...ubicaciones].filter(([id])=>id!=='BASE'&&id[0]===h.raiz).map(([,p])=>p);
-   const scored=[...candidatos.values()].map(c=>({
-    c,score:parents.reduce((n,p)=>n+distancia_hex(c,p)*11,0)+distancia_hex(c,ancla)*2+
-    (sibling.length?Math.min(...sibling.map(p=>distancia_hex(c,p)))*2:0)+distancia_hex(c,{q:0,r:0})*.28
-   })).sort((a,b)=>a.score-b.score||a.c.q-b.c.q||a.c.r-b.c.r);
-   ubicaciones.set(h.id,scored[0].c);pendientes.delete(h.id);cambio=true;
-  }
-  if(!cambio)throw Error('Dependencias cíclicas en el árbol evolutivo');
+// Visibility is based ONLY on prerequisite ownership, never on banana balance.
+export function visible_habilidad(b,id){
+ const skill=POR_ID[id];
+ if(!skill)return false;
+ return tiene_habilidad(b,id)||skill.requisitos.every(parent=>tiene_habilidad(b,parent));
+}
+export function habilidades_visibles(b){
+ return HABILIDADES_EVOLUCION.filter(h=>visible_habilidad(b,h.id));
+}
+export function bananas_faltantes(b,id){
+ const precio=costo_habilidad(b,id);
+ return Number.isFinite(precio)?Math.max(0,Math.ceil(precio-(b.bananas||0))):0;
+}
+
+// Axial pointy-top hexagons. Positions use one cell per coordinate.
+// Layout is rebuilt for the revealed subset: parents and future co-parents
+// attract each other, including across branches. This keeps Cerco next to
+// both Ataque grupal and Flanqueo before Cerco is revealed.
+const VECTORES_HEX=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+const clave_hex=p=>p.q+','+p.r;
+export const distancia_hex=(a,b)=>Math.max(Math.abs(a.q-b.q),Math.abs(a.r-b.r),Math.abs(a.q+a.r-b.q-b.r));
+const base_hex={q:0,r:0};
+const anclas={
+ A01:{q:1,r:-1},A02:{q:1,r:0},A03:{q:0,r:-1},
+ S01:{q:-1,r:0},S02:{q:-1,r:1},S03:{q:0,r:1},
+ E01:{q:-1,r:-1},E02:{q:-2,r:1},
+ P01:{q:1,r:1},P02:{q:2,r:0}
+};
+function profundidad(id,cache=new Map()){
+ if(cache.has(id))return cache.get(id);
+ const skill=POR_ID[id];
+ const value=skill.requisitos.length?1+Math.max(...skill.requisitos.map(p=>profundidad(p,cache))):1;
+ cache.set(id,value);
+ return value;
+}
+function aristas_relacionadas(visibles){
+ const ids=new Set(visibles.map(h=>h.id));
+ const edges=[];
+ for(const h of visibles){
+  if(!h.requisitos.length)edges.push(['BASE',h.id,9]);
+  for(const parent of h.requisitos)if(ids.has(parent))edges.push([parent,h.id,32]);
  }
- return Object.fromEntries(ubicaciones);
+ // Even before a descendant becomes visible, its co-parents must be
+ // neighbours where possible. This is the fundamental honeycomb dependency rule.
+ for(const h of HABILIDADES_EVOLUCION){
+  for(let i=0;i<h.requisitos.length;i++)for(let j=i+1;j<h.requisitos.length;j++){
+   const a=h.requisitos[i],b=h.requisitos[j];
+   if(ids.has(a)&&ids.has(b))edges.push([a,b,54]);
+  }
+ }
+ return edges;
+}
+function candidatos_vecinos(positions){
+ const occupied=new Set([...positions.values()].map(clave_hex));
+ const c=new Map();
+ for(const p of positions.values())for(const [q,r] of VECTORES_HEX){
+  const cell={q:p.q+q,r:p.r+r};
+  if(!occupied.has(clave_hex(cell)))c.set(clave_hex(cell),cell);
+ }
+ return [...c.values()];
+}
+function costo_mapa(positions,edges){
+ let score=0;
+ for(const [a,b,peso] of edges){
+  const x=positions.get(a),y=positions.get(b);
+  if(x&&y){const d=distancia_hex(x,y);score+=peso*Math.pow(Math.max(0,d-1),2);}
+ }
+ // A modest compactness term prevents disconnected branches and endless sprawl.
+ for(const [id,p] of positions){
+  if(id!=='BASE')score+=.30*distancia_hex(p,base_hex)**2;
+ }
+ return score;
+}
+export function geometria_panal_estado(b){
+ const visibles=habilidades_visibles(b);
+ const edges=aristas_relacionadas(visibles);
+ const positions=new Map([['BASE',base_hex]]);
+ const order=[...visibles].sort((a,z)=>profundidad(a.id)-profundidad(z.id)||a.id.localeCompare(z.id));
+ const siblings=HABILIDADES_EVOLUCION.filter(h=>h.requisitos.length>1);
+ for(const h of order){
+  const parents=h.requisitos.length?h.requisitos.filter(p=>positions.has(p)):['BASE'];
+  const candidates=candidatos_vecinos(positions);
+  let best=null,bestScore=Infinity;
+  for(const c of candidates){
+   const cost=parents.reduce((score,id)=>score+32*(distancia_hex(c,positions.get(id))-1)**2,0);
+   const peers=[...positions].filter(([id])=>id!=='BASE'&&id[0]===h.raiz).map(([,p])=>p);
+   const group=peers.length?Math.min(...peers.map(p=>distancia_hex(c,p)))*1.5:0;
+   const target=anclas[h.id];
+   const root=target?distancia_hex(c,target)*4:0;
+   const pairs=siblings.filter(s=>s.requisitos.includes(h.id)).flatMap(s=>s.requisitos.filter(id=>id!==h.id&&positions.has(id)));
+   const shared=pairs.reduce((score,id)=>score+54*(distancia_hex(c,positions.get(id))-1)**2,0);
+   const score=cost+group+root+shared+distancia_hex(c,base_hex)*.22;
+   if(score<bestScore-1e-7||(Math.abs(score-bestScore)<1e-7&&(best===null||c.r<best.r||c.r===best.r&&c.q<best.q))){best=c;bestScore=score;}
+  }
+  positions.set(h.id,best);
+ }
+ // Deterministic relaxation: moves and swaps preserve hex sizes, keep unique
+ // coordinates and reduce both parent distances and shared-child distances.
+ // Accept only strict improvements so opening the panel is deterministic.
+ const ids=[...positions.keys()].filter(id=>id!=='BASE');
+ let score=costo_mapa(positions,edges);
+ for(let pass=0;pass<5;pass++){
+  let improved=false;
+  for(const id of ids){
+   const original=positions.get(id);
+   let bestScore=score,best=null;
+   const occupied=new Map([...positions].map(([k,p])=>[clave_hex(p),k]));
+   const candidates=new Map();
+   for(const p of positions.values())for(const [dq,dr] of VECTORES_HEX){
+    const c={q:p.q+dq,r:p.r+dr};
+    if(distancia_hex(c,base_hex)<=11)candidates.set(clave_hex(c),c);
+   }
+   for(const cell of candidates.values()){
+    const other=occupied.get(clave_hex(cell));
+    if(other==='BASE'||other===id)continue;
+    positions.set(id,cell);
+    if(other)positions.set(other,original);
+    const next=costo_mapa(positions,edges);
+    if(next<bestScore-1e-7){bestScore=next;best={cell,other};}
+    positions.set(id,original);
+    if(other)positions.set(other,cell);
+   }
+   if(best){
+    positions.set(id,best.cell);
+    if(best.other)positions.set(best.other,original);
+    score=bestScore;improved=true;
+   }
+  }
+  if(!improved)break;
+ }
+ return Object.fromEntries(positions);
+}
+// Kept for existing unit tests and compatibility with callers expecting all
+// 45 hexagons. The live UI instead calls geometria_panal_estado(b).
+export function geometria_panal(){
+ return geometria_panal_estado({evolucion:Object.fromEntries(HABILIDADES_EVOLUCION.map(h=>[h.id,1]))});
 }
