@@ -1,55 +1,62 @@
-# Gorilla — 100 hombres contra un gorila
+# Gorilla — 100 humanos contra un gorila
 
-Juego táctico 2D. **El motor de reglas se conserva y ahora incluye un primer renderizado retro pixel-art procedural.** El motor de batalla no depende de React ni del lienzo.
+Simulador táctico de combate con 100 humanos, un gorila y evolución de habilidades.
 
-## Desarrollo
+## Renderizado principal
 
-Requiere Node.js 22.12 o posterior.
+**Modo MOBA 3D real:** src/arena-moba.js construye mallas WebGL, iluminación direccional, cámara ortográfica, escenarios con relieve y personajes tridimensionales articulados. Los veinte arquetipos tienen variantes de equipo y vestuario. Cuando ANGLE_instanced_arrays está disponible, los modelos se reutilizan en GPU, en lugar de reconstruirse 100 veces por fotograma.
 
-```bash
-npm ci
-npm test
-npm run dev
-npm run build
-```
+No se estiran ilustraciones 2D para simular el terreno; el modo pixel-art antiguo permanece únicamente como respaldo técnico cuando WebGL falla.
 
-## Reglas incorporadas
+El acabado gráfico actual es una **base 3D procedural estilizada**, no el conjunto final de modelos y texturas premium comparable a un juego AAA comercial.
 
-- **100 hombres** de 18 a 100 años, con efectos de la edad y ocho atributos: fuerza, velocidad, inteligencia (incluye percepción/coordinación), temple, precisión, agilidad, estrategia y técnica. Conservamos los arquetipos preexistentes; no se añadieron otros.
-- **Catálogo preexistente de 1,000 objetos**, desde un zapato hasta las armas arcade. Los hombres pueden empezar equipados o sin objeto. Se calcula un inventario limitado, reservando una parte para el escenario antes del sorteo inicial.
-- **Arenas configuradas**: claro, selva, cañón y hangar. Cada una tiene categorías compatibles, ubicaciones, ocultamiento y proporción de objetos en el suelo. No se revela su posición exacta en el resumen.
-- **Tácticas**: atacar, huir, esconderse, buscar armas, distraer y rescatar. Iniciar pone al equipo en movimiento con Atacar. Estrategia pausa la partida para repartir hasta tres tácticas entre los hombres activos o comprar suministros, que llegan por paracaídas. El porcentaje asignado a buscar armas se elige entre los hombres más alejados del gorila. Los combatientes se protegen automáticamente y recuperan energía entre ataques.
-- **Búsqueda de objetos**: unidades que exploran identifican y recogen objetos del suelo. Cuando alguien cae, su objeto vuelve al suelo, sin duplicarse. No está garantizado encontrar uno.
-- **Gorila autónomo**: fuerza bruta con riesgo elevado de bajas por golpe, señales de ataque, cargas, barridos, golpes de área, rugidos, memoria de tácticas repetidas, energía, furia y enfriamientos.
-- **Fatiga, pánico y estados**: energía de hombres y gorila, miedo, heridas, incapacidad, eliminación, descanso y rescate de incapacitados.
-- **Bananas**: se obtienen por tiempo sobrevivido y daño infligido; permiten comprar suministros. La lista de suministros y sus costos se encuentra en `src/rules.js`.
-- **Suministros**: curación, recuperación de energía, protección, armas de apoyo, barricadas, trampas, señuelos, humo, camuflaje, coordinación y bonificaciones temporales.
-- **Victoria**: hombres si agotan la vida del gorila; gorila si elimina/incapacita al equipo o concluyen 5 minutos.
+## Ejecutar
+
+Requiere Node.js 22.12 o posterior:
+
+- npm ci
+- npm test
+- npm run dev
+- npm run build
+
+GitHub Actions comprueba pruebas y build en .github/workflows/ci.yml y despliega GitHub Pages mediante .github/workflows/pages.yml.
 
 ## Arquitectura
 
-- `src/data/objetos.json`: catálogo original de objetos; no se sustituyó.
-- `src/rules.js`: definiciones de arena, tácticas, suministros, atributos y ventajas.
-- `src/roster.js`: generación de personajes, efectos de edad, asignación inicial y reserva de armas por arena.
-- `src/battle.js`: motor determinista con generador de azar inyectable, estado de combate, compras, IA y eventos.
-- `src/gameplay.test.js`: pruebas de inventario, tácticas, compras y simulación.
-- `src/arena.js`: capa de escenarios por arena, profundidad por eje Y, indicadores de peligro, objetos y efectos de combate.
-- `src/sprites.js`: atlas de sprites pixel-art generado a resolución nativa, cacheado y animado (cuatro fotogramas por estado) para gorila y humanos, sin bibliotecas externas.
-- `src/sprites.test.js`: pruebas de atlas, fotogramas y decisiones de animación.
-- `.github/workflows/ci.yml`: ejecuta pruebas y build Vite en cada push.
-- `src/main.jsx`: HUD retro renovado con pestañas de combate, supervivencia, exploración y tienda desplegable.
+- **src/arena-moba.js:** geometría, materiales por arena, cámara elevada, GPU instancing, animaciones básicas y zoom.
+- **src/terreno.js:** huellas de colisión, alturas, puentes, cobertura y superficies escalables.
+- **src/navegacion.js:** A* cacheado con zonas transitables y enlaces especiales para el gorila.
+- **src/battle.js:** IA, combate, vida, daño, enfriamientos, equipamiento y simulación independiente del render.
+- **src/evolution.js:** habilidades, requisitos, atributos globales, bananas y reembolsos.
+- **src/EvolutionTree.jsx:** visualización hexagonal interactiva y desbloqueos progresivos.
+- **src/main.jsx:** interfaz React y ciclo de simulación.
+- **src/arena.js y src/arena3d.js:** visualizadores heredados de compatibilidad.
 
-## Balance pendiente
+## Escenarios y navegación
 
-Las probabilidades y cantidades actuales son **parámetros de videojuego** sujetos a pruebas, no estadísticas de ataques reales de gorilas. Algunas habilidades declaradas, efectos de suministros y nuevos tipos de arena requerirán iteraciones de comportamiento y balance; la incorporación de spritesheets ilustrados profesionalmente, sonidos y la posible migración a Phaser siguen pendientes. El atlas actual está dibujado en código y no reproduce de manera exacta la ilustración conceptual aprobada.
+- Cuatro arenas: claro del bosque, selva, cañón y hangar.
+- Montañas, rocas, árboles, cajas y estructuras tienen geometría visible y huellas de colisión compartidas.
+- Las colisiones no se pintan como rectángulos de depuración.
+- Los humanos rodean obstáculos mediante A*, separación local y corrección física, sin trepar montañas.
+- El gorila puede superar rocas y ruinas escalables; contenedores y otros obstáculos permanecen cerrados.
+- Las trayectorias se cachean y se actualizan cuando cambian los objetivos.
+- La rueda del ratón permite acercar y alejar la cámara sin modificar el combate.
 
-## Probar la versión arcade
+## Reglas y evolución
 
-La rama `main` incluye un atlas de cuatro fotogramas por estado, gorila espalda plateada, humanos pixel-art, terrenos, impactos, avisos y HUD de tácticas y compras.
+Se conservan las reglas de combate, atributos, daño, armas, comportamientos, compras y enfriamientos previamente aprobados. La recarga física humana base es 1 segundo y la de disparo, 1.5 segundos.
 
-- `npm ci && npm test && npm run dev`: pruebas y vista local.
-- `npm run build`: compilación de producción.
-- `.github/workflows/ci.yml`: comprueba automáticamente tests y build.
-- `.github/workflows/pages.yml`: intenta publicar en GitHub Pages después de probar y compilar. Si aún no está habilitado, seleccionar **Settings → Pages → Source → GitHub Actions** en el repositorio.
+El panal comienza con Humano básico, Atacar, Supervivencia y Estrategia. El resto de habilidades aparece conforme se compran sus padres directos. El efecto de cada habilidad se combina con las capacidades individuales del combatiente.
 
-El sitio de Pages solo debe considerarse publicado cuando el workflow `Publish Gorilla to GitHub Pages` muestre una ejecución exitosa. No hay ninguna dependencia de Phaser en esta versión; el motor sigue funcionando con Canvas 2D.
+## Pruebas
+
+- src/gameplay.test.js — regresiones de combate y simulación.
+- src/evolution.test.js — evolución y desbloqueos.
+- src/scenery.test.js — colisiones físicas de las arenas.
+- src/navegacion.test.js — A*, colisiones y movilidad gorila/humano.
+- src/arena-moba.test.js — generación de mallas 3D por escenario.
+- src/arena-moba-runtime.test.js — render de 100 humanos, cuatro arenas y limpieza de recursos GPU.
+
+## Pendiente para una dirección artística AAA completa
+
+El render 3D ya sustituye los fondos planos por volúmenes reales, pero todavía faltan modelos GLTF/GLB diseñados y esculpidos profesionalmente, rigging y animaciones esqueléticas completas, texturas hand-painted, materiales PBR, sombras dinámicas de alta calidad, vegetación con LOD avanzado, partículas y pruebas visuales exhaustivas en dispositivos reales. Estas mejoras se deben integrar sin alterar el motor de combate.
