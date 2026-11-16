@@ -4,7 +4,7 @@ import {HABILIDADES_EVOLUCION,POR_ID,geometria_panal,geometria_panal_estado,habi
 
 const DIRECCIONES=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
 test('unique skills and valid acyclic prerequisites',()=>{
- assert.equal(HABILIDADES_EVOLUCION.length,45);
+ assert.equal(HABILIDADES_EVOLUCION.length,48);
  assert.equal(new Set(HABILIDADES_EVOLUCION.map(s=>s.id)).size,45);
  const visited=new Set(), visiting=new Set();
  const visit=(id)=>{if(visited.has(id))return;assert.ok(!visiting.has(id),'cycle '+id);visiting.add(id);for(const p of POR_ID[id].requisitos){assert.ok(POR_ID[p],'missing '+p);visit(p)}visiting.delete(id);visited.add(id)};
@@ -22,7 +22,7 @@ test('honeycomb is one continuous hexagonal structure with unique tiles',()=>{
  assert.equal(seen.size,nodes.length);
 });
 test('buying attribute skill raises all birth attributes without erasing differences',()=>{
- const b={bananas:1000,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[{radar:{inteligencia:80,agilidad:40},valentia:55},{radar:{inteligencia:40,agilidad:30},valentia:45}]};
+ const b={bananas:1000,tiempo:300,resultado:'',evolucion:{E00:1},eventos:[],hombres:[{radar:{inteligencia:80,agilidad:40},valentia:55},{radar:{inteligencia:40,agilidad:30},valentia:45}]};
  assert.equal(comprar_habilidad(b,'E01'),true);
  assert.equal(b.hombres[0].radar.inteligencia,84);
  assert.equal(b.hombres[1].radar.inteligencia,42);
@@ -34,7 +34,7 @@ test('buying attribute skill raises all birth attributes without erasing differe
  assert.equal(b.hombres[0].radar.agilidad,40);
 });
 test('prerequisites, affordability and cap are enforced',()=>{
- const b={bananas:35,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[]};
+ const b={bananas:35,tiempo:300,resultado:'',evolucion:{S00:1},eventos:[],hombres:[]};
  assert.equal(disponible_habilidad(b,'S04'),false);
  assert.equal(comprar_habilidad(b,'S04'),false);
  assert.equal(comprar_habilidad(b,'S01'),true);
@@ -46,7 +46,7 @@ test('prerequisites, affordability and cap are enforced',()=>{
 });
 
 test('refund returns 65% of actual purchase and restores original human values',()=>{
- const b={bananas:200,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[{radar:{inteligencia:60},valentia:50}]};
+ const b={bananas:200,tiempo:300,resultado:'',evolucion:{E00:1},eventos:[],hombres:[{radar:{inteligencia:60},valentia:50}]};
  assert.equal(comprar_habilidad(b,'E01'),true);
  assert.equal(b.hombres[0].radar.inteligencia,63);
  const paid=200-b.bananas;
@@ -57,7 +57,7 @@ test('refund returns 65% of actual purchase and restores original human values',
  assert.equal(revertir_habilidad(b,'E01'),false);
 });
 test('cannot refund an evolution required by a purchased descendant',()=>{
- const b={bananas:200,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[]};
+ const b={bananas:200,tiempo:300,resultado:'',evolucion:{S00:1},eventos:[],hombres:[]};
  assert.equal(comprar_habilidad(b,'S01'),true);
  assert.equal(comprar_habilidad(b,'S04'),true);
  assert.deepEqual(bloqueos_reembolso(b,'S01'),['S04']);
@@ -99,13 +99,17 @@ test('Cerco touches both Ataque grupal and Flanqueo on the hex map',()=>{
 
 test('the evolution starts with three top-level roots, then reveals descendants',()=>{
  const b={evolucion:{},bananas:0,resultado:''};
- assert.deepEqual(habilidades_visibles(b).map(h=>h.id),['A01','S01','E01']);
+ assert.deepEqual(habilidades_visibles(b).map(h=>h.id),['A00','S00','E00']);
  assert.equal(visible_habilidad(b,'P01'),false,'Apoyo is not available until Intelligence');
  assert.equal(visible_habilidad(b,'S02'),false);
+ b.evolucion.E00=1;
+ assert.equal(visible_habilidad(b,'E01'),true);
+ assert.equal(visible_habilidad(b,'E02'),true);
  b.evolucion.E01=1;
  assert.equal(visible_habilidad(b,'P01'),true);
  assert.equal(visible_habilidad(b,'P02'),true);
- b.evolucion.A01=1;
+ b.evolucion.A00=1;
+ assert.equal(visible_habilidad(b,'A01'),true);
  assert.equal(visible_habilidad(b,'A02'),true);
  assert.equal(visible_habilidad(b,'A03'),true);
 });
