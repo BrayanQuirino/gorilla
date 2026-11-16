@@ -387,3 +387,29 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
  };
  return render;
 }
+
+
+// Headless regression probe: validates actual geometry and 100 reusable human
+// models without creating a browser, WebGL context or private image assets.
+export function diagnostico_three(arena='selva'){
+ const scene=new THREE.Scene();
+ const env=environment(scene,arena);
+ const people=makeHumans(scene);
+ const gorilla=makeGorilla(scene);
+ const actors=Array.from({length:100},(_,i)=>({
+  id:i+1,x:80+i%10*82,y:80+Math.floor(i/10)*49,altura:0,
+  arquetipo:Object.keys(outfits)[i%Object.keys(outfits).length],vida:20,
+  estado:'normal',vx:12,vy:5
+ }));
+ people.apply(actors,1);
+ gorilla.apply({x:500,y:320,radio:26,vida:650,movimiento:2,fase:'espera'},1);
+ let realMeshes=0,instancedMeshes=0;
+ scene.traverse(o=>{if(o.isMesh)realMeshes++;if(o.isInstancedMesh)instancedMeshes++;});
+ return {
+  arena,obstaculos:obstaculos_escena(arena).length,
+  mallas:realMeshes,gruposInstanciados:instancedMeshes,
+  humanos:actors.length,modelosGeneradosConGeometria:true,
+  estilos:Object.keys(outfits).length,
+  escenaActiva:Boolean(env.root&&people.root&&gorilla.root)
+ };
+}
