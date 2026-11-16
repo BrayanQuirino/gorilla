@@ -24,7 +24,7 @@ function texto_hex(nombre){
 }
 
 export default function PanalEvolucion({batalla,comprar,revertir}){
- const [seleccion,setSeleccion]=useState('A01');
+ const [seleccion,setSeleccion]=useState('A00');
  const [filtrar,setFiltrar]=useState('TODAS');
  const [animacion,setAnimacion]=useState(null);
  const ultimaCompra=[...batalla.eventos].reverse().find(e=>e.tipo==='evolucion'||e.tipo==='evolucion_revertida');
