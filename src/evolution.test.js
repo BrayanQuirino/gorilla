@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {HABILIDADES_EVOLUCION,POR_ID,geometria_panal,bonificacion_efectiva,comprar_habilidad,nivel_habilidad,costo_habilidad,disponible_habilidad} from './evolution.js';
+import {HABILIDADES_EVOLUCION,POR_ID,geometria_panal,bonificacion_efectiva,comprar_habilidad,nivel_habilidad,costo_habilidad,disponible_habilidad,reembolso_habilidad,revertir_habilidad,bloqueos_reembolso} from './evolution.js';
 
 const DIRECCIONES=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
 test('unique skills and valid acyclic prerequisites',()=>{
@@ -43,4 +43,25 @@ test('prerequisites, affordability and cap are enforced',()=>{
  b.bananas=1000;assert.equal(comprar_habilidad(b,'S04'),true);
  assert.equal(comprar_habilidad(b,'S04'),false);
  assert.equal(bonificacion_efectiva(90,5),100);
+});
+
+test('refund returns 65% of actual purchase and restores original human values',()=>{
+ const b={bananas:200,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[{radar:{inteligencia:60},valentia:50}]};
+ assert.equal(comprar_habilidad(b,'E01'),true);
+ assert.equal(b.hombres[0].radar.inteligencia,63);
+ const paid=200-b.bananas;
+ assert.equal(reembolso_habilidad(b,'E01'),Math.floor(paid*.65));
+ assert.equal(revertir_habilidad(b,'E01'),true);
+ assert.equal(b.bananas,200-paid+Math.floor(paid*.65));
+ assert.equal(b.hombres[0].radar.inteligencia,60);
+ assert.equal(revertir_habilidad(b,'E01'),false);
+});
+test('cannot refund an evolution required by a purchased descendant',()=>{
+ const b={bananas:200,tiempo:300,resultado:'',evolucion:{},eventos:[],hombres:[]};
+ assert.equal(comprar_habilidad(b,'S01'),true);
+ assert.equal(comprar_habilidad(b,'S04'),true);
+ assert.deepEqual(bloqueos_reembolso(b,'S01'),['S04']);
+ assert.equal(revertir_habilidad(b,'S01'),false);
+ assert.equal(revertir_habilidad(b,'S04'),true);
+ assert.equal(revertir_habilidad(b,'S01'),true);
 });
