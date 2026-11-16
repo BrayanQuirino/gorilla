@@ -5,6 +5,8 @@ import { crear_sorteo_objetos, preparar_equipo, habilidades, arquetipos } from '
 import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comprar_suministro, dificultades, distribucion_equipo, paramedicos_disponibles, duracion_segunda_vida, reanudar_segunda_vida, en_furia, danio_humano, dano_puno_arquetipo, eficiencia_arma, condiciones_combate } from './battle.js';
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_moba } from './arena-moba.js';
+import { crear_dibujante_three } from './arena-three.js';
+const VISTA_THREE_PREVIEW = new URLSearchParams(window.location.search).get('preview') === 'three';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import { encuadre } from './terreno.js';
 import PanalEvolucion from './EvolutionTree.jsx';
@@ -291,8 +293,8 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,comprar,com
 }
 function App() {
   const [dificultad, cambiar_dificultad] = useState(0);
-  const [arena_elegida,cambiar_arena] = useState('claro');
-  const [batalla, cambiar_batalla] = useState(() => partida(0));
+  const [arena_elegida,cambiar_arena] = useState(VISTA_THREE_PREVIEW?'selva':'claro');
+  const [batalla, cambiar_batalla] = useState(() => partida(0,VISTA_THREE_PREVIEW?'selva':'claro'));
   const [iniciada, cambiar_inicio] = useState(false);
   const [en_pausa, cambiar_pausa] = useState(false);
   const [modo_visual, cambiar_modo_visual] = useState('3d');
@@ -350,7 +352,7 @@ function App() {
     };
     try {
       const render = modo_visual === '3d'
-        ? crear_dibujante_moba(canvas.current, () => ultimo_cuadro.current?.(), fallo)
+        ? (VISTA_THREE_PREVIEW?crear_dibujante_three:crear_dibujante_moba)(canvas.current, () => ultimo_cuadro.current?.(), fallo)
         : crear_dibujante(canvas.current);
       dibujar.current = render;
       return () => {
@@ -521,9 +523,9 @@ function App() {
         <div className="hoja-cabecera"><h2>{panel_movil==='ajustes'?'⚙ Ajustes':'📊 Equipo'}</h2>
           <button onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}} aria-label="Cerrar">✕</button></div>
         {panel_movil==='equipo'?<PanelEquipo batalla={batalla} seleccionInicial={arquetipo_abierto}/>:<div className="ajustes-panel ajustes-cuadricula">
-          <div className="configuracion-vista">🎮 {modo_visual==='3d'?'Arena MOBA · 3D real':'Modo de compatibilidad · WebGL no disponible'}</div>
+          <div className="configuracion-vista">🎮 {modo_visual==='3d'?(VISTA_THREE_PREVIEW?'THREE.JS · VISTA PREVIA 3D · COMBATE AUTOMÁTICO':'Arena MOBA · 3D real'):'Modo de compatibilidad · WebGL no disponible'}</div>
           <label>Arena<select value={arena_elegida} onChange={e=>{const id=e.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>
-            {Object.entries(ARENAS).map(([id,item])=><option key={id} value={id}>{item.nombre}</option>)}</select></label>
+            {Object.entries(ARENAS).filter(([id])=>!VISTA_THREE_PREVIEW||['selva','hangar','canon'].includes(id)).map(([id,item])=><option key={id} value={id}>{item.nombre}</option>)}</select></label>
           <label>Dificultad<select value={dificultad} onChange={e=>{const n=Number(e.target.value);cambiar_dificultad(n);nueva_partida(n);}}>
             {dificultades.map((d,i)=><option key={d} value={i}>{d}</option>)}</select></label>
           <label>♫ Música {volumen_musica}%<input type="range" min="0" max="100" value={volumen_musica} onChange={e=>cambiar_volumen_musica(Number(e.target.value))} aria-label="Volumen de música"/></label>
