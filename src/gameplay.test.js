@@ -242,7 +242,7 @@ test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', (
   assert.ok(g.movimiento > 0);
 
   batalla.hombres = batalla.hombres.slice(0, 1);
-  Object.assign(batalla.hombres[0], { x: 690, y: 400, altura: 0 });
+  Object.assign(batalla.hombres[0], { x: 900, y: 400, altura: 0 });
   Object.assign(g, { x: 600, y: 400, altura: 0, reloj: 0, fase: 'espera' });
   avanzar_batalla(batalla, .05);
   assert.equal(g.fase, 'persecucion');
