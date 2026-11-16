@@ -237,24 +237,78 @@ class Mesh {
 export function crear_dibujante_moba(canvas,actualizar,fallo){
  const gl=canvas.getContext('webgl',{alpha:false,antialias:true,depth:true});
  if(!gl)throw Error('WebGL no disponible');
- const prog=makeProgram(gl),buffer=gl.createBuffer();
+ const prog=makeProgram(gl),buffer=gl.createBuffer(),instanceBuffer=gl.createBuffer();
+ const extension=gl.getExtension('ANGLE_instanced_arrays');
  const pos=gl.getAttribLocation(prog,'aPosition'),nor=gl.getAttribLocation(prog,'aNormal'),col=gl.getAttribLocation(prog,'aColor');
+ const instancePos=gl.getAttribLocation(prog,'aInstancePosition'),instanceInfo=gl.getAttribLocation(prog,'aInstanceInfo');
  const projection=gl.getUniformLocation(prog,'uProjection'),light=gl.getUniformLocation(prog,'uLight');
- const meshes=new Map();
- let destroyed=false,previousArena=null,frames=0,zoom=1;
+ const instanced=gl.getUniformLocation(prog,'uInstanced'),timeUniform=gl.getUniformLocation(prog,'uTime');
+ const meshes=new Map(),templates=new Map();
+ const mock={id:1,x:ancho/2,y:alto/2,vida:20,estado:'normal',vx:0,vy:0,cascondo:false,objeto:null};
+ if(extension){
+  for(const [key,archetype] of [
+   ['medical','Paramédico'],['athlete','Deportista'],['strong','Musculoso'],
+   ['elderly','Anciano'],['normal','Oficinista']
+  ]){
+   const m=new Mesh();m.humano({...mock,arquetipo:archetype},0);
+   const gpu=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,gpu);
+   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(m.vertices),gl.STATIC_DRAW);
+   templates.set(key,{buffer:gpu,count:m.count});
+  }
+ }
+ let destroyed=false,previousArena=null,zoom=1;
  const onWheel=e=>{e.preventDefault();zoom=clamp(zoom*(e.deltaY>0?1.09:.91),.82,1.40);actualizar?.();};
+ const onContextLost=e=>{e.preventDefault();fallo(new Error('Se perdió el contexto WebGL'))};
  canvas.addEventListener('wheel',onWheel,{passive:false});
+ canvas.addEventListener('webglcontextlost',onContextLost);
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.disable(gl.CULL_FACE);
+ function bindGeometry(gpu){
+  gl.bindBuffer(gl.ARRAY_BUFFER,gpu);
+  for(const [attr,offset] of [[pos,0],[nor,12],[col,24]]){
+   gl.enableVertexAttribArray(attr);gl.vertexAttribPointer(attr,3,gl.FLOAT,false,36,offset);
+  }
+ }
+ function archetypeGroup(h){
+  if(h.arquetipo==='Paramédico')return 'medical';
+  if(h.arquetipo==='Anciano')return 'elderly';
+  if(/Musculoso|Tarzán/.test(h.arquetipo||''))return 'strong';
+  if(/Deportista|Boxeador/.test(h.arquetipo||''))return 'athlete';
+  return 'normal';
+ }
  function frame(b){
   if(destroyed||gl.isContextLost())return false;
   const id=b.arena||'claro',pal=palettes[id]||palettes.claro;
-  if(!meshes.has(id)){const terrain=new Mesh();terrain.terrain(id);
-   meshes.set(id,{data:new Float32Array(terrain.vertices),count:terrain.count});}
-  if(previousArena!==id){previousArena=id;frames=0;}
-  const staticMesh=meshes.get(id),dynamic=new Mesh();
+  if(!meshes.has(id)){
+   const scene=new Mesh();scene.terrain(id);
+   const gpu=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,gpu);
+   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(scene.vertices),gl.STATIC_DRAW);
+   meshes.set(id,{buffer:gpu,count:scene.count});
+  }
+  if(previousArena!==id)previousArena=id;
+  const dynamic=new Mesh();
   dynamic.decoration(b);
   const t=b.transcurrido+(b.celebracion||0);
-  for(const h of b.hombres)dynamic.humano(h,t);
+  const batches=new Map();
+  for(const h of b.hombres){
+   if(!extension){
+    dynamic.humano(h,t);
+    continue;
+   }
+   if(h.vida<=0||h.estado==='eliminado'||h.estado==='incapacitado'){
+    dynamic.caido(h);continue;
+   }
+   const group=archetypeGroup(h);
+   if(!batches.has(group))batches.set(group,[]);
+   const location=point(h),moving=Math.hypot(h.vx||0,h.vy||0);
+   const yaw=moving>3?Math.atan2(h.vx,h.vy):0;
+   const bodyScale=1+(h.arquetipo==='Boxeador'?.035:0);
+   batches.get(group).push(...location,yaw,bodyScale,h.id*.72,clamp(moving/28,0,1));
+   if(h.objeto){
+    const [x,a,z]=location;
+    dynamic.tube([x+.19,a+.46,z],[x+.24,a+.43,z-.30],
+     .045,.021,h.objeto.tipo==='fuego'?color(40,47,54):color(145,104,70),5);
+   }
+  }
   dynamic.gorila(b.gorila,t);
   const aspect=canvas.width/Math.max(1,canvas.height);
   const eye=[11.7,15.0,17.8],target=[0,.05,0];
@@ -262,18 +316,47 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
   gl.viewport(0,0,canvas.width,canvas.height);
   gl.clearColor(...pal.sky,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   gl.useProgram(prog);gl.uniformMatrix4fv(projection,false,new Float32Array(m));
-  gl.uniform3f(light,.56,.87,.45);
+  gl.uniform3f(light,.56,.87,.45);gl.uniform1f(timeUniform,t);
+  gl.uniform1f(instanced,0);
+  bindGeometry(meshes.get(id).buffer);
+  gl.drawArrays(gl.TRIANGLES,0,meshes.get(id).count);
   gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-  const draw=(data,count)=>{
-   gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
-   for(const [attr,offset] of [[pos,0],[nor,12],[col,24]]){
-    gl.enableVertexAttribArray(attr);gl.vertexAttribPointer(attr,3,gl.FLOAT,false,36,offset);}
-   gl.drawArrays(gl.TRIANGLES,0,count);
-  };
-  draw(staticMesh.data,staticMesh.count);
-  draw(new Float32Array(dynamic.vertices),dynamic.count);
-  frames++;return true;
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(dynamic.vertices),gl.DYNAMIC_DRAW);
+  bindGeometry(buffer);
+  gl.drawArrays(gl.TRIANGLES,0,dynamic.count);
+  if(extension){
+   gl.uniform1f(instanced,1);
+   for(const [group,instances] of batches){
+    const template=templates.get(group);if(!template||!instances.length)continue;
+    bindGeometry(template.buffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER,instanceBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(instances),gl.DYNAMIC_DRAW);
+    if(instancePos>=0){
+     gl.enableVertexAttribArray(instancePos);
+     gl.vertexAttribPointer(instancePos,3,gl.FLOAT,false,28,0);
+     extension.vertexAttribDivisorANGLE(instancePos,1);
+    }
+    if(instanceInfo>=0){
+     gl.enableVertexAttribArray(instanceInfo);
+     gl.vertexAttribPointer(instanceInfo,4,gl.FLOAT,false,28,12);
+     extension.vertexAttribDivisorANGLE(instanceInfo,1);
+    }
+    extension.drawArraysInstancedANGLE(gl.TRIANGLES,0,template.count,instances.length/7);
+   }
+   if(instancePos>=0){extension.vertexAttribDivisorANGLE(instancePos,0);gl.disableVertexAttribArray(instancePos);}
+   if(instanceInfo>=0){extension.vertexAttribDivisorANGLE(instanceInfo,0);gl.disableVertexAttribArray(instanceInfo);}
+   gl.uniform1f(instanced,0);
+  }
+  return true;
  }
- frame.liberar=()=>{destroyed=true;canvas.removeEventListener('wheel',onWheel);gl.deleteBuffer(buffer);gl.deleteProgram(prog);meshes.clear();};
+ frame.liberar=()=>{
+  destroyed=true;
+  canvas.removeEventListener('wheel',onWheel);
+  canvas.removeEventListener('webglcontextlost',onContextLost);
+  gl.deleteBuffer(buffer);gl.deleteBuffer(instanceBuffer);
+  for(const t of templates.values())gl.deleteBuffer(t.buffer);
+  for(const m of meshes.values())gl.deleteBuffer(m.buffer);
+  gl.deleteProgram(prog);meshes.clear();templates.clear();
+ };
  return frame;
 }
