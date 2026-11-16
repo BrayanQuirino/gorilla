@@ -8,7 +8,7 @@ import { crear_dibujante_3d } from './arena3d.js';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import { encuadre } from './terreno.js';
 import PanalEvolucion from './EvolutionTree.jsx';
-import {comprar_habilidad} from './evolution.js';
+import {comprar_habilidad,revertir_habilidad} from './evolution.js';
 import retrato_furia from './art/gorila-segunda-vida.webp';
 import { crear_audio_arcade } from './audio.js';
 import './style.css';
@@ -17,7 +17,7 @@ const sortear_objeto = crear_sorteo_objetos(catalogo);
 const etiquetas = ['Fuerza','Velocidad','Inteligencia','Temple','Precisión','Agilidad','Estrategia','Técnica'];
 function partida(nivel=0,arena='claro') {
  const equipo=preparar_equipo(sortear_objeto,catalogo,arena);
- return crear_batalla(equipo.hombres,nivel,Math.random,equipo);
+ return crear_batalla(equipo.hombres,nivel,Math.random,{...equipo,automatico:true});
 }
 
 function punto(indice, radio) {
@@ -204,11 +204,11 @@ function PanelEquipo({batalla,onAbrir,seleccionInicial=null}) {
             <span>✓ {activos}</span></div>
         </button>;
       })}</div>
-      <div className="tacticas-grafico"><h3>Tácticas en curso</h3>
-        {Object.entries(batalla.plan).map(([id,valor])=>{
-          const porcentaje=distribucion_equipo(batalla).porcentaje(id);
-          return <div key={id}><span>{TACTICAS[id].nombre}</span><progress value={porcentaje} max="100"/>
-            <b>{porcentaje.toFixed(1)}% {id==='rescatar'?'🩺':''}</b></div>;
+      <div className="tacticas-grafico"><h3>Conductas automáticas</h3>
+        {['atacar','huir','esconder','buscar_armas','distraer','rescatar'].map(id=>{
+          const cantidad=vivos.filter(h=>h.orden===id).length;
+          return <div key={id}><span>{TACTICAS[id].nombre}</span><progress value={cantidad} max={Math.max(1,vivos.length)}/>
+            <b>{cantidad} humanos</b></div>;
         })}
       </div>
     </>}
@@ -255,156 +255,37 @@ const beneficios={
  refuerzos:'Llegan 5 hombres nuevos de arquetipos aleatorios, en cualquier momento.',
  inspiracion:'Inspira al equipo y eleva su valentía durante 20 segundos.'
 };
-function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,plan,cambiar_plan,comprar,comprarEvolucion,reanudar,cancelar}){
-  const maxRescate=paramedicos_disponibles(batalla);
-  const rescatar=plan.rescatar||0;
-  const entradas=Object.entries(TACTICAS).filter(([id])=>id!=='rescatar');
-  const suma=Object.entries(plan).filter(([id])=>id!=='rescatar')
-    .reduce((a,[,v])=>a+v,0);
-  const distribucion=distribucion_equipo(batalla,plan);
-  const porcentajeDisponible=distribucion.total?100*distribucion.restantes/distribucion.total:0;
-  function porcentaje(id,valor){
-    const siguiente={...plan},actual=siguiente[id]||0;
-    if(valor===actual)return;
-    const otros=Object.keys(siguiente).filter(k=>k!=='rescatar');
-    if(valor===0){
-      if(otros.length===1)return;
-      delete siguiente[id];
-      const destino=otros.filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])[0];
-      siguiente[destino]+=actual;
-    }else if(!actual){
-      const donante=otros.sort((a,b)=>siguiente[b]-siguiente[a])[0];
-      const cantidad=Math.min(valor,Math.max(0,siguiente[donante]-5));
-      if(cantidad<5)return;
-      siguiente[donante]-=cantidad;siguiente[id]=cantidad;
-    }else if(valor>actual){
-      let falta=valor-actual;
-      for(const otro of otros.filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])){
-        const mover=Math.min(falta,siguiente[otro]-5);
-        siguiente[otro]-=mover;falta-=mover;
-        if(!falta)break;
-      }
-      siguiente[id]=valor-falta;
-    }else{
-      const destino=otros.filter(x=>x!==id).sort((a,b)=>siguiente[b]-siguiente[a])[0];
-      if(!destino)return;
-      siguiente[destino]+=actual-valor;siguiente[id]=valor;
-    }
-    cambiar_plan(siguiente);
-  }
-  function cambiar_rescate(n){
-    const nuevo=Math.max(0,Math.min(maxRescate,n));
-    const siguiente={...plan};
-    if(nuevo)siguiente.rescatar=nuevo;else delete siguiente.rescatar;
-    cambiar_plan(siguiente);
-  }
-  const vivos=batalla.hombres.filter(activo);
-  const armados=vivos.filter(h=>h.objeto).length;
-  const heridos=vivos.filter(h=>h.estado==='herido').length;
-  const cansados=vivos.filter(h=>(h.fatiga_carrera||0)>70).length;
-  const caidos=batalla.hombres.filter(h=>!activo(h)).length;
-  const conArmaFuego=vivos.filter(h=>h.objeto?.tipo==='fuego'&&h.objeto.municion>0).length;
-  const vidaEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.vida/h.vida_maxima,0)/vivos.length*100):0;
-  const agilidadEquipo=vivos.length?Math.round(vivos.reduce((total,h)=>total+Math.max(60,100-(h.fatiga_carrera||0)*.4),0)/vivos.length):100;
-  const coraje=vivos.length?Math.round(vivos.reduce((total,h)=>total+h.valentia,0)/vivos.length):0;
-  const indicadores=[
-    {icon:'👥',etiqueta:'En combate',valor:vivos.length,sub:'de '+batalla.hombres.length},
-    {icon:'🧰',etiqueta:'Armados',valor:armados,sub:conArmaFuego+' con arma de fuego'},
-    {icon:'🩹',etiqueta:'Heridos',valor:heridos,sub:cansados+' con agilidad reducida'},
-    {icon:'💀',etiqueta:'Bajas',valor:caidos,sub:'fuera de combate'},
-  ];
-  const descripcionesTacticas={
-    atacar:{icon:'⚔️',detalle:'Presionan al gorila; mayor daño, mayor exposición.',foco:'Ofensiva'},
-    huir:{icon:'💨',detalle:'Se alejan del gorila para sobrevivir y recuperar posición.',foco:'Supervivencia'},
-    esconder:{icon:'🌿',detalle:'Se refugian detrás del terreno para evitar ser vistos.',foco:'Cobertura'},
-    buscar_armas:{icon:'🎒',detalle:'Recogen equipo de la arena para aumentar el daño.',foco:'Equipamiento'},
-    distraer:{icon:'🎯',detalle:'Desvían la atención del gorila para proteger aliados.',foco:'Control'},
-  };
-  const orientacion=armados<Math.max(10,vivos.length*.3)?'Queda poco equipo armado: conviene buscar armas.'
-    :heridos>vivos.length*.25?'Hay muchos heridos: considera huir y asignar paramédicos.'
-    :agilidadEquipo<75?'El equipo corre más lento: reducir desplazamientos permite recuperar agilidad.'
-    :coraje<45?'La valentía es baja: distraer y esconderse puede evitar bajas.'
-    :'El equipo tiene recursos para presionar; ajusta los porcentajes según el terreno.';
-  if(!abierto)return null;
-  return <div className="estrategia-cortina" onMouseDown={e=>{if(e.target===e.currentTarget)cancelar();}}>
-    <section className="menu-estrategia" role="dialog" aria-modal="true" aria-labelledby="titulo-estrategia">
-    <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Equipo'?'📊 Equipo':categoria==='Suministros'?'📦 Suministros':categoria==='Evolucion'?'🍯 Evolución':'⚔️ Tácticas'}</h2>
-      <button type="button" onClick={cancelar} aria-label="Cerrar menú y volver al campo">✕</button></header>
-    <div className="tabs-retro">
-      <button aria-pressed={categoria==='Combate'} onClick={()=>cambiar_categoria('Combate')}>⚔️ Tácticas</button>
-      <button aria-pressed={categoria==='Suministros'} onClick={()=>cambiar_categoria('Suministros')}>📦 Suministros</button>
-      <button aria-pressed={categoria==='Evolucion'} onClick={()=>cambiar_categoria('Evolucion')}>🍯 Evolución</button>
-      <button aria-pressed={categoria==='Equipo'} onClick={()=>cambiar_categoria('Equipo')}>📊 Equipo</button>
-    </div>
-    {categoria==='Equipo'?<div className="panel-equipo-integrado"><PanelEquipo batalla={batalla}/></div>:categoria==='Evolucion'?<PanalEvolucion batalla={batalla} comprar={comprarEvolucion}/>:<div className="panel-tactico-layout">
-      <section className="comando-panel comando-compartido" aria-label="Inteligencia táctica">
-        <div className="comando-encabezado">
-          <span className="comando-emblema" aria-hidden="true"><img className="comando-retrato" src={retrato_furia} alt=""/></span>
-          <div><strong>CENTRO DE MANDO</strong><small>Estado del escuadrón · {ARENAS[batalla.arena].nombre}</small></div>
-          <span className="comando-directo">● EN VIVO</span>
-        </div>
-        <div className="comando-indicadores">{indicadores.map(d=><div className="comando-dato" key={d.etiqueta}>
-          <span className="comando-icono" aria-hidden="true">{d.icon}</span>
-          <span><small>{d.etiqueta}</small><strong>{d.valor}</strong><em>{d.sub}</em></span>
-        </div>)}</div>
-        <div className="comando-graficas">
-          <div className="comando-dona" style={{'--porcion':vivos.length/Math.max(1,batalla.hombres.length)*100}}>
-            <span><strong>{vivos.length}</strong><small>ACTIVOS</small></span>
-          </div>
-          <div className="comando-barras">
-            {[
-              {nombre:'Salud media',n:vidaEquipo,color:'#7ed99b'},
-              {nombre:'Agilidad al correr',n:agilidadEquipo,color:'#eec36c'},
-              {nombre:'Valentía',n:coraje,color:'#8fc7f1'},
-              {nombre:'Equipamiento',n:Math.round(armados/Math.max(1,vivos.length)*100),color:'#c9a4fc'},
-            ].map(d=><div className="comando-medidor" key={d.nombre}>
-              <div><span>{d.nombre}</span><b>{d.n}%</b></div>
-              <div className="comando-pista"><i style={{width:d.n+'%',background:d.color}}/></div>
-            </div>)}
-          </div>
-        </div>
-        <div className="comando-consejo"><span>💡</span><p>{orientacion}</p></div>
-      </section>
-    <div className="panel-tactico-acciones">
-    {categoria==='Suministros'?<>
-      <p className="saldo">🍌 {batalla.bananas} · {batalla.entregas.length} paquetes en camino</p>
-      <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id,item])=>
-        <button className="suministro-descrito" key={id} disabled={batalla.bananas<item.costo}
-          onClick={()=>comprar(id)}><span className="suministro-icono" aria-hidden="true">{iconos_suministros[id]||'📦'}</span>
-          <span className="suministro-descripcion"><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
-          <b>{item.costo} 🍌</b></button>)}</div>
-    </>:<>
-
-      <div className="tactica-medicos">
-        <div><strong>🩺 Paramédicos de rescate</strong><small>Cada paramédico asignado resta un combatiente de las demás tácticas.</small></div>
-        <div className="contador-paramedicos">
-          <button aria-label="Asignar un paramédico menos" disabled={rescatar<=0}
-            onClick={()=>cambiar_rescate(rescatar-1)}>−</button>
-          <strong>{rescatar} / {maxRescate}</strong>
-          <button aria-label="Asignar un paramédico más" disabled={rescatar>=maxRescate}
-            onClick={()=>cambiar_rescate(rescatar+1)}>+</button>
-        </div>
-      </div>
-
-      <div className="tacticas-todas">{entradas.map(([id,t])=>{
-        const valor=plan[id]||0;
-        return <div className="tactica-fila" key={id}>
-          <div className="tactica-cabecera"><strong><span className="tactica-emoji">{descripcionesTacticas[id]?.icon}</span>{t.nombre}</strong><b>{distribucion.porcentaje(id).toFixed(1)}% <small>({distribucion.cuotas[id]||0})</small></b></div>
-          <div className="tactica-detalle"><span>{descripcionesTacticas[id]?.foco}</span><small>{descripcionesTacticas[id]?.detalle}</small></div>
-          <div className="tactica-ajuste">
-            <input type="range" aria-label={t.nombre} min="0" max="100" step="any"
-              value={valor*porcentajeDisponible/100}
-              onChange={e=>porcentaje(id,Math.max(0,Math.min(100,Math.round(Number(e.target.value)*100/Math.max(1,porcentajeDisponible)/5)*5)))}/>
-            <button onClick={()=>porcentaje(id,valor?0:10)}>{valor?'✕':'+'}</button>
-          </div>
-        </div>;
-      })}</div>
-    </>}
-    </div></div>}
-    <footer><button onClick={cancelar}>Cerrar</button>
-      <button className="principal" onClick={reanudar} disabled={suma!==100}>{categoria==='Combate'?'Aplicar y jugar':'Volver al juego'}</button></footer>
-    </section>
-  </div>;
+function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,comprar,comprarEvolucion,revertirEvolucion,cancelar}){
+ if(!abierto)return null;
+ const vivos=batalla.hombres.filter(activo);
+ const roles=['atacar','huir','esconder','buscar_armas','distraer','rescatar'];
+ const iconos={atacar:'⚔️',huir:'💨',esconder:'🌿',buscar_armas:'🎒',distraer:'🎯',rescatar:'🩺'};
+ const nombres={atacar:'Atacando',huir:'Retirada',esconder:'Ocultándose',buscar_armas:'Buscando armas',distraer:'Distrayendo',rescatar:'Rescatando'};
+ return <div className="estrategia-cortina" onMouseDown={e=>{if(e.target===e.currentTarget)cancelar();}}>
+  <section className="menu-estrategia" role="dialog" aria-modal="true" aria-labelledby="titulo-estrategia">
+   <header className="menu-cabecera"><h2 id="titulo-estrategia">{categoria==='Equipo'?'📊 Equipo':categoria==='Suministros'?'📦 Suministros':'🍯 Evolución'}</h2>
+    <button type="button" onClick={cancelar} aria-label="Cerrar menú y volver al campo">✕</button></header>
+   <div className="tabs-retro">
+    <button aria-pressed={categoria==='Evolucion'} onClick={()=>cambiar_categoria('Evolucion')}>🍯 Evolución</button>
+    <button aria-pressed={categoria==='Suministros'} onClick={()=>cambiar_categoria('Suministros')}>📦 Suministros</button>
+    <button aria-pressed={categoria==='Equipo'} onClick={()=>cambiar_categoria('Equipo')}>📊 Equipo</button>
+   </div>
+   {categoria==='Evolucion'?<PanalEvolucion batalla={batalla} comprar={comprarEvolucion} revertir={revertirEvolucion}/>:
+    categoria==='Equipo'?<div className="panel-equipo-integrado"><section className="ia-automatico">
+     <h3>🧠 Inteligencia táctica automática</h3><p>Los humanos deciden qué hacer a partir de sus habilidades, arquetipos y condiciones de batalla.</p>
+     <div className="ia-roles">{roles.map(id=><div key={id}><span>{iconos[id]} {nombres[id]}</span><strong>{vivos.filter(h=>h.orden===id).length}</strong></div>)}</div>
+     <small>Las conductas evolucionan durante la batalla, sin asignaciones manuales.</small>
+    </section><PanelEquipo batalla={batalla}/></div>:
+    <div className="evo-suministros"><p className="saldo">🍌 {Math.floor(batalla.bananas)} · {batalla.entregas.length} paquetes en camino</p>
+     <div className="lista-suministros">{Object.entries(SUMINISTROS).map(([id,item])=>
+      <button className="suministro-descrito" key={id} disabled={batalla.bananas<item.costo}
+       onClick={()=>comprar(id)}><span className="suministro-icono" aria-hidden="true">{iconos_suministros[id]||'📦'}</span>
+       <span className="suministro-descripcion"><strong>{item.nombre}</strong><small>{beneficios[id]}</small></span>
+       <b>{item.costo} 🍌</b></button>)}</div>
+    </div>}
+   <footer><button className="principal" onClick={cancelar}>Volver al juego ▶</button></footer>
+  </section>
+ </div>;
 }
 function App() {
   const [dificultad, cambiar_dificultad] = useState(0);
@@ -413,8 +294,7 @@ function App() {
   const [iniciada, cambiar_inicio] = useState(false);
   const [en_pausa, cambiar_pausa] = useState(false);
   const [modo_visual, cambiar_modo_visual] = useState('3d');
-  const [categoria, cambiar_categoria] = useState('Combate');
-  const [plan, cambiar_plan] = useState({});
+  const [categoria, cambiar_categoria] = useState('Evolucion');
   const [panel_movil, cambiar_panel_movil] = useState(null);
   const [arquetipo_abierto, cambiar_arquetipo_abierto]=useState(null);
   const [rayos_x, cambiar_rayos_x]=useState(false);
@@ -536,16 +416,10 @@ function App() {
     return ()=>window.removeEventListener('keydown',tecla);
   },[menu_abierto]);
 
-  function abrir_estrategia(seccion='Combate') {
+  function abrir_estrategia(seccion='Evolucion') {
     cambiar_categoria(seccion);
-    cambiar_plan({ ...batalla.plan });
     cambiar_pausa(true);
     cambiar_menu_abierto(true);
-  }
-
-  function reanudar() {
-    aplicar_plan(batalla, plan);
-    cerrar_estrategia();
   }
 
   function cerrar_estrategia() {
@@ -563,8 +437,15 @@ function App() {
     cambiar_arquetipo_abierto(null);
     cambiar_menu_abierto(false);
     cambiar_inicio(false);
-    cambiar_categoria('Combate');
+    cambiar_categoria('Evolucion');
     cambiar_pausa(false);
+  }
+
+  function revertirEvolucion(id){
+    if(revertir_habilidad(batalla,id)){
+      actualizar_panel(v=>v+1);
+      ultimo_cuadro.current?.();
+    }
   }
 
   function comprarEvolucion(id){
@@ -609,8 +490,8 @@ function App() {
               (cargando_arena?'Cargando arena':iniciada?'Pausa':'Listos')}</div>}
           {victoria&&<div className="celebracion-victoria" aria-label="Victoria: los hombres celebran">🏆 ¡VICTORIA! <span>Los supervivientes celebran</span></div>}
           {menu_abierto&&<MenuEstrategia abierto={menu_abierto} batalla={batalla} categoria={categoria}
-            cambiar_categoria={cambiar_categoria} plan={plan} cambiar_plan={cambiar_plan}
-            comprar={comprar} comprarEvolucion={comprarEvolucion} reanudar={reanudar} cancelar={cerrar_estrategia}/>}
+            cambiar_categoria={cambiar_categoria} comprar={comprar} comprarEvolucion={comprarEvolucion}
+            revertirEvolucion={revertirEvolucion} cancelar={cerrar_estrategia}/>}
           {rayos_x&&<div className="visor-rayos-x"><div className="visor-titulo">⌖ RAYOS X · {batalla.armas_suelo.filter(o=>!o.recogido_por).length} objetos</div><svg viewBox="0 0 1000 640" preserveAspectRatio="none" aria-label="Mapa de armas en la arena">{batalla.armas_suelo.filter(o=>!o.recogido_por).map(o=>{const vista=encuadre(batalla.arena);const x=vista.x+o.x*vista.ancho/ancho;const y=vista.y+o.y*vista.alto/alto;return <g key={o.id}><circle cx={x} cy={y} r={o.objeto?.tipo==='fuego'?19:13} fill="#6efae622" stroke="#60ffe8" strokeWidth="3"/><circle cx={x} cy={y} r="4" fill="#fff3a0"/></g>;})}</svg></div>}
           {anuncio&&<div className="segunda-vida" role="status" aria-label="Segunda vida del gorila">
             <img src={retrato_furia} alt=""/>
@@ -623,10 +504,9 @@ function App() {
               onClick={()=>{audio.current?.configurarArena(batalla.arena);audio.current?.activar(sonido);if(sonido)audio.current?.efecto('inicio_batalla');cambiar_inicio(true);}}>▶ Iniciar batalla</button>:
             <button className="principal" ref={boton_estrategia}
               disabled={Boolean(batalla.resultado)||cargando_arena||anuncio}
-              onClick={()=>abrir_estrategia('Combate')}>⚔️ Tácticas</button>}
+              onClick={()=>abrir_estrategia('Evolucion')}>🍯 Evolución</button>}
           <button disabled={!iniciada||Boolean(batalla.resultado)||cargando_arena||anuncio}
             onClick={()=>abrir_estrategia('Suministros')}>📦 Suministros</button>
-          <button disabled={Boolean(batalla.resultado)||anuncio} onClick={()=>abrir_estrategia('Evolucion')}>🍯 Evolución</button>
           <button onClick={()=>abrir_estrategia('Equipo')}>📊 Equipo</button>
           <button aria-pressed={rayos_x} onClick={()=>cambiar_rayos_x(v=>!v)}>{rayos_x?'✕ Cerrar rayos X':'⌖ Rayos X'}</button>
         </div>
