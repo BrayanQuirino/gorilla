@@ -609,7 +609,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
   const apertura = g.fase === 'recuperacion' ? 1.35 : 1;
   const aliados_cerca=b.hombres.filter(otro=>otro!==h&&activo(otro)&&distancia(otro,h)<75).length;
   const bono_grupal=tiene_habilidad(b,'A07')&&aliados_cerca>=2?1.10+(tiene_habilidad(b,'A11')?.08:0):1;
-  const danio = danio_humano(h, disparo, apertura, cerca_g / alcance)*(disparo?1:(tiene_habilidad(b,'A04')?1.10:1))*bono_grupal*(tiene_habilidad(b,'E08')&&h.oculto?1.25:1);
+  const danio = danio_humano(h, disparo, apertura, cerca_g / alcance)*(disparo?1:(tiene_habilidad(b,'A04')?1.10:1))*bono_grupal*(tiene_habilidad(b,'E08')&&h.oculto?1.25:1)*(tiene_habilidad(b,'A00')?1.05:1);
   if(!disparo)consumir_durabilidad(b,h);
   const aplicado = Math.min(g.vida, danio);
   g.vida -= aplicado;
@@ -632,7 +632,7 @@ function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
     (minimo + azar * (maximo - minimo)) * multiplicador * (1 - h.proteccion) * cobertura * defensa;
   if(h.objeto&&impacto>0&&b.azar()<limitar((impacto/h.vida_maxima-.12)*.5+
     (1-h.radar.fuerza/100)*.15,0,.83))soltar_objeto(b,h,20+Math.min(70,impacto));
-  aplicar_danio_humano(b,h,impacto*(tiene_habilidad(b,'P09')?.9:1),45*(tiene_habilidad(b,'S06')?.8:1));
+  aplicar_danio_humano(b,h,impacto*(tiene_habilidad(b,'P09')?.9:1)*(tiene_habilidad(b,'S00')?.95:1),45*(tiene_habilidad(b,'S06')?.8:1));
   registrar(b,'golpe_gorila',{hombre:h.id});
 }
 
@@ -1068,7 +1068,7 @@ export function decidir_accion_humano(b,h){
 export function actualizar_ia_humana(b,forzar=false){
  if(!b.automatico)return;
  if(!forzar&&b.transcurrido<(b.ia_siguiente||0))return;
- b.ia_siguiente=b.transcurrido+.55;
+ b.ia_siguiente=b.transcurrido+(tiene_habilidad(b,'E00')?.40:.55);
  for(const h of b.hombres){
    if(!activo(h))continue;
    const nuevo=decidir_accion_humano(b,h);
