@@ -15,7 +15,7 @@ const bases = {
 };
 // One source of truth for 2D/2.5D stage props, footprint collision,
 // and cover. Each prop has a visible solid base and its own height.
-const tipos={claro:['roca','roca','roca','arbol','roca','arbol'],
+const tipos={claro:['roca','roca','puente','arbol','roca','arbol'],
  selva:['ruina','roca','ruina','arbol','ruina','arbol','roca'],
  canon:['roca','roca','roca','roca','roca','roca','roca'],
  hangar:['contenedor','caja','contenedor','caja','contenedor','caja','contenedor']};
