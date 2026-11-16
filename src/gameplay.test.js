@@ -636,6 +636,7 @@ test('la nueva economía produce menos de una banana por segundo de supervivenci
  const antes=batalla.bananas;
  // Recompensa temporal: 0.18 bananas por segundo.
  batalla.gorila.fase='espera';batalla.gorila.reloj=100;
+ batalla.gorila.x=2000;batalla.gorila.y=2000; // Evita daño: solo medimos ingreso por supervivencia.
  for(let i=0;i<10;i++)avanzar_batalla(batalla,.05);
  assert.ok(batalla.bananas-antes<=1,'el tiempo por sí solo no debe financiar mejoras rápidamente');
 });
