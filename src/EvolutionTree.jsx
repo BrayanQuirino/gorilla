@@ -82,6 +82,12 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
   <div className="evo-layout">
    <div className="evo-scroll" tabIndex={0} aria-label="Mapa completo de habilidades visibles, ajustado al espacio disponible sin desplazamiento">
     <svg className="evo-svg" viewBox={view} preserveAspectRatio="xMidYMid meet" role="group" aria-label="Panal de habilidades conectadas">
+     <defs><linearGradient id="evo-glass" x1="0" y1="0" x2="0.15" y2="1">
+      <stop offset="0" stopColor="#ffffff" stopOpacity=".63"/>
+      <stop offset=".35" stopColor="#ffffff" stopOpacity=".13"/>
+      <stop offset=".58" stopColor="#000000" stopOpacity="0"/>
+      <stop offset="1" stopColor="#000000" stopOpacity=".22"/>
+     </linearGradient></defs>
      {cells.map(h=>{
       const base=h.id==='BASE';
       const lvl=base?1:nivel_habilidad(batalla,h.id);
@@ -99,7 +105,8 @@ export default function PanalEvolucion({batalla,comprar,revertir}){
        style={{'--hex-color':color}} transform={`translate(${h.x},${h.y})`}
        onClick={()=>setSeleccion(h.id)}
        onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSeleccion(h.id);}}}>
-       <polygon points={puntos} fill={base?'#5b4617':lvl?'#2e4c3d':'#152b2a'} stroke={color} strokeWidth={selected?4:2}/>
+       <polygon className="evo-hex-cuerpo" points={puntos} fill={base?'#5b4617':lvl?color:'#152b2a'} stroke={color} strokeWidth={selected?4:2}/>
+       {lvl>0&&<polygon className="evo-hex-cristal" points={puntos} fill="url(#evo-glass)" pointerEvents="none"/>}
        <text className="evo-hex-icon" y={words.length>2?-24:-21}>{base?'👥':lvl?'✦':'◆'}</text>
        {words.map((line,i)=><text key={i} className="evo-hex-title" y={-5+(i-(words.length-1)/2)*11}>{line}</text>)}
        <text className="evo-hex-cost" y="31">{base?'BASE':lvl?'✓ Nv. '+lvl:'🍌 '+costo_habilidad(batalla,h.id)}</text>
