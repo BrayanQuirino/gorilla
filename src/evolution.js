@@ -124,7 +124,10 @@ export function revertir_habilidad(b,id){
 export function visible_habilidad(b,id){
  const skill=POR_ID[id];
  if(!skill)return false;
- return tiene_habilidad(b,id)||skill.requisitos.every(parent=>tiene_habilidad(b,parent));
+ // Previously revealed descendants must never appear merely because a parent
+ // is present elsewhere in the map. Display the purchased frontier only.
+ return tiene_habilidad(b,id)||skill.requisitos.length===0||
+   skill.requisitos.some(parent=>tiene_habilidad(b,parent));
 }
 export function habilidades_visibles(b){
  return HABILIDADES_EVOLUCION.filter(h=>visible_habilidad(b,h.id));
