@@ -106,7 +106,8 @@ function terreno(id){
  for(const o of obstaculos_escena(id)){
    const w=o.rx*1.85,h=o.ry*1.8;
    elipse(c,o.x,o.y+2,o.rx*1.03,o.ry*.94,'#101b1eaa');
-   if(o.tipo==='arbol') arbol(c,o.x,o.y,Math.max(.78,Math.min(1.9,w/90)));
+   if(o.tipo==='puente') {rect(c,o.x-w/2,o.y-h*.3,w,h*.3,'#927d59');for(let k=-2;k<=2;k++)rect(c,o.x+k*w*.18,o.y-h*.3,w*.12,h*.3,'#c0a374');}
+   else if(o.tipo==='arbol') arbol(c,o.x,o.y,Math.max(.78,Math.min(1.9,w/90)));
    else if(o.tipo==='contenedor') {
      borde(c,o.x-w/2,o.y-h,w,h,'#586773','#9da4a2');
      rect(c,o.x-w/2+6,o.y-h+8,w-12,6,'#a7bbb8');
