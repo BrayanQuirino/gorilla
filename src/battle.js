@@ -1,7 +1,8 @@
 import { arquetipos, radar_personal, vida_maxima_humano, dano_puno_arquetipo, dano_fisico_minimo_base } from './roster.js';
 import {tiene_habilidad, evolucionar_humano} from './evolution.js';
 import { ARENAS, TACTICAS, SUMINISTROS, VENTAJAS_GORILA, limitar, distancia } from './rules.js';
-import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio, ruta_humano, corregir_paso_humano, agua_humano, altura_humano, obstaculo_humano } from './terreno.js';
+import { ancho, alto, limitar_posicion, altura_terreno, actualizar_altura, separar_personajes, zona_entrega, tiene_cobertura, refugio, ruta_humano, corregir_paso_humano, corregir_paso_gorila, agua_humano, altura_humano, obstaculo_humano } from './terreno.js';
+import { siguiente_punto } from './navegacion.js';
 export { ancho, alto };
 export const dificultades=['Fácil','Normal','Difícil','Extremo'];
 const niveles=[[650,1,1],[775,1.12,1.06],[900,1.24,1.12],[1050,1.38,1.15],[1200,1.53,1.20],[1350,1.68,1.25],[1500,1.84,1.29],[1675,2.02,1.35],[1850,2.20,1.40],[2050,2.40,1.44],[2275,2.63,1.50],[2500,2.85,1.56]];
@@ -286,6 +287,8 @@ export function actualizar_fatiga_carrera(h,velocidad_real,dt){
 function caminar(h,d,dt,velocidad=1,arena='claro') {
   if(!d)return;
   const antes={x:h.x,y:h.y};
+  h.navegacion_reloj=(h.navegacion_reloj||0)+dt;
+  d=siguiente_punto(h,d,arena,h.navegacion_reloj,'humano');
   d=ruta_humano(h,d,arena);
   const distancia_restante=distancia(h,d);
   const agilidad=agilidad_carrera(h);
@@ -757,15 +760,18 @@ function mover_gorila(g, destino, dt, ritmo, arena) {
   // Gorilla and humans obey the same physical rock/prop footprint. The
   // gorilla uses a larger clearance radius; it cannot walk over stage art.
   const antes={x:g.x,y:g.y};
-  const desvio=ruta_humano(g,destino,arena,Math.max(26,g.radio*.9));
+  g.navegacion_reloj=(g.navegacion_reloj||0)+dt;
+  const desvio=siguiente_punto(g,destino,arena,g.navegacion_reloj,'gorila');
   const paso=Math.min(1,ritmo*dt/Math.max(distancia(g,desvio),1));
   const x=limitar(g.x+(desvio.x-g.x)*paso,25,ancho-25);
   const y=limitar(g.y+(desvio.y-g.y)*paso,30,alto-30);
   g.x=x;g.y=y;
-  corregir_paso_humano(g,antes,arena,Math.max(23,g.radio*.85));
+  corregir_paso_gorila(g,antes,arena,Math.max(22,g.radio*.65));
   if(Math.abs(g.x-antes.x)>.1)g.mira_izquierda=g.x<antes.x;
   g.movimiento=Math.hypot(g.x-antes.x,g.y-antes.y)/Math.max(.001,dt);
+  const alturaAnterior=g.altura||0;
   actualizar_altura(g,arena,dt);
+  if(g.altura>alturaAnterior+1.5)g.trepando_hasta=(g.navegacion_reloj||0)+.65;
   return distancia(g,destino)<Math.max(8,g.radio*.3);
 }
 
