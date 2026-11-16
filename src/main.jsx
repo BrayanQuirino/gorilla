@@ -98,8 +98,10 @@ function ResumenArmas({batalla}) {
 }
 function TablaDanoIndividual({hombres}){
  const [consulta,cambiar_consulta]=useState('');
+ const puntajeDano=h=>activo(h)?danio_humano(h,h.objeto?.tipo==='fuego'&&h.objeto.municion>0,1,0):0;
  const lista=hombres.filter(h=>String(h.id).includes(consulta)||h.arquetipo.toLowerCase().includes(consulta.toLowerCase())||
-   (h.objeto?.nombre||'').toLowerCase().includes(consulta.toLowerCase()));
+   (h.objeto?.nombre||'').toLowerCase().includes(consulta.toLowerCase()))
+  .sort((a,b)=>puntajeDano(b)-puntajeDano(a)||a.id-b.id);
  const decimal=n=>n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
  return <section className="dano-individual" aria-label="Fuerza de daño de cada hombre">
   <div className="dano-individual-titulo"><h3>⚔️ Daño individual real (PV)</h3><small>Daño actual por impacto acertado, sin distancia ni apertura</small></div>
