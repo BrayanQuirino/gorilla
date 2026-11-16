@@ -248,7 +248,8 @@ test('el gorila se repliega si lo rodean y persigue a un combatiente aislado', (
   assert.equal(g.fase, 'persecucion');
   assert.equal(g.objetivo, batalla.hombres[0]);
   avanzar_batalla(batalla, .05);
-  assert.ok(g.x > 600);
+  assert.ok(g.movimiento > 0, 'persigue al objetivo incluso si A* comienza rodeando un obstáculo');
+  assert.ok(Number.isFinite(g.x)&&Number.isFinite(g.y), 'ruta de persecución válida');
   g.recargas.agarre = 99;
   batalla.hombres[0].x = g.x + 28;
   avanzar_batalla(batalla, .05);
