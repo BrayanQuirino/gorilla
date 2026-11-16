@@ -1,6 +1,7 @@
 // Native WebGL 3D: real meshes, directional lighting and an orthographic MOBA
 // camera. Existing simulation still owns every position and combat rule.
 import {ancho,alto,obstaculos_escena} from './terreno.js';
+import {arquetipos} from './roster.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),TAU=Math.PI*2,SCALE=74;
 const color=(r,g,b)=>[r/255,g/255,b/255];
 const palettes={
@@ -159,15 +160,24 @@ class Mesh {
  humano(h,t){
   const [x,a,z]=point(h),alive=h.vida>0&&h.estado!=='eliminado'&&h.estado!=='incapacitado';
   const seed=h.id||0,medic=h.arquetipo==='Paramédico';
-  const athlete=/Deportista|Boxeador|Tarzán/.test(h.arquetipo||'');
-  const strong=/Musculoso|Boxeador|Tarzán/.test(h.arquetipo||'');
+  const athlete=/Atleta|Velocista|Acróbata|Corredor|Boxeador|Tarzán/.test(h.arquetipo||'');
+  const strong=/Musculoso|Boxeador|Beisbolista|Tarzán/.test(h.arquetipo||'');
   const size=(strong?1.13:1)*(h.arquetipo==='Anciano'?.85:1);
   if(!alive){this.ellipsoid(x,.10,z,.45,.12,.25,color(120,95,74),seed);return;}
   this.ellipsoid(x,.018,z,.25,.014,.17,color(40,64,52),seed+5,7,3);
   const v=Math.hypot(h.vx||0,h.vy||0),yaw=v>3?Math.atan2(h.vx,h.vy):0;
   const si=Math.sin(yaw),co=Math.cos(yaw);
   const P=(sx,y,sz)=>[x+sx*co+sz*si,a+y,z-sx*si+sz*co];
-  const uniform=athlete?color(52,115,166):medic?color(206,224,204):color(174,108,76);
+  const uniforms={
+   Entrenador:[72,116,90],Campista:[150,120,80],Estudiante:[110,129,162],
+   Boxeador:[178,63,71],'Científico':[223,221,202],'Acróbata':[127,84,158],
+   Oficinista:[91,115,134],Aficionado:[151,105,72],Turista:[190,147,84],
+   Repartidor:[177,126,61],Musculoso:[111,106,102],Adolescente:[124,159,128],
+   'Paramédico':[207,226,214],Velocista:[60,136,188],Atleta:[65,119,171],
+   Beisbolista:[184,171,124],Malabarista:[166,96,158],Corredor:[74,145,133],
+   Anciano:[130,133,127],'Tarzán':[96,132,71]
+  };
+  const uniform=color(...(uniforms[h.arquetipo]||[174,108,76]));
   const skin=color(180+Math.floor(noise(seed)*34),136+Math.floor(noise(seed+4)*28),109);
   const pants=medic?color(59,98,101):color(53,65,79);
   const walk=v>3?Math.sin(t*11+seed*.7):0,bounce=Math.abs(walk)*.04;
@@ -175,7 +185,20 @@ class Mesh {
   this.ellipsoid(...P(0,.65*size+bounce,0),.23*size,.32*size,.17*size,uniform,seed);
   this.ellipsoid(...P(0,1.05*size+bounce,0),.16*size,.19*size,.15*size,skin,seed+23);
   this.ellipsoid(...P(0,1.18*size+bounce,0),.15*size,.06*size,.15*size,
-   h.cascondo?color(201,169,80):color(52,48,45),seed+30,7,3);
+   h.cascondo?color(201,169,80):h.arquetipo==='Anciano'?color(189,189,180):color(52,48,45),seed+30,7,3);
+  // Archetype silhouettes have identifiable gear, rather than identical skins.
+  if(h.arquetipo==='Científico'||h.arquetipo==='Oficinista')
+   this.box(...P(0,.70*size,-.18),.08,.24,.025,
+    h.arquetipo==='Científico'?color(49,133,154):color(199,139,74));
+  if(h.arquetipo==='Repartidor'||h.arquetipo==='Campista'||h.arquetipo==='Turista')
+   this.box(...P(0,.59*size,.19),.32,.40,.14,color(108,87,61));
+  if(h.arquetipo==='Paramédico'){
+   this.box(...P(0,.70*size,-.17),.16,.045,.028,color(178,51,51));
+   this.box(...P(0,.64*size,-.17),.044,.17,.030,color(178,51,51));
+  }
+  if(h.arquetipo==='Beisbolista'||h.arquetipo==='Entrenador')
+   this.ellipsoid(...P(0,1.23*size+bounce,-.03),.17,.055,.17,
+    color(100,120,89),seed+62,7,3);
   for(const side of [-1,1]){
    const hip=P(side*.12,.40*size,0),knee=P(side*.12,.23*size,walk*side*.08);
    const foot=P(side*.13,.045*size,walk*side*.20);
@@ -247,10 +270,8 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
  const meshes=new Map(),templates=new Map();
  const mock={id:1,x:ancho/2,y:alto/2,vida:20,estado:'normal',vx:0,vy:0,cascondo:false,objeto:null};
  if(extension){
-  for(const [key,archetype] of [
-   ['medical','Paramédico'],['athlete','Deportista'],['strong','Musculoso'],
-   ['elderly','Anciano'],['normal','Oficinista']
-  ]){
+  for(const archetype of arquetipos){
+   const key=archetype;
    const m=new Mesh();m.humano({...mock,arquetipo:archetype},0);
    const gpu=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,gpu);
    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(m.vertices),gl.STATIC_DRAW);
@@ -269,13 +290,7 @@ export function crear_dibujante_moba(canvas,actualizar,fallo){
    gl.enableVertexAttribArray(attr);gl.vertexAttribPointer(attr,3,gl.FLOAT,false,36,offset);
   }
  }
- function archetypeGroup(h){
-  if(h.arquetipo==='Paramédico')return 'medical';
-  if(h.arquetipo==='Anciano')return 'elderly';
-  if(/Musculoso|Tarzán/.test(h.arquetipo||''))return 'strong';
-  if(/Deportista|Boxeador/.test(h.arquetipo||''))return 'athlete';
-  return 'normal';
- }
+ function archetypeGroup(h){return arquetipos.includes(h.arquetipo)?h.arquetipo:'Oficinista';}
  function frame(b){
   if(destroyed||gl.isContextLost())return false;
   const id=b.arena||'claro',pal=palettes[id]||palettes.claro;
