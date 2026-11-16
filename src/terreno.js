@@ -100,20 +100,34 @@ export function ruta_humano(actor, destino, arena, margen=17) {
   actor.rodeo={key:lista.indexOf(o),lado,restante:Math.max(0,(actor.rodeo?.restante||0)-.016)};
   return candidate(lado);
 }
-export function corregir_paso_humano(actor, antes, arena, margen=12){
-  if(paso_construido(actor,arena)||!obstaculo_humano(actor,arena,margen))return;
-  // Try sliding along the cliff rather than snapping through the mountain.
-  const x={x:actor.x,y:antes.y},y={x:antes.x,y:actor.y};
-  if(!obstaculo_humano(x,arena,margen)){actor.y=antes.y;actor.vy=0;return;}
-  if(!obstaculo_humano(y,arena,margen)){actor.x=antes.x;actor.vx=0;return;}
-  const enclosing=(obstaculos[arena]||[]).find(o=>
-    ((antes.x-o.x)/(o.rx+margen))**2+((antes.y-o.y)/(o.ry+margen))**2<1);
-  if(enclosing){
-    const dist=p=>((p.x-enclosing.x)/(enclosing.rx+margen))**2+
-      ((p.y-enclosing.y)/(enclosing.ry+margen))**2;
-    if(dist(actor)>dist(antes))return;
-  }
-  actor.x=antes.x;actor.y=antes.y;actor.vx*=.3;actor.vy*=.3;
+export function corregir_paso_humano(actor,antes,arena,margen=12){
+ if(paso_construido(actor,arena)||!obstaculo_humano(actor,arena,margen))return;
+ // Preserve sliding when only one axis is obstructed.
+ const x={x:actor.x,y:antes.y},y={x:antes.x,y:actor.y};
+ if(!obstaculo_humano(x,arena,margen)){actor.y=antes.y;actor.vy=0;return;}
+ if(!obstaculo_humano(y,arena,margen)){actor.x=antes.x;actor.vx=0;return;}
+ // Adjacent rocks can overlap. Resolve ALL ellipses, not just the first one.
+ // This also recovers actors knocked into an obstacle by a gorilla attack.
+ for(let ronda=0;ronda<18;ronda++){
+  const choque=(obstaculos[arena]||[]).find(o=>
+   ((actor.x-o.x)/(o.rx+margen))**2+((actor.y-o.y)/(o.ry+margen))**2<1);
+  if(!choque)break;
+  const dx=actor.x-choque.x,dy=actor.y-choque.y;
+  const rx=choque.rx+margen+1,ry=choque.ry+margen+1;
+  const norm=Math.hypot(dx/rx,dy/ry);
+  // Push along the shortest axis; radial movement can cross another rock.
+  const px=Math.abs(dx)/rx,py=Math.abs(dy)/ry;
+  if((px>=py&&px>.001)||py<.001)
+   actor.x=choque.x+(dx>=0?1:-1)*rx*1.01;
+  else actor.y=choque.y+(dy>=0?1:-1)*ry*1.01;
+  actor.x=limitar(actor.x,10,ancho-10);
+  actor.y=limitar(actor.y,10,alto-10);
+ }
+ if(obstaculo_humano(actor,arena,margen)){
+  actor.x=antes.x;actor.y=antes.y;
+  limitar_posicion(actor,arena,margen+2);
+ }
+ actor.vx*=.3;actor.vy*=.3;
 }
 export function agua_humano(p,arena) {
   const vista=encuadre(arena);
