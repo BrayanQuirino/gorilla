@@ -754,15 +754,19 @@ function impacto_embestida(b, h) {
 function cooldown(g,nombre,segundos){g.recargas[nombre]=segundos;}
 function habilitada(g,nombre){return (g.recargas[nombre]||0)<=0;}
 function mover_gorila(g, destino, dt, ritmo, arena) {
-  const paso = Math.min(1, ritmo * dt / Math.max(distancia(g, destino), 1));
-  const x = limitar(g.x + (destino.x - g.x) * paso, 25, ancho - 25);
-  const y = limitar(g.y + (destino.y - g.y) * paso, 30, alto - 30);
-  if (Math.abs(x - g.x) > .1) g.mira_izquierda = x < g.x;
-  g.movimiento = Math.hypot(x - g.x, y - g.y) / dt;
-  g.x = x;
-  g.y = y;
-  actualizar_altura(g, arena, dt);
-  return paso === 1;
+  // Gorilla and humans obey the same physical rock/prop footprint. The
+  // gorilla uses a larger clearance radius; it cannot walk over stage art.
+  const antes={x:g.x,y:g.y};
+  const desvio=ruta_humano(g,destino,arena,Math.max(26,g.radio*.9));
+  const paso=Math.min(1,ritmo*dt/Math.max(distancia(g,desvio),1));
+  const x=limitar(g.x+(desvio.x-g.x)*paso,25,ancho-25);
+  const y=limitar(g.y+(desvio.y-g.y)*paso,30,alto-30);
+  g.x=x;g.y=y;
+  corregir_paso_humano(g,antes,arena,Math.max(23,g.radio*.85));
+  if(Math.abs(g.x-antes.x)>.1)g.mira_izquierda=g.x<antes.x;
+  g.movimiento=Math.hypot(g.x-antes.x,g.y-antes.y)/Math.max(.001,dt);
+  actualizar_altura(g,arena,dt);
+  return distancia(g,destino)<Math.max(8,g.radio*.3);
 }
 
 function salida_gorila(g, hombres) {
