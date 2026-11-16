@@ -157,7 +157,7 @@ function aristas_relacionadas(visibles){
  const edges=[];
  for(const h of visibles){
   if(!h.requisitos.length)edges.push(['BASE',h.id,9]);
-  for(const parent of h.requisitos)if(ids.has(parent))edges.push([parent,h.id,32]);
+  for(const parent of h.requisitos)if(ids.has(parent))edges.push([parent,h.id,h.requisitos.length>1?90:32]);
  }
  // Even before a descendant becomes visible, its co-parents must be
  // neighbours where possible. This is the fundamental honeycomb dependency rule.
