@@ -27,8 +27,23 @@ function shader(gl,type,src){
 function makeProgram(gl){
  const vs=shader(gl,gl.VERTEX_SHADER,[
  'attribute vec3 aPosition;attribute vec3 aNormal;attribute vec3 aColor;',
- 'uniform mat4 uProjection;varying vec3 vColor;varying vec3 vNormal;',
- 'void main(){gl_Position=uProjection*vec4(aPosition,1.0);vColor=aColor;vNormal=aNormal;}'
+ 'attribute vec3 aInstancePosition;attribute vec4 aInstanceInfo;',
+ 'uniform mat4 uProjection;uniform float uInstanced;uniform float uTime;',
+ 'varying vec3 vColor;varying vec3 vNormal;',
+ 'void main(){',
+ 'vec3 p=aPosition;vec3 normal=aNormal;',
+ 'if(uInstanced>0.5){',
+ 'float yaw=aInstanceInfo.x;float c=cos(yaw);float s=sin(yaw);',
+ 'float moving=clamp(aInstanceInfo.w,0.0,1.0);',
+ 'float gait=sin(uTime*9.0+aInstanceInfo.z)*moving;',
+ 'if(p.y<0.45){p.z+=gait*sign(p.x)*0.12;}',
+ 'else if(p.y<0.92&&abs(p.x)>0.2){p.z-=gait*sign(p.x)*0.09;}',
+ 'p.y+=abs(gait)*0.036;',
+ 'p=vec3(p.x*c+p.z*s,p.y,-p.x*s+p.z*c)*aInstanceInfo.y+aInstancePosition;',
+ 'normal=vec3(normal.x*c+normal.z*s,normal.y,-normal.x*s+normal.z*c);',
+ '}',
+ 'gl_Position=uProjection*vec4(p,1.0);vColor=aColor;vNormal=normal;',
+ '}'
  ].join('\n'));
  const fs=shader(gl,gl.FRAGMENT_SHADER,[
  'precision mediump float;varying vec3 vColor;varying vec3 vNormal;uniform vec3 uLight;',
