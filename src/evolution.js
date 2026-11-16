@@ -84,12 +84,39 @@ export function comprar_habilidad(b,id){
  const costo=costo_habilidad(b,id);
  if(b.bananas<costo)return false;
  b.bananas-=costo;
- b.evolucion??={};b.evolucion[id]=(b.evolucion[id]||0)+1;
+ b.evolucion??={};
+ b.evolucion_costos??={};
+ (b.evolucion_costos[id]??=[]).push(costo);
+ b.evolucion[id]=(b.evolucion[id]||0)+1;
  for(const h of b.hombres)evolucionar_humano(b,h);
  b.evento_id=(b.evento_id||0)+1;
  b.eventos.push({tipo:'evolucion',id:b.evento_id,tiempo:300-b.tiempo,habilidad:id,nivel:b.evolucion[id]});
  return true;
 }
+
+// Only the latest level can be undone. Selling an ability that is required
+// by an acquired descendant is forbidden, so progression stays valid.
+export function bloqueos_reembolso(b,id){
+ return HABILIDADES_EVOLUCION.filter(h=>nivel_habilidad(b,h.id)>0&&h.requisitos.includes(id)).map(h=>h.id);
+}
+export function reembolso_habilidad(b,id){
+ if(!POR_ID[id]||nivel_habilidad(b,id)<=0||bloqueos_reembolso(b,id).length)return 0;
+ const nivel=nivel_habilidad(b,id);
+ const precio=(b.evolucion_costos?.[id]||[])[nivel-1]??Math.round(POR_ID[id].costo*nivel*(nivel>1?1.15:1));
+ return Math.floor(precio*.65);
+}
+export function revertir_habilidad(b,id){
+ if(b.resultado||!POR_ID[id]||nivel_habilidad(b,id)<=0||bloqueos_reembolso(b,id).length)return false;
+ const devolucion=reembolso_habilidad(b,id);
+ b.bananas+=devolucion;
+ b.evolucion[id]-=1;
+ b.evolucion_costos?.[id]?.pop();
+ for(const humano of b.hombres)evolucionar_humano(b,humano);
+ b.evento_id=(b.evento_id||0)+1;
+ b.eventos.push({tipo:'evolucion_revertida',id:b.evento_id,tiempo:300-b.tiempo,habilidad:id,reembolso:devolucion});
+ return true;
+}
+
 // Build a single connected axial hex grid. Every added tile touches an occupied cell.
 // Parent proximity is weighted above color grouping; cross-root dependencies remain explicit.
 const DIRECCIONES=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
