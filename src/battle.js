@@ -149,7 +149,7 @@ export function crear_batalla(personajes,dificultad=0,azar=Math.random,opciones=
   const arena=ARENAS[opciones.arena]?opciones.arena:'claro';
   const batalla = {
     plan: { atacar: 100 }, activos_asignados: personajes.length, rescatadores_asignados:0, busqueda_en: 0, golpes_disponibles: 6, danio_total_humanos:0, impactos_humanos:0,
-    tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:60,bananas_ganadas:0,eventos:[],evolucion:{},evasion_total:0,
+    tiempo:300,transcurrido:0,resultado:'',azar,arena,bananas:35,bananas_ganadas:0,eventos:[],evolucion:{},evolucion_costos:{},evasion_total:0,automatico:opciones.automatico===true,
     resumen:opciones.resumen||null,armas_suelo:(opciones.armas_suelo||[]).map(a=>({...a,objeto:{...a.objeto}, reserva:true})),
     municion_reserva:0,
     entregas:[], parpadeos:[], suministros:[],proyectiles:[],efectos:[],reservas:opciones.reservas||0,tacticas_usadas:{},
@@ -254,6 +254,7 @@ function aplicar_suministro(batalla,entrega,recolector) {
         orden:'atacar',estado:'normal',proteccion:0,bono_dano:0,cascondo:false,chaleco:false,escudo:false,
         mejoras:[],buscando:null,oculto:false,fuerza_efectiva:radar.fuerza,velocidad_efectiva:radar.velocidad});
     }
+    for(const h of batalla.hombres.slice(base))evolucionar_humano(batalla,h);
     registrar(batalla,'refuerzos_llegaron',{cantidad:5});
   }
   if(id==='barricada'){
@@ -265,7 +266,7 @@ function aplicar_suministro(batalla,entrega,recolector) {
 }
 function recompensa(batalla,danio,dt=0) {
   const multiplicador=efecto_vigente(batalla,'multiplicador')?1.5:1;
-  const nuevo=(danio*1.25+dt*1.35)*multiplicador;
+  const nuevo=(danio*.45+dt*.18)*multiplicador;
   batalla.bananas_ganadas+=nuevo;
   const enteros=Math.floor(batalla.bananas_ganadas);
   if(enteros){batalla.bananas+=enteros;batalla.bananas_ganadas-=enteros;}
@@ -499,6 +500,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
         caido.vida = Math.max(8, caido.vida_maxima * (tiene_habilidad(b,'P08')?.28:.15));
         caido.orden = b.plan.atacar ? 'atacar' : Object.keys(b.plan)[0];
         h.recarga = tiene_habilidad(b,'P11')?5:8;
+        if(b.automatico)b.bananas+=4;
         registrar(b, 'rescate', { hombre: caido.id, paramedico: h.id });
       }
     }
@@ -520,6 +522,7 @@ function actualizar_hombre(b, h, dt, puesto, cantidad_activos) {
         equipar(h,objeto.objeto);
         objeto.recogido_por = h.id;
         recargar_armas(b);
+        if(b.automatico&&valor_objeto(h.objeto)>0)b.bananas+=2;
         registrar(b, 'arma_encontrada', { hombre: h.id, objeto: h.objeto.nombre });
       }
     } else {
@@ -622,7 +625,7 @@ function danar_hombre(b,h,multiplicador=1, lanzamiento=false) {
   const cobertura=b.suministros.some(s=>s.tipo==='barricada'&&s.construccion<=0&&s.vida>0&&distancia(h,s)<80)?0.60:1;
   const [minimo, maximo] = rango_golpe_gorila(g);
   const esquiva=tiene_habilidad(b,'S04')&&h.defensa>0&&!lanzamiento&&limitar(.08+h.radar.agilidad*.002+(tiene_habilidad(b,'S07')?.12:0)+(tiene_habilidad(b,'S10')?.10:0)+(tiene_habilidad(b,'E07')?.06:0)+(tiene_habilidad(b,'E10')?.06:0),0,.65);
-  if(esquiva&&b.azar()<esquiva){b.evasion_total=(b.evasion_total||0)+1;registrar(b,'esquiva',{hombre:h.id});b.bananas+=2;if(tiene_habilidad(b,'A09'))h.recarga=Math.min(h.recarga,.15);return;}
+  if(esquiva&&b.azar()<esquiva){b.evasion_total=(b.evasion_total||0)+1;registrar(b,'esquiva',{hombre:h.id});if(tiene_habilidad(b,'A09'))h.recarga=Math.min(h.recarga,.15);return;}
   const defensa = h.defensa > 0 ? .76 - h.radar.agilidad * .002 : 1;
   const azar = azar_normalizado(b.azar);
   const impacto = lanzamiento ? h.vida_maxima * (.92 + azar * .24) :
@@ -1031,6 +1034,46 @@ function actualizar_gorila(b,activos,dt) {
   if(g.accion==='rugido')g.reloj=3.1; // match the full recorded animal roar
   registrar(b,'ataque_gorila',{accion:g.accion});
 }
+// Behavioral AI: unpurchased actions remain unavailable. Archetype, health,
+// relative danger, available resources and evolution determine each fighter's role.
+// Called at a bounded cadence and whenever the player's evolution changes.
+export function decidir_accion_humano(b,h){
+ if(!activo(h))return h.orden;
+ const g=b.gorila;
+ const d=distancia(h,g);
+ const vida=salud(h);
+ const criterio=(h.radar.inteligencia+h.radar.estrategia)/200;
+ const peligro=d<g.radio+110;
+ const riesgo=vida<(.26+(tiene_habilidad(b,'E03')?.13:0)+criterio*.07);
+ const caido=tiene_habilidad(b,'P04')&&h.arquetipo==='Paramédico'&&
+   b.hombres.some(o=>o.estado==='incapacitado'&&distancia(h,o)<340);
+ if(caido)return 'rescatar';
+ const objeto=tiene_habilidad(b,'P03')&&buscar_objeto(b,h);
+ const margen=tiene_habilidad(b,'P10')?75:25;
+ if(objeto && (d>g.radio+115||!peligro)&&
+   valor_objeto(objeto.objeto)>valor_objeto(h.objeto)+margen)return 'buscar_armas';
+ if(peligro&&riesgo){
+   if(tiene_habilidad(b,'S12')&&tiene_cobertura(h,g,b.arena))return 'esconder';
+   if(tiene_habilidad(b,'S12')&&tiene_habilidad(b,'E04'))return 'esconder';
+   if(tiene_habilidad(b,'S05'))return 'huir';
+ }
+ if(tiene_habilidad(b,'E06')&&vida>.5&&d>g.radio+100&&d<270&&
+    h.radar.estrategia>55&&h.id%9===0)return 'distraer';
+ return 'atacar';
+}
+export function actualizar_ia_humana(b,forzar=false){
+ if(!b.automatico)return;
+ if(!forzar&&b.transcurrido<(b.ia_siguiente||0))return;
+ b.ia_siguiente=b.transcurrido+.55;
+ for(const h of b.hombres){
+   if(!activo(h))continue;
+   const nuevo=decidir_accion_humano(b,h);
+   if(nuevo!==h.orden){
+     h.orden=nuevo;h.buscando=null;
+     h.cambio_orden=b.transcurrido;
+   }
+ }
+}
 export function avanzar_batalla(b,dt) {
   if (b.resultado || !Number.isFinite(dt) || dt <= 0 || b.gorila.segunda_vida === 'anuncio') return;
   if (anunciar_segunda_vida(b)) return;
@@ -1093,8 +1136,9 @@ export function avanzar_batalla(b,dt) {
     b.gorila.pasos_acumulados%=23;
     registrar(b,'pisada_gorila',{fuerza:b.gorila.fuerza});
   }
+  actualizar_ia_humana(b);
   const disponibles = activos.filter(activo);
-  if (disponibles.length !== b.activos_asignados || (b.plan.buscar_armas && b.transcurrido >= b.busqueda_en)) {
+  if (!b.automatico && (disponibles.length !== b.activos_asignados || (b.plan.buscar_armas && b.transcurrido >= b.busqueda_en))) {
     asignar_plan(b);
     b.busqueda_en = b.transcurrido + 2;
   }
