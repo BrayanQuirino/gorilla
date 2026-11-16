@@ -464,7 +464,7 @@ function App() {
     }
   }
 
-  return <main className="juego-app">
+  return <main className={"juego-app"+(modo_visual==="3d"?" modo-moba":"")}>
     <header className="cabecera movil-cabecera">
       <div className="marca"><img className="gorila-logo" src={retrato_furia} alt="Gorila furioso"/><h1>Gorilla<span>.</span></h1><p>100 vs 1 · ARCADE</p></div>
       <div className="cabecera-acciones">
