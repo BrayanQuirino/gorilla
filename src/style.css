@@ -468,3 +468,14 @@ html,body,#root{min-height:100%;margin:0}
 .dano-tabla .combatiente-caido{opacity:.57}
 .nota-dano{margin:7px 0 0;color:#bfd0c3;font-size:.73rem;line-height:1.25}
 @media(max-width:480px){.dano-tabla{font-size:.68rem}.dano-tabla th,.dano-tabla td{padding:5px 3px}}
+
+
+/* Arena and its overlays use the full frame, eliminating unused side gutters.
+   The canvas and all projected art share the same surface stretching. */
+html,body,#root{width:100%;max-width:100%;overflow-x:hidden}
+.juego-app{width:100%!important;max-width:none!important;margin:0!important;padding:clamp(4px,.65vw,10px)!important}
+.juego-app>.tablero{width:100%!important;max-width:none!important}
+.juego-app .campo,.juego-app .arena{width:100%!important;max-width:none!important}
+.juego-app .arena canvas{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:fill!important;aspect-ratio:auto!important}
+.juego-app .arena>.estrategia-cortina{width:100%!important}
+@media(max-width:760px){.juego-app{padding:3px!important}.juego-app .arena canvas{object-fit:fill!important}}
