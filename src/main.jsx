@@ -521,8 +521,7 @@ function App() {
         <div className="hoja-cabecera"><h2>{panel_movil==='ajustes'?'⚙ Ajustes':'📊 Equipo'}</h2>
           <button onClick={()=>{cambiar_panel_movil(null);cambiar_arquetipo_abierto(null);}} aria-label="Cerrar">✕</button></div>
         {panel_movil==='equipo'?<PanelEquipo batalla={batalla} seleccionInicial={arquetipo_abierto}/>:<div className="ajustes-panel ajustes-cuadricula">
-          <label>Vista<select value={modo_visual} onChange={e=>{cambiar_arte_listo(false);cambiar_modo_visual(e.target.value);}}>
-            <option value="3d">Arena MOBA 3D</option><option value="2d">Retro 2D</option></select></label>
+          <div className="configuracion-vista">🎮 {modo_visual==='3d'?'Arena MOBA · 3D real':'Modo de compatibilidad · WebGL no disponible'}</div>
           <label>Arena<select value={arena_elegida} onChange={e=>{const id=e.target.value;cambiar_arena(id);nueva_partida(dificultad,id);}}>
             {Object.entries(ARENAS).map(([id,item])=><option key={id} value={id}>{item.nombre}</option>)}</select></label>
           <label>Dificultad<select value={dificultad} onChange={e=>{const n=Number(e.target.value);cambiar_dificultad(n);nueva_partida(n);}}>
