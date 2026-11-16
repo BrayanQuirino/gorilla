@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-import {FAMILIAS,HABILIDADES_EVOLUCION,POR_ID,geometria_panal,nivel_habilidad,costo_habilidad,disponible_habilidad} from './evolution.js';
+import {FAMILIAS,HABILIDADES_EVOLUCION,POR_ID,geometria_panal,nivel_habilidad,costo_habilidad,disponible_habilidad,reembolso_habilidad,bloqueos_reembolso} from './evolution.js';
 import './evolution.css';
 const ubicaciones=geometria_panal();
 const RADIO=49;
@@ -23,7 +23,7 @@ function texto_hex(nombre){
  }
  return lines.slice(0,3);
 }
-export default function PanalEvolucion({batalla,comprar}){
+export default function PanalEvolucion({batalla,comprar,revertir}){
  const [seleccion,setSeleccion]=useState('A01');
  const [filtrar,setFiltrar]=useState('TODAS');
  const seleccionado=POR_ID[seleccion];
@@ -76,6 +76,13 @@ export default function PanalEvolucion({batalla,comprar}){
      <button className="evo-comprar" disabled={!disponible_habilidad(batalla,seleccion)||batalla.bananas<costo_habilidad(batalla,seleccion)} onClick={()=>comprar(seleccion)}>
       {nivel===seleccionado.maxNivel?'✓ Dominada':!disponible_habilidad(batalla,seleccion)?'🔒 Primero desbloquea requisitos':batalla.bananas<costo_habilidad(batalla,seleccion)?'🍌 Bananas insuficientes':'Comprar · 🍌 '+costo_habilidad(batalla,seleccion)}
      </button>
+     {nivel>0&&<div className="evo-reembolso">
+       <button className="evo-revertir" disabled={bloqueos_reembolso(batalla,seleccion).length>0||Boolean(batalla.resultado)} onClick={()=>revertir(seleccion)}>
+         ↩ Revertir nivel · Recuperar 🍌 {reembolso_habilidad(batalla,seleccion)}
+       </button>
+       {bloqueos_reembolso(batalla,seleccion).length>0&&<small>Bloqueada: primero revierte {bloqueos_reembolso(batalla,seleccion).map(id=>POR_ID[id].nombre).join(', ')}.</small>}
+       <small>Recuperas el 65% de lo pagado por el último nivel.</small>
+     </div>}
     </>}
    </aside>
   </div>
