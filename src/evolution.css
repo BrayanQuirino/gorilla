@@ -24,3 +24,22 @@
 
 .juego-app .arena .tabs-retro:has(button[aria-pressed]){grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:520px){.juego-app .arena .tabs-retro:has(button[aria-pressed]){grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* The panel starts at scroll origin, never vertically centers a taller SVG. */
+.evo-ui,.evo-layout{min-height:0}
+.evo-scroll{display:block!important;overflow:auto!important;align-items:unset!important;justify-content:unset!important;overscroll-behavior:contain;scroll-padding-top:14px}
+.evo-svg{display:block;margin:0!important;max-width:none!important;width:100%;min-width:790px;vertical-align:top}
+.evo-ui .evo-detalle{scrollbar-width:thin}
+.evo-reembolso{display:flex;flex-direction:column;gap:5px}
+.evo-revertir{background:#3b302b;border:1px solid #cf9b6c;border-radius:8px;color:#ffe6bb;padding:10px;font-weight:700}
+.evo-revertir:disabled{opacity:.45;cursor:not-allowed}
+.evo-reembolso small{font-size:.72rem;color:#c3c2a9}
+.evo-suministros{min-height:0;overflow:auto;padding:5px}
+.ia-automatico{background:#192a2b;border:1px solid #66816b;border-radius:10px;padding:12px;margin-bottom:10px}
+.ia-automatico h3{color:#edcc7f;margin:0 0 5px}.ia-automatico p,.ia-automatico small{font-size:.78rem;color:#bbd1c5}
+.ia-roles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}
+.ia-roles>div{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px;background:#263837;border:1px solid #49625a;border-radius:7px;font-size:.77rem}
+.ia-roles strong{color:#e7d491}
+.juego-app .arena .tabs-retro{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+@media(max-width:800px){.evo-layout{display:flex;flex-direction:column;overflow:auto!important}.evo-scroll{max-height:52vh!important;flex:none!important;min-height:300px!important}.evo-svg{min-width:790px!important}.evo-detalle{flex:none!important;overflow:visible!important;max-height:none!important}.ia-roles{grid-template-columns:repeat(2,minmax(0,1fr))}}
