@@ -1,5 +1,6 @@
 import { alto, ancho, duracion_entrega, paracaidas_visible, radio_ataque, en_furia } from './battle.js';
 import { ARENAS } from './rules.js';
+import { obstaculos_escena } from './terreno.js';
 import { crear_atlas, accion_humano, accion_gorila, dibujar_sprite } from './sprites.js';
 
 // Capa visual independiente: sprites dibujados en pixels, sin modificar la simulación.
@@ -99,6 +100,19 @@ function terreno(id){
      borde(c,18,40,90,68,'#6b5035','#c0a46f');
      caja(c,125,100);caja(c,898,440);
    }
+ }
+ // Physical silhouettes coincide exactly with collision footprints.
+ // The scenery is no longer only a flat decoration behind the fighters.
+ for(const o of obstaculos_escena(id)){
+   const w=o.rx*1.85,h=o.ry*1.8;
+   elipse(c,o.x,o.y+2,o.rx*1.03,o.ry*.94,'#101b1eaa');
+   if(o.tipo==='arbol') arbol(c,o.x,o.y,Math.max(.78,Math.min(1.9,w/90)));
+   else if(o.tipo==='contenedor') {
+     borde(c,o.x-w/2,o.y-h,w,h,'#586773','#9da4a2');
+     rect(c,o.x-w/2+6,o.y-h+8,w-12,6,'#a7bbb8');
+   }else if(o.tipo==='caja'||o.tipo==='ruina'){
+     borde(c,o.x-w/2,o.y-h*.85,w,h*.85,o.tipo==='ruina'?'#8d8471':'#846348','#d6b88a');
+   }else roca(c,o.x,o.y-h*.28,w,h,id==='canon'?'#99775e':'#7e8981');
  }
  // pequeños detalles del terreno y hierba
  if(id!=='hangar')for(let i=0;i<120;i++){
