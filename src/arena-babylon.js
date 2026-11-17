@@ -189,7 +189,20 @@ function buildPavement(B,scene){
  vd.colors=colors;vd.uvs=uvs;vd.applyToMesh(cobbles);
  const stone=new B.StandardMaterial('Piedra beige, envejecida y mate',scene);
  stone.diffuseColor=B.Color3.White();
+ // Photographic CC0 geological material, baked into the deploy.
+ // Keep the procedural map until/if the locally hosted image arrives.
  stone.diffuseTexture=stoneGrain(B,scene);
+ const base=(import.meta.env.BASE_URL||'./')+'textures/stone/';
+ const rock=new B.Texture(base+'rock_surface_diff_1k.jpg',scene,false,false,
+  B.Texture.TRILINEAR_SAMPLINGMODE,
+  ()=>{stone.diffuseTexture=rock;},
+  ()=>{rock.dispose();});
+ rock.wrapU=rock.wrapV=B.Texture.WRAP_ADDRESSMODE;
+ const normal=new B.Texture(base+'rock_surface_nor_gl_1k.jpg',scene,false,false,
+  B.Texture.TRILINEAR_SAMPLINGMODE,
+  ()=>{stone.bumpTexture=normal;normal.level=.52;},
+  ()=>{normal.dispose();});
+ normal.wrapU=normal.wrapV=B.Texture.WRAP_ADDRESSMODE;
  stone.useVertexColors=true;
  stone.specularColor=new B.Color3(.035,.030,.023);
  stone.backFaceCulling=false;stone.alpha=1;
