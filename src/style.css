@@ -535,3 +535,16 @@ html,body,#root{width:100%;max-width:100%;overflow-x:hidden}
  .juego-app.vista-escenario .indicacion-escenario{right:6px;bottom:8px;left:6px;
  font-size:11px;padding:6px 8px;text-align:center}
 }
+
+/* Babylon's scene-only canvas must follow its real CSS box dimensions.
+   Legacy 1000:640 aspect-ratio and object-fit:contain caused WebGL framing
+   to disagree with the visible canvas until a pointer interaction. */
+.juego-app.vista-escenario .arena canvas {
+ aspect-ratio:auto!important;
+ object-fit:fill!important;
+ display:block;
+ width:100%!important;
+ height:100%!important;
+ min-width:0;
+ min-height:0;
+}
