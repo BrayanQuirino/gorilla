@@ -97,7 +97,7 @@ export function crearPlanoAdoquines(){
     stones.push({x:center.x+Math.cos(theta)*r,
      z:center.z+Math.sin(theta)*r,
      wx:arc-.002,wz:.205,
-     angle:theta+Math.PI/2,seed,circle:true,ring:localRings+course+1,
+     angle:theta+Math.PI/2,seed,circle:true,ring:localRings+course+1,plaza,
      // Polygonal hand-cut wedge, narrower at the outward end.
      polygon:[[-.5,-.5],[.5,-.5],[.5-taper,.5],[-.5+taper,.5]]
     });
