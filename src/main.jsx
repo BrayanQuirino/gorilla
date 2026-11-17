@@ -533,7 +533,7 @@ function App() {
         </div>}
         <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} aria-label={ARENAS[batalla.arena].nombre}/>
-          <div className="nombre-arena">{VISTA_ESCENARIO?"ARENA DE PIEDRA · ADOQUINES BEIGE":ARENAS[batalla.arena].nombre}</div>
+          <div className="nombre-arena">{VISTA_ESCENARIO?"ARENA ANCESTRAL · PIRÁMIDES Y RUINAS":ARENAS[batalla.arena].nombre}</div>
           {VISTA_ESCENARIO&&<div className="indicacion-escenario">Arrastra para girar · Rueda para acercar · <a href="?combate=1">Volver al combate</a></div>}
           {(!VISTA_ESCENARIO&&(batalla.resultado||!iniciada||pausa_activa||cargando_arena))&&
             <div className="estado" role="status">{batalla.resultado||
