@@ -341,7 +341,8 @@ function makeSundries(scene){
  return {update};
 }
 
-export function crear_dibujante_three(canvas,requestDraw,onFailure){
+export function crear_dibujante_three(canvas,requestDraw,onFailure,options={}){
+ const soloEscenario=Boolean(options.soloEscenario);
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
  renderer.setSize(canvas.width,canvas.height,false);
  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
@@ -362,17 +363,25 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
  const fill=new THREE.DirectionalLight(0x8ecfe3,.65);fill.position.set(5,6,-7);scene.add(fill);
  const camera=new THREE.OrthographicCamera(-9,9,5,-5,.1,90);
  camera.position.set(10.4,14.5,17.6);camera.lookAt(0,.4,0);
- let zoom=1,activeArena=null,stage=null,humans=null,gorilla=null,sundries=null,selvaArt=null;
+ let zoom=soloEscenario?1.05:1,activeArena=null,stage=null,humans=null,gorilla=null,sundries=null,selvaArt=null;
+ let azimuth=.53,elevation=.80,drag=null;
  let lastRender=0,lastSupplies=0,disposed=false;
  let lastSize={w:0,h:0};
  const events=[];
  const onWheel=e=>{e.preventDefault();zoom=clamp(zoom*(e.deltaY>0?1.085:.92),.82,1.6);requestDraw?.();};
  canvas.addEventListener('wheel',onWheel,{passive:false});
  events.push(['wheel',onWheel]);
+ const pointerDown=e=>{if(!soloEscenario)return;drag={x:e.clientX,y:e.clientY,azimuth,elevation};canvas.setPointerCapture?.(e.pointerId);};
+ const pointerMove=e=>{if(!drag)return;azimuth=drag.azimuth+(e.clientX-drag.x)*.005;
+  elevation=clamp(drag.elevation+(e.clientY-drag.y)*.004,.56,1.30);requestDraw?.();};
+ const pointerUp=()=>{drag=null;};
+ for(const [name,cb] of [['pointerdown',pointerDown],['pointermove',pointerMove],['pointerup',pointerUp],['pointercancel',pointerUp]]){
+  canvas.addEventListener(name,cb);events.push([name,cb]);
+ }
  function resize(){
   const w=Math.max(400,canvas.width),h=Math.max(300,canvas.height);
   if(lastSize.w===w&&lastSize.h===h)return;
-  const ratio=w/h,halfHeight=ratio>1.45?5.1:6.6;
+  const ratio=w/h,halfHeight=soloEscenario?(ratio>1.45?7.0:8.4):(ratio>1.45?5.1:6.6);
   camera.left=-halfHeight*ratio;camera.right=halfHeight*ratio;
   camera.top=halfHeight;camera.bottom=-halfHeight;
   camera.updateProjectionMatrix();lastSize={w,h};
@@ -402,9 +411,11 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
    cargarArteSelvaGLB(selvaArt.root,{isAlive:()=>!disposed&&stage===targetStage})
     .catch(error=>console.warn('Selva GLB assets unavailable; preserving playable fallback:',error));
   }
-  humans=makeHumans(stage);
-  gorilla=makeGorilla(stage);
-  sundries=makeSundries(stage);
+  if(!soloEscenario){
+   humans=makeHumans(stage);
+   gorilla=makeGorilla(stage);
+   sundries=makeSundries(stage);
+  }
   activeArena=arena;
   const c=terrainColors[arena]||terrainColors.selva;
   scene.background=new THREE.Color(arena==='selva'?0x4c6757:c.fog);
@@ -428,9 +439,17 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   if(now-lastRender<16 && lastRender>0)return true;
   lastRender=now;
   selvaArt?.update(b.transcurrido||0);
-  humans.apply(b.hombres,b.transcurrido||0);
-  gorilla.apply(b.gorila,b.transcurrido||0);
-  if(now-lastSupplies>350){sundries.update(b);lastSupplies=now;}
+  if(!soloEscenario){
+   humans.apply(b.hombres,b.transcurrido||0);
+   gorilla.apply(b.gorila,b.transcurrido||0);
+   if(now-lastSupplies>350){sundries.update(b);lastSupplies=now;}
+  }
+  if(soloEscenario){
+   const radius=23.5,planar=Math.cos(elevation)*radius;
+   camera.position.set(Math.sin(azimuth)*planar,Math.sin(elevation)*radius,
+    Math.cos(azimuth)*planar);
+   camera.lookAt(0,.25,0);
+  }
   renderer.render(scene,camera);
   return true;
  }
