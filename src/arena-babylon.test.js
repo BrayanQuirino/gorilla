@@ -2,21 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {crearPlanoAdoquines} from './arena-babylon.js';
 
-test('solo piedras enlazadas y círculo central sin decoración',()=>{
+test('el piso duplica el área con nueve círculos perfectamente simétricos',()=>{
  const layout=crearPlanoAdoquines();
- assert.equal(layout.outerWidth,51,'ancho duplicado, no escala de adoquines');
- assert.equal(layout.outerDepth,34,'profundidad duplicada');
- assert.equal(layout.outerWidth*layout.outerDepth,1734,'4 veces el área original de 25.5 × 17');
- assert.ok(layout.stones.length>8500,'4 veces el área requiere miles de adoquines adicionales');
- assert.ok(layout.stones.some(s=>!s.circle && s.wx<.44 && s.wz<.38),
-   'los adoquines mantienen dimensiones originales');
- assert.ok(layout.stones.some(s=>s.circle),'el círculo usa adoquines reales');
- assert.ok(layout.stones.some(s=>!s.circle),'existe un suelo exterior');
- assert.ok(layout.rings>=10,'círculo con anillos concéntricos');
- assert.equal(layout.stones.filter(s=>s.x===0&&s.z===0).length,1);
+ assert.ok(Math.abs(layout.outerWidth-51*Math.SQRT2)<1e-8);
+ assert.ok(Math.abs(layout.outerDepth-34*Math.SQRT2)<1e-8);
+ assert.ok(Math.abs(layout.outerWidth*layout.outerDepth-3468)<1e-8,
+  'el área anterior era 1734: ahora exactamente el doble');
+ assert.equal(layout.circles.length,9,'retícula simétrica de 3 por 3');
+ const centers=new Set(layout.circles.map(c=>c.x.toFixed(4)+','+c.z.toFixed(4)));
+ for(const c of layout.circles){
+  assert.ok(centers.has((-c.x).toFixed(4)+','+c.z.toFixed(4)),
+   'simetría horizontal');
+  assert.ok(centers.has(c.x.toFixed(4)+','+(-c.z).toFixed(4)),
+   'simetría vertical');
+  assert.equal(c.r,layout.circleRadius);
+ }
+ assert.ok(layout.stones.length>15000,'crece el número de baldosas');
+ assert.ok(layout.stones.some(s=>!s.circle&&s.wx<.44&&s.wz<.38),
+   'se conserva la dimensión de las baldosas');
+ assert.equal(layout.stones.filter(s=>s.circle&&s.x===0&&s.z===0).length,1);
  for(const stone of layout.stones){
   assert.ok(Number.isFinite(stone.x)&&Number.isFinite(stone.z));
   assert.ok(stone.wx>0&&stone.wz>0);
-  if(!stone.circle)assert.ok(Math.hypot(stone.x,stone.z)>=layout.circleRadius);
+  if(!stone.circle)for(const c of layout.circles)
+   assert.ok(Math.hypot(stone.x-c.x,stone.z-c.z)>=c.r);
  }
 });
