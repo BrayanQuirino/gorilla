@@ -1,3 +1,4 @@
+import { construirPiramides } from './arena-piramides.js';
 // First arena: beige weathered cobblestone pavement ONLY.
 // Deliberately no GLB, trees, rocks, water, gameplay actors or UI geometry.
 // Babylon.js is provided by index.html. Every stone has genuine bevelled 3D volume.
@@ -303,6 +304,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   new B.Vector3(-.5,-1,.6),scene);
  sunlight.position=new B.Vector3(6,13,-8);sunlight.intensity=1.25;
  const art=buildPavement(B,scene);
+ const pyramids=construirPiramides(B,scene,sunlight);
  let disposed=false,lastW=0,lastH=0,zoom=1;
  const originalTarget=new B.Vector3(0,0,0);
  // A Babylon orthographic camera must use the physical drawing-buffer aspect,
@@ -328,12 +330,22 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   }
   const matrix=camera.getViewMatrix();
   let maxX=0,maxY=0;
-  for(const x of [-W/2,W/2]){
-   for(const z of [-D/2,D/2]){
-    const projected=B.Vector3.TransformCoordinates(new B.Vector3(x,0,z),matrix);
-    maxX=Math.max(maxX,Math.abs(projected.x));
-    maxY=Math.max(maxY,Math.abs(projected.y));
-   }
+  const project=(x,y,z)=>{
+   const p=B.Vector3.TransformCoordinates(new B.Vector3(x,y,z),matrix);
+   maxX=Math.max(maxX,Math.abs(p.x));
+   maxY=Math.max(maxY,Math.abs(p.y));
+  };
+  for(const x of [-W/2,W/2])
+   for(const z of [-D/2,D/2])project(x,0,z);
+  // Pyramid roofs rise above the floor plane: include their actual 3D
+  // bounding corners in the framing calculation at every orbit angle.
+  for(const temple of pyramids.sites){
+   const h=temple.height+1.1;
+   for(const dx of [-temple.size/2,temple.size/2])
+    for(const dz of [-temple.size/2,temple.size/2]){
+     project(temple.x+dx,0,temple.z+dz);
+     project(temple.x+dx,h,temple.z+dz);
+    }
   }
   // Extra 17% prevents the bevelled stone boundary from touching the edge.
   const v=Math.max(maxY,maxX/aspect)*1.17*zoom;
@@ -373,6 +385,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
  return render;
 }
