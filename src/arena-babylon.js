@@ -13,26 +13,43 @@ const TAU=Math.PI*2;
 
 // Pure, testable authoring layout independent of GPU/browser.
 export function crearPlanoAdoquines(){
- // Unequal hand-laid masonry courses: each row has a different run of
- // short and long stones instead of identical rounded rectangles on a grid.
- // The reference photo is used for form/material direction, not as a texture.
- const stones=[],stepZ=.36;
+ // Courses are laid all the way to each circle's perimeter. Trim stones
+ // against the round masonry boundary instead of skipping entire tiles:
+ // that skip was the cause of the beige empty bands in the screenshot.
+ const stones=[],stepZ=.345,joint=.007;
  const rows=Math.ceil(D/stepZ);
  for(let row=0;row<rows;row++){
   const z=-D/2+(row+.5)*stepZ;
-  const rowOffset=(row%2)*.18;
-  let x=-W/2+.14-rowOffset,col=0;
-  while(x<W/2-.12){
+  const rowOffset=(row%2)*.19;
+  let x=-W/2-.16-rowOffset,col=0;
+  while(x<W/2){
    const id=row*1009+col+500;
-   const width=.28+.26*rand(id*1.31);
-   const gap=.020+.032*rand(id+19);
-   const cx=x+width/2;
-   const height=.285+.085*rand(row*23+col*2);
-   // Leave the same exact nine clear circle footprints and all symmetries.
-   if(cx<W/2-.09&&!isInCircle(cx,z,.36))
-    stones.push({x:cx,z,wx:width,wz:height,
-     angle:(rand(id+7)-.5)*.085,seed:id,circle:false});
-   x+=width+gap;col++;
+   const width=.30+.23*rand(id*1.31);
+   const a=Math.max(-W/2,x),b=Math.min(W/2,x+width);
+   // Remove only the interior disk, not a whole rectangular stone.
+   // Annular edge stones interlock with these clipped outer courses.
+   let intervals=[[a,b]];
+   for(const c of CIRCLES){
+    if(Math.abs(z-c.z)>R+.275+stepZ/2)continue;
+    const dz=Math.max(0,Math.abs(z-c.z)-stepZ/2);
+    const half=Math.sqrt(Math.max(0,(R+.275)**2-dz*dz));
+    const cutA=c.x-half,cutB=c.x+half;
+    intervals=intervals.flatMap(([l,r])=>{
+     if(r<=cutA||l>=cutB)return [[l,r]];
+     const parts=[];
+     if(cutA-l>.060)parts.push([l,cutA]);
+     if(r-cutB>.060)parts.push([cutB,r]);
+     return parts;
+    });
+   }
+   for(let part=0;part<intervals.length;part++){
+    const [l,r]=intervals[part],span=r-l;
+    if(span<.065)continue;
+    const h=stepZ-joint;
+    stones.push({x:(l+r)/2,z,wx:span-joint,wz:h,
+     angle:0,seed:id*3+part,circle:false,trimmed:span<width-.025});
+   }
+   x+=width+joint;col++;
   }
  }
  // Nine identical concentric cobbled courts, not flat decals.
@@ -50,17 +67,19 @@ export function crearPlanoAdoquines(){
     const seed=100000+plaza*1000000+localRings*1000+i;
     stones.push({x:center.x+Math.cos(theta)*radius,
      z:center.z+Math.sin(theta)*radius,
-     wx:Math.max(.18,arc-.047),wz:.318,
+     wx:Math.max(.18,arc-.010),wz:.352,
      angle:theta+Math.PI/2,seed,circle:true,ring:localRings,plaza});
    }
    localRings++;
   }
-  const radius=R-.10,n=Math.floor(TAU*radius/.34);
+  // A hand-laid transition course bridges radial cobbles to straight rows.
+  // The previous single thin circular row left a conspicuous empty moat.
+  const radius=R+.085,n=Math.floor(TAU*radius/.393);
   for(let i=0;i<n;i++){
    const theta=i*TAU/n;
    stones.push({x:center.x+Math.cos(theta)*radius,
     z:center.z+Math.sin(theta)*radius,
-    wx:TAU*radius/n-.028,wz:.19,angle:theta+Math.PI/2,
+    wx:TAU*radius/n-.012,wz:.37,angle:theta+Math.PI/2,
     seed:200000+plaza*1000000+i,circle:true,ring:localRings,plaza});
   }
   rings=Math.max(rings,localRings);
@@ -69,14 +88,14 @@ export function crearPlanoAdoquines(){
   circles:CIRCLES.map(c=>({...c}))};
 }
 function stonePalette(seed,circle,ring){
- // Weathered limestone: sandstone beige, grey mineral veins and old soot.
+ // Sandstone-beige surface, not a black albedo multiplied by dark vertex tones.
  const shades=[
-  [.67,.61,.49],[.57,.53,.44],[.74,.68,.55],[.65,.59,.48],
-  [.52,.50,.45],[.75,.69,.57],[.60,.56,.46],[.70,.64,.51]
+  [.82,.75,.62],[.76,.70,.59],[.88,.80,.67],[.81,.74,.62],
+  [.72,.67,.57],[.91,.83,.69],[.79,.73,.60],[.86,.78,.65]
  ];
  const color=shades[Math.floor(rand(seed*2.9)*shades.length)];
- const age=.73+.31*rand(seed+51);
- const ringTone=circle?(ring%4===0?.94:1):1;
+ const age=.92+.11*rand(seed+51);
+ const ringTone=circle?(ring%4===0?.97:1):1;
  return color.map(x=>x*age*ringTone);
 }
 // Repeating rock microstructure: fine mineral inclusions, erosion, dirt
@@ -96,11 +115,11 @@ function stoneGrain(B,scene){
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
   const coarse=noise(x/62,y/62),grain=noise(x/10,y/10),micro=noise(x/2.5,y/2.5);
   const fine=rand(x*199+y*409),vein=Math.sin(x*.11+y*.17+coarse*7);
-  const shade=clamp(.55+.36*coarse+.15*grain+.09*micro+.10*fine-.13*Math.max(0,vein),.36,1.10);
+  const shade=clamp(.90+.055*coarse+.025*grain+.012*micro+.016*fine-.016*Math.max(0,vein),.86,1.02);
   const i=(y*n+x)*4;
   pixels.data[i]=clamp(255*shade,0,255);
-  pixels.data[i+1]=clamp(249*shade,0,255);
-  pixels.data[i+2]=clamp(235*shade,0,255);
+  pixels.data[i+1]=clamp(254*shade,0,255);
+  pixels.data[i+2]=clamp(250*shade,0,255);
   pixels.data[i+3]=255;
  }
  ctx.putImageData(pixels,0,0);tex.update();
@@ -134,7 +153,7 @@ function buildPavement(B,scene){
   const seed=s.seed,ca=Math.cos(s.angle),sa=Math.sin(s.angle);
   const base=(rand(seed+6)-.5)*.015,thick=.043+.024*rand(seed+71);
   const tint=stonePalette(seed,s.circle,s.ring||0);
-  const count=12,corner=.25+.15*rand(seed+2);
+  const count=12,corner=.15+.09*rand(seed+2);
   const outer=[],shoulder=[],crown=[],inner=[],foot=[];
   const tform=(px,pz)=>[s.x+px*ca-pz*sa,s.z+px*sa+pz*ca];
   const vertex=(px,pz,y,light,shade=1)=>{
@@ -149,28 +168,28 @@ function buildPavement(B,scene){
    [hw*(1-corner),hz],[0,hz],[-hw*(1-corner),hz],
    [-hw,hz*(1-corner)],[-hw,0],[-hw,-hz*(1-corner)]
   ];
-  const abrasion=.012+.025*rand(seed*2+7);
+  const abrasion=.005+.008*rand(seed*2+7);
   for(let j=0;j<count;j++){
    const [xx,zz]=corners[j];
-   const x=xx+(rand(seed*13+j*79)-.5)*.038;
-   const z=zz+(rand(seed*29+j*41)-.5)*.033;
+   const x=xx+(rand(seed*13+j*79)-.5)*.008;
+   const z=zz+(rand(seed*29+j*41)-.5)*.008;
    const weather=rand(seed*3+j*17);
    const edgeY=base+.004+(weather-.5)*.013;
    const capY=base+thick+(rand(seed+j*37)-.5)*.015;
-   foot.push(vertex(x,z,base-.037,.39));
-   outer.push(vertex(x,z,edgeY,.48+.24*weather));
+   foot.push(vertex(x,z,base-.037,.72));
+   outer.push(vertex(x,z,edgeY,.81+.09*weather));
    shoulder.push(vertex(x*(1-abrasion/Math.max(hw,.1)),
     z*(1-abrasion/Math.max(hz,.1)),capY,
-    .72+.16*rand(seed+j*19)));
+    .89+.08*rand(seed+j*19)));
    crown.push(vertex(x*.72,z*.72,capY+
-    (rand(seed+j*47)-.5)*.021,.78+.20*rand(seed+j*59)));
+    (rand(seed+j*47)-.5)*.021,.93+.07*rand(seed+j*59)));
    inner.push(vertex(x*.37,z*.37,capY+
-    (rand(seed+j*61)-.5)*.028,.71+.26*rand(seed+j*67)));
+    (rand(seed+j*61)-.5)*.028,.92+.08*rand(seed+j*67)));
   }
   // Rough, uneven top: concentric triangulation creates natural faceting
   // instead of one clean triangle-fan / smooth machined surface.
   const center=vertex(0,0,base+thick+
-   (rand(seed+129)-.5)*.024,.84+.13*rand(seed+11));
+   (rand(seed+129)-.5)*.024,.94+.06*rand(seed+11));
   const rings=[foot,outer,shoulder,crown,inner];
   for(let k=0;k<rings.length-1;k++){
    const a=rings[k],b=rings[k+1];
@@ -189,20 +208,11 @@ function buildPavement(B,scene){
  vd.colors=colors;vd.uvs=uvs;vd.applyToMesh(cobbles);
  const stone=new B.StandardMaterial('Piedra beige, envejecida y mate',scene);
  stone.diffuseColor=B.Color3.White();
- // Photographic CC0 geological material, baked into the deploy.
- // Keep the procedural map until/if the locally hosted image arrives.
- stone.diffuseTexture=stoneGrain(B,scene);
- const base=(import.meta.env.BASE_URL||'./')+'textures/stone/';
- const rock=new B.Texture(base+'rock_surface_diff_1k.jpg',scene,false,false,
-  B.Texture.TRILINEAR_SAMPLINGMODE,
-  ()=>{stone.diffuseTexture=rock;},
-  ()=>{rock.dispose();});
- rock.wrapU=rock.wrapV=B.Texture.WRAP_ADDRESSMODE;
- const normal=new B.Texture(base+'rock_surface_nor_gl_1k.jpg',scene,false,false,
-  B.Texture.TRILINEAR_SAMPLINGMODE,
-  ()=>{stone.bumpTexture=normal;normal.level=.52;},
-  ()=>{normal.dispose();});
- normal.wrapU=normal.wrapV=B.Texture.WRAP_ADDRESSMODE;
+ // IMPORTANT: do not multiply beige vertex colors by a dark photograph.
+ // The photographed surface is only a geometry reference. The lit stone
+ // albedo stays beige, with subtle baked neutral mineral grain.
+ const grain=stoneGrain(B,scene);
+ stone.diffuseTexture=grain;
  stone.useVertexColors=true;
  stone.specularColor=new B.Color3(.035,.030,.023);
  stone.backFaceCulling=false;stone.alpha=1;
@@ -213,7 +223,7 @@ function buildPavement(B,scene){
   {width:W,height:D,subdivisions:1},scene);
  mortar.position.y=-.055;
  const mortarMat=new B.StandardMaterial('Mortero beige sucio',scene);
- mortarMat.diffuseColor=new B.Color3(.35,.305,.235);
+ mortarMat.diffuseColor=new B.Color3(.64,.57,.46);
  mortarMat.specularColor=B.Color3.Black();
  mortar.material=mortarMat;mortar.receiveShadows=true;
  // End-caps hide cracks outside of the playable square.
