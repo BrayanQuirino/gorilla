@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {crearPlanoAdoquines} from './arena-babylon.js';
+import {crearPlanoAdoquines,calcularEncuadreArena} from './arena-babylon.js';
 
 test('el piso duplica el área con nueve círculos perfectamente simétricos',()=>{
  const layout=crearPlanoAdoquines();
@@ -27,4 +27,32 @@ test('el piso duplica el área con nueve círculos perfectamente simétricos',()
   if(!stone.circle)for(const c of layout.circles)
    assert.ok(Math.hypot(stone.x-c.x,stone.z-c.z)>=c.r);
  }
+});
+
+test('encuadre isométrico contiene TODAS las esquinas a cualquier giro y relación de pantalla',()=>{
+ const layout=crearPlanoAdoquines();
+ for(const aspect of [.58,1,1.56,2.8]){
+  for(const beta of [.29,.65,1.05]){
+   for(let i=0;i<24;i++){
+    const alpha=i*Math.PI/12;
+    const fit=calcularEncuadreArena(aspect,alpha,beta);
+    for(const x of [-layout.outerWidth/2,layout.outerWidth/2]){
+     for(const z of [-layout.outerDepth/2,layout.outerDepth/2]){
+      const screenX=-x*Math.sin(alpha)+z*Math.cos(alpha);
+      const screenY=-x*Math.cos(alpha)*Math.cos(beta)-z*Math.sin(alpha)*Math.cos(beta);
+      assert.ok(Math.abs(screenX)<fit*aspect,'sin recorte horizontal');
+      assert.ok(Math.abs(screenY)<fit,'sin recorte vertical');
+     }
+    }
+   }
+  }
+ }
+});
+
+test('anchos de piedras diferentes como en mampostería antigua',()=>{
+ const exterior=crearPlanoAdoquines().stones.filter(s=>!s.circle);
+ const unique=new Set(exterior.slice(0,400).map(s=>s.wx.toFixed(2)));
+ assert.ok(unique.size>12,'no se repiten baldosas idénticas');
+ assert.ok(Math.max(...exterior.slice(0,100).map(s=>s.wx))>
+  1.4*Math.min(...exterior.slice(0,100).map(s=>s.wx)));
 });
