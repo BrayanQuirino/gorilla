@@ -79,39 +79,96 @@ function batch(p,g,material,entries){
  });
  o.instanceMatrix.needsUpdate=true;o.frustumCulled=false;p.add(o);return o;
 }
+// Organic ground with a deterministic PBR albedo/height map. Uses actual geometry
+// and texture samples, not a background illustration or a flat canvas image.
+function jungleGroundTexture(){
+ const n=256,data=new Uint8Array(n*n*4);
+ const mix=(a,b,t)=>a+(b-a)*t;
+ const fract=n=>n-Math.floor(n);
+ const noise=(x,y)=>{
+  const ix=Math.floor(x),iy=Math.floor(y),fx=fract(x),fy=fract(y);
+  const a=fx*fx*(3-2*fx),b=fy*fy*(3-2*fy);
+  const cell=(u,v)=>rnd(u*119.7+v*311.3);
+  return mix(mix(cell(ix,iy),cell(ix+1,iy),a),
+    mix(cell(ix,iy+1),cell(ix+1,iy+1),a),b);
+ };
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+  const a=noise(x/43,y/43),b=noise(x/14,y/14),c=noise(x/3.5,y/3.5);
+  const moisture=.52*a+.3*b+.18*c;
+  const pebble=rnd(x*17.4+y*67.8);
+  const dark=moisture>.60;
+  const rgb=dark?[62,88,54]:[105,99,67];
+  const factor=.67+moisture*.49+(pebble-.5)*.11;
+  const i=(y*n+x)*4;
+  data[i]=Math.min(255,rgb[0]*factor);
+  data[i+1]=Math.min(255,rgb[1]*factor);
+  data[i+2]=Math.min(255,rgb[2]*factor);
+  data[i+3]=255;
+ }
+ const t=new THREE.DataTexture(data,n,n,THREE.RGBAFormat);
+ t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(7,5);
+ t.colorSpace=THREE.SRGBColorSpace;
+ t.minFilter=THREE.LinearMipmapLinearFilter;
+ t.magFilter=THREE.LinearFilter;t.generateMipmaps=true;
+ t.anisotropy=8;t.needsUpdate=true;
+ return t;
+}
+const groundMap=jungleGroundTexture();
 function floor(p){
- const g=new THREE.PlaneGeometry(28,22,112,88),v=g.attributes.position,c=[];
- const forest=new THREE.Color(colors.grass),dirt=new THREE.Color(colors.dirt);
+ const g=new THREE.PlaneGeometry(28,22,168,132),v=g.attributes.position,c=[];
+ const grass=new THREE.Color(0x94ad80),dirt=new THREE.Color(0xc0a47a);
  for(let i=0;i<v.count;i++){
   const x=v.getX(i),z=-v.getY(i),r=Math.hypot(x,z);
-  v.setZ(i,(Math.sin(x*2.9+z*1.4)+Math.cos(z*4.6))*0.009);
-  const t=Math.max(Math.exp(-Math.pow((z-.2*Math.sin(x*.68))/.56,2))*.5,Math.max(0,Math.min(1,(3.1-r)*1.2))*.72);
-  const tint=forest.clone().lerp(dirt,t).multiplyScalar(.89+rnd(i*11)*.19);
+  const wav=.013*Math.sin(x*2.6+z*.76)+.009*Math.cos(z*3.2-x*1.4);
+  // Keep combat floor almost planar: visual relief never becomes an invisible wall.
+  v.setZ(i,wav);
+  const trail=Math.exp(-Math.pow((z-.19*Math.sin(x*.68))/.64,2));
+  const court=Math.max(0,Math.min(1,(3.12-r)*1.25));
+  const edge=Math.min(1,Math.max(0,(r-3.8)/5));
+  const t=Math.max(trail*.7,court*.84);
+  const tint=grass.clone().lerp(dirt,t)
+   .multiplyScalar(.79+.23*rnd(i*11)+edge*.04);
   c.push(tint.r,tint.g,tint.b);
  }
- g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));g.rotateX(-Math.PI/2);g.computeVertexNormals();
- add(p,g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}),0,-.07,0);
- // Ground extends well beyond the combat frame; no visible floating
- // rectangular platform edge as in the previous preview.
+ g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));
+ g.rotateX(-Math.PI/2);g.computeVertexNormals();
+ const mat=new THREE.MeshStandardMaterial({
+  map:groundMap,bumpMap:groundMap,bumpScale:.035,
+  vertexColors:true,roughness:.98,metalness:0
+ });
+ const floor=add(p,g,mat,0,-.067,0);
+ floor.name='Suelo selvático · relieve y material PBR';
+ floor.receiveShadow=true;floor.castShadow=false;
 }
 function circle(p){
- const inner=new THREE.Mesh(new THREE.CylinderGeometry(2.61,2.61,.025,96),
-  materials.dark);inner.position.y=-.041;p.add(inner);
- const tiles=[];
- for(let row=0;row<10;row++){
-  const r=.28+row*.241,n=Math.max(14,Math.floor(r*37));
+ // An ancient, imperfect cobblestone arena. Reuse stone geometry via GPU
+ // instancing to keep hundreds of physically raised stones affordable.
+ const substrate=new THREE.Mesh(new THREE.CylinderGeometry(2.71,2.78,.060,96),
+  materials.dark);
+ substrate.position.y=-.049;substrate.receiveShadow=true;p.add(substrate);
+ const stones=[],joints=[];
+ for(let ring=0;ring<13;ring++){
+  const r=.14+ring*.196,n=Math.max(10,Math.floor(r*36));
   for(let i=0;i<n;i++){
-   const a=(i+(row%2)*.5)*Math.PI*2/n;
-   tiles.push({x:r*Math.cos(a),y:-.013,z:r*Math.sin(a),sx:.105,sy:.019,sz:.115,
-    ry:a,color:[colors.rock,colors.light,colors.dark][Math.floor(rnd(i*19+row*17)*3)]});
+   const a=(i+(ring%2)*.45+rnd(i*31+ring)*.1)*Math.PI*2/n;
+   const jitter=.014*(rnd(i*73+ring*17)-.5);
+   const radius=r+jitter;
+   const tone=[0x989785,0xb8b39c,0x777d70,0x8b8e78,0x9d987e];
+   stones.push({x:radius*Math.cos(a),y:-.014+rnd(i+ring*3)*.008,
+    z:radius*Math.sin(a),
+    sx:Math.max(.046,r*Math.PI/n*.92),
+    sy:.025+rnd(i*13+ring)*.013,
+    sz:.072+rnd(i*17+ring)*.018,
+    ry:a,color:tone[Math.floor(rnd(i*23+ring*11)*tone.length)]});
   }
  }
- batch(p,geo.box,'rock',tiles);
- const circle=new THREE.Mesh(new THREE.TorusGeometry(.35,.027,7,48),materials.light);
- circle.rotation.x=-Math.PI/2;circle.position.y=.017;p.add(circle);
+ batch(p,geo.boulder,'rock',stones);
+ // Small central seal carved into the stone (physical raised geometry).
+ const seal=new THREE.Mesh(new THREE.TorusGeometry(.43,.028,8,64),materials.light);
+ seal.rotation.x=-Math.PI/2;seal.position.y=.015;seal.receiveShadow=true;p.add(seal);
  for(let i=0;i<8;i++){
   const a=i*Math.PI/4;
-  const tile=block(p,Math.cos(a)*.24,.009,Math.sin(a)*.24,.13,.01,.03,'light');
+  const tile=block(p,Math.cos(a)*.29,.007,Math.sin(a)*.29,.15,.012,.033,'light');
   tile.rotation.y=a;
  }
 }
@@ -240,6 +297,58 @@ function dress(p){
   fire.position.set(x,.60,z);p.add(fire);
  }
 }
+// Art-directed masonry anchored to the existing collision solids. All steps,
+// fragments and carvings remain inside the authored ruin footprint.
+function ancientRuins(p,obstacles){
+ const chisels=[],stairSteps=[],gold=[],vines=[];
+ for(const o of obstacles.filter(o=>o.tipo==='ruina')){
+  const [x,z]=P(o.x,o.y),rx=o.rx/U,rz=o.ry/U;
+  const group=new THREE.Group();group.position.set(x,0,z);p.add(group);
+  group.name='Ruina escalonada · huella de colisión original';
+  const width=rx*1.5,depth=rz*1.38;
+  for(let level=0;level<3;level++){
+   const shrink=level*.11;
+   block(group,0,level*.105,0,width-shrink,.115,depth-shrink,
+    level%2?'dark':'rock');
+  }
+  for(let k=0;k<4;k++){
+   const side=k%2===0?-1:1;
+   const ax=side*width*.34,az=(k<2?-1:1)*depth*.32;
+   const h=.42+rnd(o.x+k)*.42;
+   const pillar=add(group,new THREE.CylinderGeometry(.105,.13,h,9,3),
+    materials.light,ax,.30+h/2,az);
+   pillar.rotation.z=(rnd(k+o.y)-.5)*.08;
+   block(group,ax,.27,az,.27,.09,.27,'dark');
+   const top=block(group,ax,.30+h,az,.26,.07,.26,'rock');
+   top.rotation.y=rnd(k*13+o.y)*.08;
+  }
+  // Broken relief: repeated sandstone ornament is not a billboard.
+  for(let i=0;i<18;i++){
+   const a=i*2.399,r=.30+rnd(i+o.x)*.40;
+   chisels.push({x:x+Math.cos(a)*r*rx,y:.29+rnd(i*9+o.x)*.26,
+    z:z+Math.sin(a)*r*rz,sx:.075,sy:.025,sz:.08,
+    ry:a,color:i%4?colors.rock:colors.light});
+  }
+  for(let j=0;j<5;j++){
+   stairSteps.push({x,y:.005+j*.018,z:z+depth*.68-j*.095,
+    sx:width*(.84-j*.05),sy:.045,sz:.16,
+    color:j%2?colors.light:colors.dark});
+  }
+  for(let i=0;i<13;i++){
+   const a=i*2.4;
+   vines.push({x:x+Math.cos(a)*rx*.75,y:.14+rnd(i+o.y)*.31,
+    z:z+Math.sin(a)*rz*.75,
+    sx:.13,sy:.09,sz:.17,ry:a,
+    color:i%3?colors.moss:0x6a9958});
+  }
+ }
+ batch(p,geo.boulder,'rock',chisels);
+ batch(p,geo.box,'rock',stairSteps);
+ batch(p,geo.leaf,'moss',vines);
+ return {ruins:obstacles.filter(o=>o.tipo==='ruina').length,
+  chisels:chisels.length,steps:stairSteps.length,
+  collisionChanges:0};
+}
 export function construirSelvaAncestral(scene){
  const root=new THREE.Group();root.name='Selva ancestral · 3D';scene.add(root);
  floor(root);roads(root);circle(root);
@@ -249,10 +358,12 @@ export function construirSelvaAncestral(scene){
  dress(root);
  const forest=bosqueDetallado(root);
  const masonry=detalleMamposteria(root,obstacles);
+ const ancient=ancientRuins(root,obstacles);
  return {
   root,update:(seconds)=>{surface.uniforms.uTime.value=seconds;},
   metadata:{arena:'selva',collisions:obstacles.map(o=>o.id),
    bridgeCount:2,plaza:true,artwork:'procedural-3d',musicOverride:false,
-   vegetation:forest,ruinDetails:masonry}
+   vegetation:forest,ruinDetails:{...masonry,...ancient},groundMaterial:'procedural-PBR',
+   stageGeometry:'organic-heightfield',combatActors:false}
  };
 }
