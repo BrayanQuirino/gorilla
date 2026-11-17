@@ -363,8 +363,13 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   sundries=makeSundries(stage);
   activeArena=arena;
   const c=terrainColors[arena]||terrainColors.selva;
-  scene.background=new THREE.Color(c.fog);
-  scene.fog=new THREE.FogExp2(c.fog,.018);
+  scene.background=new THREE.Color(arena==='selva'?0x4c6757:c.fog);
+  scene.fog=new THREE.FogExp2(arena==='selva'?0x607c65:c.fog,arena==='selva'?.013:.018);
+  // Restore material contrast: previous overbright lighting flattened details.
+  ambient.intensity=arena==='selva'?1.25:2.0;
+  sunlight.intensity=arena==='selva'?2.35:2.25;
+  fill.intensity=arena==='selva'?.45:.7;
+  renderer.toneMappingExposure=arena==='selva'?1.05:1.35;
  }
  const onLost=e=>{e.preventDefault();onFailure?.(new Error('Se perdió el contexto WebGL 3D'))};
  canvas.addEventListener('webglcontextlost',onLost);events.push(['webglcontextlost',onLost]);
