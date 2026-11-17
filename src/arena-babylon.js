@@ -299,23 +299,43 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  const art=buildPavement(B,scene);
  let disposed=false,lastW=0,lastH=0;
  const originalTarget=new B.Vector3(0,0,0);
+ // A Babylon orthographic camera must use the physical drawing-buffer aspect,
+ // not an assumed CSS aspect (the legacy game used a fixed 1000×640 canvas).
+ // Project the FOUR physical floor corners through the actual view matrix:
+ // this is more reliable than trigonometric guesses at any camera rotation.
  function resize(){
-  const w=canvas.clientWidth||canvas.width,h=canvas.clientHeight||canvas.height;
-  if(lastW!==w||lastH!==h){lastW=w;lastH=h;engine.resize();}
+  const bounds=canvas.getBoundingClientRect();
+  const width=Math.max(1,Math.round(bounds.width));
+  const height=Math.max(1,Math.round(bounds.height));
+  if(lastW!==width||lastH!==height){
+   lastW=width;lastH=height;engine.resize();
+  }
   const aspect=engine.getRenderWidth()/Math.max(1,engine.getRenderHeight());
-  // Rotating a non-square floor changes its screen-space bounding rectangle.
-  // Re-fit every frame, instead of assuming a constant vertical extent.
-  const fit=calcularEncuadreArena(aspect,camera.alpha,camera.beta);
-  if(camera.radius>=24)camera.target.copyFrom(originalTarget);
-  else{
+  if(camera.radius>=24){
+   camera.target.copyFrom(originalTarget);
+  }else{
    camera.target.x=clamp(camera.target.x,-W*.39,W*.39);
    camera.target.z=clamp(camera.target.z,-D*.39,D*.39);
    camera.target.y=0;
   }
-  const v=fit*(camera.radius/24);
+  const matrix=camera.getViewMatrix();
+  let maxX=0,maxY=0;
+  for(const x of [-W/2,W/2]){
+   for(const z of [-D/2,D/2]){
+    const projected=B.Vector3.TransformCoordinates(new B.Vector3(x,0,z),matrix);
+    maxX=Math.max(maxX,Math.abs(projected.x));
+    maxY=Math.max(maxY,Math.abs(projected.y));
+   }
+  }
+  // Extra 17% prevents the bevelled stone boundary from touching the edge.
+  const v=Math.max(maxY,maxX/aspect)*1.17*(camera.radius/24);
   camera.orthoTop=v;camera.orthoBottom=-v;
   camera.orthoLeft=-v*aspect;camera.orthoRight=v*aspect;
  }
+ // CSS layout can settle AFTER the Babylon engine is created; observe it.
+ const observer=typeof ResizeObserver!=='undefined'
+  ?new ResizeObserver(()=>{if(!disposed)resize();}):null;
+ observer?.observe(canvas);
  const onWheel=e=>{
   e.preventDefault();
   camera.radius=clamp(camera.radius*Math.exp(e.deltaY*.0012),5,64);
@@ -337,6 +357,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  const render=()=>!disposed;
  render.liberar=()=>{
   disposed=true;window.removeEventListener('resize',onResize);
+  observer?.disconnect();
   canvas.removeEventListener('wheel',onWheel);
   canvas.removeEventListener('dblclick',resetView);
   camera.detachControl(canvas);engine.stopRenderLoop();
