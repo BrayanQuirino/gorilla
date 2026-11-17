@@ -170,6 +170,29 @@ function buildPavement(B,scene){
   return index;
  };
  for(const s of layout.stones){
+  // Triangular/trapezoidal hand-cut infill at the circle transition.
+  // Polygon vertices are real meshes, not rectangles carrying a label.
+  if(s.polygon){
+   const ca=Math.cos(s.angle),sa=Math.sin(s.angle);
+   const tint=stonePalette(s.seed,true,s.ring||0);
+   const y=.047+(rand(s.seed+6)-.5)*.010;
+   const contour=s.polygon.map(([px,pz])=>{
+    const x=px*s.wx,z=pz*s.wz;
+    return [s.x+x*ca-z*sa,s.z+x*sa+z*ca];
+   });
+   const top=[],base=[];
+   for(const [x,z] of contour){
+    top.push(push(x,y,z,tint,.98));
+    base.push(push(x,-.022,z,tint,.90));
+   }
+   const mid=push(s.x,y+.002,s.z,tint,.99);
+   for(let i=0;i<contour.length;i++){
+    const j=(i+1)%contour.length;
+    indices.push(mid,top[j],top[i]);
+    indices.push(top[i],base[i],top[j],top[j],base[i],base[j]);
+   }
+   continue;
+  }
   const hw=s.wx*.5,hz=s.wz*.5;
   const seed=s.seed,ca=Math.cos(s.angle),sa=Math.sin(s.angle);
   const base=(rand(seed+6)-.5)*.015,thick=.043+.024*rand(seed+71);
