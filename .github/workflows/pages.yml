@@ -34,6 +34,8 @@ jobs:
           cat public/audio/status.json
       - name: Fetch licensed 3D jungle models (CC0)
         run: node scripts/fetch-art-assets.mjs
+      - name: Fetch CC0 weathered stone PBR material
+        run: node scripts/fetch-stone-textures.mjs
       - name: Stamp deployed version for automatic cache invalidation
         run: |
           printf '{"sha":"%s"}\n' "$GITHUB_SHA" > public/build-version.json
