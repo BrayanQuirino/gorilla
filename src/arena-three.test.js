@@ -27,6 +27,12 @@ test('Selva ancestral uses the exact same colliders as pathfinding and combat',(
  assert.equal(selva.metadata.bridgeCount,2);
  assert.equal(selva.metadata.plaza,true);
  assert.equal(selva.metadata.musicOverride,false);
+ assert.ok(selva.metadata.vegetation.trees>=70,'jungle contains detailed tree canopy');
+ assert.ok(selva.metadata.vegetation.leaves>1500,'actual 3D leaf geometry');
+ assert.ok(selva.metadata.vegetation.groundFoliage>1000,'ground vegetation is batched');
+ assert.equal(selva.metadata.vegetation.instanced,true,'foliage uses GPU instancing');
+ assert.equal(selva.metadata.vegetation.collisionChanges,0,'art does not change combat obstacles');
+ assert.ok(selva.metadata.ruinDetails.stoneFragments>200,'rocks and ruins have sculpted debris');
  assert.equal(selva.metadata.artwork,'procedural-3d');
  const geometry=[];
  selva.root.traverse(o=>{if(o.isMesh)geometry.push(o);});
