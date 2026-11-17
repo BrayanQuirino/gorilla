@@ -31,7 +31,7 @@ function batch(p,g,material,entries){
  o.instanceMatrix.needsUpdate=true;o.frustumCulled=false;p.add(o);return o;
 }
 function floor(p){
- const g=new THREE.PlaneGeometry(15.4,11.3,95,75),v=g.attributes.position,c=[];
+ const g=new THREE.PlaneGeometry(28,22,112,88),v=g.attributes.position,c=[];
  const forest=new THREE.Color(colors.grass),dirt=new THREE.Color(colors.dirt);
  for(let i=0;i<v.count;i++){
   const x=v.getX(i),z=-v.getY(i),r=Math.hypot(x,z);
@@ -42,7 +42,8 @@ function floor(p){
  }
  g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));g.rotateX(-Math.PI/2);g.computeVertexNormals();
  add(p,g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}),0,-.07,0);
- block(p,0,-.42,0,15.4,.32,11.3,'forest');
+ // Ground extends well beyond the combat frame; no visible floating
+ // rectangular platform edge as in the previous preview.
 }
 function circle(p){
  const inner=new THREE.Mesh(new THREE.CylinderGeometry(2.61,2.61,.025,96),
@@ -157,6 +158,21 @@ function bridge(p,x,z){
   block(g,0,.40,side*.38,1.19,.032,.032,'wood');
  }
 }
+function forestBackdrop(p){
+ // Silhouette foliage outside the 1000x640 arena: atmospheric only, no
+ // unregistered collider can interfere with 100 autonomous actors.
+ const foliage=[],trunks=[];
+ for(let i=0;i<150;i++){
+  const x=(rnd(i*17+53)-.5)*25.5,z=(rnd(i*29+31)-.5)*19.0;
+  if(Math.abs(x)<7.35&&Math.abs(z)<5.25)continue;
+  const h=.9+rnd(i*19)*1.65;
+  trunks.push({x,y:h*.48,z,sx:.095,sy:h,sz:.095,ry:rnd(i)*6.28});
+  foliage.push({x,y:h*1.05,z,sx:.36+rnd(i*11)*.4,
+   sy:.43+rnd(i+11)*.43,sz:.39+rnd(i*9)*.37,
+   color:i%4===0?0x67975a:i%3===0?0x2c603a:0x46794a});
+ }
+ batch(p,geo.stem,'bark',trunks);batch(p,geo.leaf,'leaves',foliage);
+}
 function dress(p){
  const grass=[],petals=[];
  for(let i=0;i<950;i++){
@@ -188,7 +204,7 @@ export function construirSelvaAncestral(scene){
  const obstacles=cliffs(root);
  const surface=water(root);
  bridge(root,-6.65,-2.50);bridge(root,-6.65,2.6);
- dress(root);
+ dress(root);forestBackdrop(root);
  return {
   root,update:(seconds)=>{surface.uniforms.uTime.value=seconds;},
   metadata:{arena:'selva',collisions:obstacles.map(o=>o.id),
