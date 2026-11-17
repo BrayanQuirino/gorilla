@@ -179,7 +179,7 @@ function buildPavement(B,scene){
     indices.push(a[j],b[j],a[next],a[next],b[j],b[next]);
    }
   }
-  for(let j=0;j<count;j++)indices.push(center,inner[j],inner[(j+1)%count]);
+  for(let j=0;j<count;j++)indices.push(center,inner[(j+1)%count],inner[j]);
  }
  const normals=[];
  B.VertexData.ComputeNormals(positions,indices,normals);
