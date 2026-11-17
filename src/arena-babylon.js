@@ -16,7 +16,7 @@ export function crearPlanoAdoquines(){
  // Courses are laid all the way to each circle's perimeter. Trim stones
  // against the round masonry boundary instead of skipping entire tiles:
  // that skip was the cause of the beige empty bands in the screenshot.
- const stones=[],stepZ=.345,joint=.007;
+ const stones=[],stepZ=.345,joint=.003;
  const rows=Math.ceil(D/stepZ);
  for(let row=0;row<rows;row++){
   const z=-D/2+(row+.5)*stepZ;
@@ -68,7 +68,7 @@ export function crearPlanoAdoquines(){
     const seed=100000+plaza*1000000+localRings*1000+i;
     stones.push({x:center.x+Math.cos(theta)*radius,
      z:center.z+Math.sin(theta)*radius,
-     wx:Math.max(.18,arc-.010),wz:.352,
+     wx:Math.max(.18,arc-.003),wz:.354,
      angle:theta+Math.PI/2,seed,circle:true,ring:localRings,plaza});
    }
    localRings++;
@@ -80,8 +80,28 @@ export function crearPlanoAdoquines(){
    const theta=i*TAU/n;
    stones.push({x:center.x+Math.cos(theta)*radius,
     z:center.z+Math.sin(theta)*radius,
-    wx:TAU*radius/n-.012,wz:.37,angle:theta+Math.PI/2,
+    wx:TAU*radius/n-.003,wz:.37,angle:theta+Math.PI/2,
     seed:200000+plaza*1000000+i,circle:true,ring:localRings,plaza});
+  }
+  // Hand-fitted transition: narrow tapered and triangular wedges finish
+  // the curved boundary where straight masonry courses cannot reach.
+  // Two overlapping staggered rows eliminate the former circular white moat.
+  for(let course=0;course<2;course++){
+   const r=R+.36+course*.145;
+   const count=Math.ceil(TAU*r/.24);
+   for(let i=0;i<count;i++){
+    const theta=TAU*(i+(course%2)*.5)/count;
+    const seed=300000+plaza*1000000+course*1000+i;
+    const arc=TAU*r/count;
+    const taper=.28+.20*rand(seed+31);
+    stones.push({x:center.x+Math.cos(theta)*r,
+     z:center.z+Math.sin(theta)*r,
+     wx:arc-.002,wz:.205,
+     angle:theta+Math.PI/2,seed,circle:true,ring:localRings+course+1,
+     // Polygonal hand-cut wedge, narrower at the outward end.
+     polygon:[[-.5,-.5],[.5,-.5],[.5-taper,.5],[-.5+taper,.5]]
+    });
+   }
   }
   rings=Math.max(rings,localRings);
  }
@@ -91,12 +111,12 @@ export function crearPlanoAdoquines(){
 function stonePalette(seed,circle,ring){
  // Sandstone-beige surface, not a black albedo multiplied by dark vertex tones.
  const shades=[
-  [.82,.75,.62],[.76,.70,.59],[.88,.80,.67],[.81,.74,.62],
-  [.72,.67,.57],[.91,.83,.69],[.79,.73,.60],[.86,.78,.65]
+  [.97,.92,.81],[.94,.88,.76],[.99,.95,.87],[.92,.86,.73],
+  [.98,.91,.79],[.95,.93,.86],[.90,.85,.76],[.99,.94,.83]
  ];
  const color=shades[Math.floor(rand(seed*2.9)*shades.length)];
- const age=.92+.11*rand(seed+51);
- const ringTone=circle?(ring%4===0?.97:1):1;
+ const age=.97+.03*rand(seed+51);
+ const ringTone=circle?(ring%4===0?.99:1):1;
  return color.map(x=>x*age*ringTone);
 }
 // Repeating rock microstructure: fine mineral inclusions, erosion, dirt
@@ -116,7 +136,7 @@ function stoneGrain(B,scene){
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
   const coarse=noise(x/62,y/62),grain=noise(x/10,y/10),micro=noise(x/2.5,y/2.5);
   const fine=rand(x*199+y*409),vein=Math.sin(x*.11+y*.17+coarse*7);
-  const shade=clamp(.90+.055*coarse+.025*grain+.012*micro+.016*fine-.016*Math.max(0,vein),.86,1.02);
+  const shade=clamp(.965+.018*coarse+.009*grain+.008*micro+.006*fine-.008*Math.max(0,vein),.94,1.02);
   const i=(y*n+x)*4;
   pixels.data[i]=clamp(255*shade,0,255);
   pixels.data[i+1]=clamp(254*shade,0,255);
@@ -154,7 +174,7 @@ function buildPavement(B,scene){
   const seed=s.seed,ca=Math.cos(s.angle),sa=Math.sin(s.angle);
   const base=(rand(seed+6)-.5)*.015,thick=.043+.024*rand(seed+71);
   const tint=stonePalette(seed,s.circle,s.ring||0);
-  const count=12,corner=.15+.09*rand(seed+2);
+  const count=12,corner=.10+.06*rand(seed+2);
   const outer=[],shoulder=[],crown=[],inner=[],foot=[];
   const tform=(px,pz)=>[s.x+px*ca-pz*sa,s.z+px*sa+pz*ca];
   const vertex=(px,pz,y,light,shade=1)=>{
@@ -169,28 +189,28 @@ function buildPavement(B,scene){
    [hw*(1-corner),hz],[0,hz],[-hw*(1-corner),hz],
    [-hw,hz*(1-corner)],[-hw,0],[-hw,-hz*(1-corner)]
   ];
-  const abrasion=.005+.008*rand(seed*2+7);
+  const abrasion=.0015+.0025*rand(seed*2+7);
   for(let j=0;j<count;j++){
    const [xx,zz]=corners[j];
-   const x=xx+(rand(seed*13+j*79)-.5)*.008;
-   const z=zz+(rand(seed*29+j*41)-.5)*.008;
+   const x=xx+(rand(seed*13+j*79)-.5)*.004;
+   const z=zz+(rand(seed*29+j*41)-.5)*.004;
    const weather=rand(seed*3+j*17);
    const edgeY=base+.004+(weather-.5)*.013;
    const capY=base+thick+(rand(seed+j*37)-.5)*.015;
-   foot.push(vertex(x,z,base-.037,.72));
-   outer.push(vertex(x,z,edgeY,.81+.09*weather));
+   foot.push(vertex(x,z,base-.037,.88));
+   outer.push(vertex(x,z,edgeY,.93+.045*weather));
    shoulder.push(vertex(x*(1-abrasion/Math.max(hw,.1)),
     z*(1-abrasion/Math.max(hz,.1)),capY,
-    .89+.08*rand(seed+j*19)));
+    .96+.035*rand(seed+j*19)));
    crown.push(vertex(x*.72,z*.72,capY+
-    (rand(seed+j*47)-.5)*.021,.93+.07*rand(seed+j*59)));
+    (rand(seed+j*47)-.5)*.021,.975+.025*rand(seed+j*59)));
    inner.push(vertex(x*.37,z*.37,capY+
-    (rand(seed+j*61)-.5)*.028,.92+.08*rand(seed+j*67)));
+    (rand(seed+j*61)-.5)*.028,.97+.03*rand(seed+j*67)));
   }
   // Rough, uneven top: concentric triangulation creates natural faceting
   // instead of one clean triangle-fan / smooth machined surface.
   const center=vertex(0,0,base+thick+
-   (rand(seed+129)-.5)*.024,.94+.06*rand(seed+11));
+   (rand(seed+129)-.5)*.024,.98+.02*rand(seed+11));
   const rings=[foot,outer,shoulder,crown,inner];
   for(let k=0;k<rings.length-1;k++){
    const a=rings[k],b=rings[k+1];
@@ -216,6 +236,7 @@ function buildPavement(B,scene){
  stone.diffuseTexture=grain;
  stone.useVertexColors=true;
  stone.specularColor=new B.Color3(.035,.030,.023);
+ stone.emissiveColor=new B.Color3(.24,.22,.19);
  stone.backFaceCulling=false;stone.alpha=1;
  stone.transparencyMode=B.Material.MATERIAL_OPAQUE;
  cobbles.material=stone;cobbles.receiveShadows=true;
@@ -224,7 +245,7 @@ function buildPavement(B,scene){
   {width:W,height:D,subdivisions:1},scene);
  mortar.position.y=-.055;
  const mortarMat=new B.StandardMaterial('Mortero beige sucio',scene);
- mortarMat.diffuseColor=new B.Color3(.64,.57,.46);
+ mortarMat.diffuseColor=new B.Color3(.89,.84,.75);
  mortarMat.specularColor=B.Color3.Black();
  mortar.material=mortarMat;mortar.receiveShadows=true;
  // End-caps hide cracks outside of the playable square.
