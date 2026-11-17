@@ -1,19 +1,18 @@
 // Stone architecture layer for Babylon.js arena.
 // Geometry stays independent of the cobbled floor and the combat simulation.
-// Three intact step pyramids and three partially collapsed temples.
+// Three asymmetrically placed temples: almost intact, moderately damaged, and heavily collapsed.
 const rnd=n=>{const x=Math.sin(n*127.17+46.23)*43758.5453;return x-Math.floor(x)};
 const stoneColors=['#cec1a5','#d8cbb0','#b9ab90','#e1d3b7','#c4b69c','#a99f89'];
+// Hand-composed asymmetric positions, carefully clear of all nine floor circles.
+// Positions are fixed for repeatability: only the broken masonry is irregular.
 const SITES=[
- {x:-31.0,z:-18.8,size:7.0,levels:7,ruined:false,angle:.04},
- {x:31.0,z:-18.8,size:6.6,levels:7,ruined:true,angle:-.06},
- {x:-31.0,z:18.8,size:6.8,levels:7,ruined:true,angle:-.05},
- {x:31.0,z:18.8,size:7.0,levels:7,ruined:false,angle:.07},
- {x:-31.0,z:0,size:6.0,levels:6,ruined:true,angle:.08},
- {x:31.0,z:0,size:6.0,levels:6,ruined:false,angle:-.08}
+ {x:-31.8,z:-18.3,size:7.3,levels:7,state:'intacta',angle:.13},
+ {x:30.7,z:2.8,size:6.2,levels:6,state:'media',angle:-.24},
+ {x:9.8,z:19.0,size:5.7,levels:6,state:'destruida',angle:.37}
 ];
 export function planoPiramides(){
  return SITES.map((site,i)=>({...site,id:i,
-  height:site.levels*.53+(site.ruined?0:1.05)}));
+  height:site.levels*.53+(site.state==='intacta'?1.05:site.state==='media'?.45:0)}));
 }
 function rockTexture(B,scene){
  const size=256;
@@ -74,27 +73,37 @@ export function construirPiramides(B,scene,sun){
  shadow.usePercentageCloserFiltering=true;
  shadow.filteringQuality=B.ShadowGenerator.QUALITY_LOW;
  const all=planoPiramides();
- const parent=new B.TransformNode('Ruinas y pirámides · seis estructuras',scene);
- let intact=0,ruined=0;
+ const parent=new B.TransformNode('Ruinas y pirámides · tres estructuras',scene);
+ let intact=0,mid=0,ruined=0;
  for(const site of all){
-  const node=new B.TransformNode(
-   (site.ruined?'Pirámide derrumbada ':'Pirámide conservada ')+(site.id+1),scene);
+  const node=new B.TransformNode('Pirámide '+site.state+' '+(site.id+1),scene);
   node.parent=parent;node.position.set(site.x,0,site.z);node.rotation.y=site.angle;
   const mat=i=>mats[(Math.floor(rnd(site.id*1021+i*127)*mats.length))%mats.length];
-  if(site.ruined)ruined++;else intact++;
+  if(site.state==='intacta')intact++;
+  else if(site.state==='media')mid++;
+  else ruined++;
   for(let tier=0;tier<site.levels;tier++){
    const full=site.size-tier*.67;
    if(full<.9)break;
    // For ruined monuments, upper terraces are fragmented instead of
    // artificially symmetrical. The lower mass still reads as a pyramid.
-   if(site.ruined && tier>=site.levels-2){
-    const n=tier===site.levels-2?3:1;
+   if(site.state==='destruida' && tier>=site.levels-3){
+    // Only fragments of the upper three courses survive.
+    const n=tier===site.levels-3?3:tier===site.levels-2?2:1;
     for(let j=0;j<n;j++){
      const patch=full*(.31+.11*rnd(site.id+tier*17+j));
      box(B,scene,node,'Terraza fracturada',(-.25+.28*j)*full,
       .08+tier*.53+.265,(-.23+.20*j)*full,patch,.45,
       patch,mat(tier+j),shadow,tier===site.levels-1?.19:0);
     }
+    continue;
+   }
+   if(site.state==='media' && tier===site.levels-1){
+    // The top course is broken on one side but still recognizably stepped.
+    const patch=full*.66;
+    box(B,scene,node,'Corona superior medio derrumbada',
+     full*.10,.08+tier*.53+.265,-full*.09,
+     patch,.45,patch*.84,mat(tier+40),shadow,.12);
     continue;
    }
    const levelY=.08+tier*.53+.265;
@@ -106,7 +115,8 @@ export function construirPiramides(B,scene,sun){
     const shift=(rnd(site.id*113+tier*47+j*11)-.5)*.045;
     const seg=width/blocks-.017;
     const pos=-width/2+(j+.5)*width/blocks;
-    if(site.ruined && tier>2 && rnd(site.id*71+tier*31+j*13)<.21)continue;
+    if(site.state==='destruida' && tier>1 && rnd(site.id*71+tier*31+j*13)<.38)continue;
+    if(site.state==='media' && tier>2 && rnd(site.id*71+tier*31+j*13)<.12)continue;
     box(B,scene,node,'Piedra tallada frontal',pos+shift,
      levelY+.18,-edge,seg,.14,.06,mat(91+tier*31+j),false);
     box(B,scene,node,'Piedra tallada posterior',pos,
@@ -120,13 +130,14 @@ export function construirPiramides(B,scene,sun){
   // An axial staircase, oriented toward the centre of the battlefield.
   const front=site.z>0?-1:1;
   for(let i=0;i<site.levels;i++){
-   if(site.ruined&&i>site.levels-3)continue;
+   if(site.state==='destruida'&&i>site.levels-4)continue;
+   if(site.state==='media'&&i>site.levels-2)continue;
    const y=.08+i*.53+.08;
    const z=front*(site.size/2-i*.32+.03);
    box(B,scene,node,'Escalinata central '+i,0,y,z,
     Math.max(.75,1.6-i*.08),.17,.42,mat(600+i+site.id*20),false);
   }
-  if(!site.ruined){
+  if(site.state==='intacta'){
    // Small roofless sanctuary and lintel atop the complete temples.
    const top=.08+site.levels*.53,roofWidth=site.size-site.levels*.67;
    for(const px of [-1,1])for(const pz of [-1,1]){
@@ -135,15 +146,16 @@ export function construirPiramides(B,scene,sun){
    }
    box(B,scene,node,'Dintel del santuario',0,top+.96,0,
     roofWidth*.82,.22,roofWidth*.82,mat(809+site.id),shadow);
+  }else if(site.state==='media'){
+   // Moderate structural damage: missing upper masonry, loose stones nearby.
+   for(let i=0;i<19;i++)debris(B,scene,node,mats,site,i,shadow);
   }else{
-   // Three different degrees of collapse, with asymmetric fallen masonry.
-   const fragments=site.id===2?45:site.id===4?32:38;
-   for(let i=0;i<fragments;i++)debris(B,scene,node,mats,site,i,shadow);
+   // Severe, asymmetric collapse and scattered architectural fragments.
+   for(let i=0;i<54;i++)debris(B,scene,node,mats,site,i,shadow);
   }
-  // Natural old stones around the foundations; sparse for intact pyramids.
-  if(!site.ruined)
-   for(let i=0;i<9;i++)debris(B,scene,node,mats,site,i,false);
+  if(site.state==='intacta')
+   for(let i=0;i<5;i++)debris(B,scene,node,mats,site,i,null);
  }
- return {parent,sites:all,complete:intact,collapsed:ruined,
+ return {parent,sites:all,complete:intact,medium:mid,collapsed:ruined,
   maxHeight:Math.max(...all.map(s=>s.height))};
 }
