@@ -3,7 +3,8 @@
 // Babylon.js is provided by index.html. Every stone has genuine bevelled 3D volume.
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const rand=n=>{const x=Math.sin(n*127.17+46.23)*43758.5453;return x-Math.floor(x)};
-const W=25.5,D=17,R=4.30;
+// Double width and depth => FOUR TIMES the paved area, without scaling stones.
+const W=51,D=34,R=4.30;
 const TAU=Math.PI*2;
 
 // Pure, testable authoring layout independent of GPU/browser.
@@ -17,7 +18,7 @@ export function crearPlanoAdoquines(){
    if(Math.abs(x)>W/2-.16)continue;
    // Circular plaza is reserved for actual concentric masonry.
    if(Math.hypot(x,z)<R+.21)continue;
-   const id=row*201+col+200;
+   const id=row*503+col+500;
    stones.push({x,z,wx:.38*(.91+.13*rand(id)),wz:.325*(.90+.17*rand(id+12)),
     angle:(rand(id+7)-.5)*.045,seed:id,circle:false});
   }
@@ -139,8 +140,9 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   -Math.PI*.33,Math.PI*.29,24,new B.Vector3(0,0,0),scene);
  camera.mode=B.Camera.ORTHOGRAPHIC_CAMERA;
  camera.lowerBetaLimit=.22;camera.upperBetaLimit=1.10;
- camera.lowerRadiusLimit=9;camera.upperRadiusLimit=36;
- camera.panningSensibility=0;camera.attachControl(canvas,true);
+ camera.lowerRadiusLimit=5;camera.upperRadiusLimit=64;
+ // Right-mouse drag pans the now larger plaza; left drag rotates it.
+ camera.panningSensibility=110;camera.attachControl(canvas,true);
  camera.inputs.removeByType('ArcRotateCameraMouseWheelInput');
  const hemispheric=new B.HemisphericLight('Luz difusa cálida',
   new B.Vector3(.1,1,-.2),scene);
@@ -154,13 +156,14 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   const w=canvas.clientWidth||canvas.width,h=canvas.clientHeight||canvas.height;
   if(lastW!==w||lastH!==h){lastW=w;lastH=h;engine.resize();}
   const aspect=engine.getRenderWidth()/Math.max(1,engine.getRenderHeight());
-  const v=9.65*(camera.radius/24);
+  // Frame the expanded arena at startup; zoom changes projection extents.
+  const v=21.25*(camera.radius/24);
   camera.orthoTop=v;camera.orthoBottom=-v;
   camera.orthoLeft=-v*aspect;camera.orthoRight=v*aspect;
  }
  const onWheel=e=>{
   e.preventDefault();
-  camera.radius=clamp(camera.radius*Math.exp(e.deltaY*.0012),9,36);
+  camera.radius=clamp(camera.radius*Math.exp(e.deltaY*.0012),5,64);
   resize();requestDraw?.();
  };
  canvas.addEventListener('wheel',onWheel,{passive:false});
@@ -175,6 +178,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,ancho:W,profundidad:D,actores:0,decoracion:0});
  return render;
 }
