@@ -13,18 +13,26 @@ const TAU=Math.PI*2;
 
 // Pure, testable authoring layout independent of GPU/browser.
 export function crearPlanoAdoquines(){
- const stones=[],stepX=.43,stepZ=.37;
- const rows=Math.ceil(D/stepZ),columns=Math.ceil(W/stepX);
+ // Unequal hand-laid masonry courses: each row has a different run of
+ // short and long stones instead of identical rounded rectangles on a grid.
+ // The reference photo is used for form/material direction, not as a texture.
+ const stones=[],stepZ=.36;
+ const rows=Math.ceil(D/stepZ);
  for(let row=0;row<rows;row++){
   const z=-D/2+(row+.5)*stepZ;
-  for(let col=-1;col<=columns;col++){
-   const x=-W/2+(col+.5+(row%2)*.5)*stepX;
-   if(Math.abs(x)>W/2-.16)continue;
-   // Circular plaza is reserved for actual concentric masonry.
-   if(isInCircle(x,z,.24))continue;
-   const id=row*503+col+500;
-   stones.push({x,z,wx:.38*(.91+.13*rand(id)),wz:.325*(.90+.17*rand(id+12)),
-    angle:(rand(id+7)-.5)*.045,seed:id,circle:false});
+  const rowOffset=(row%2)*.18;
+  let x=-W/2+.14-rowOffset,col=0;
+  while(x<W/2-.12){
+   const id=row*1009+col+500;
+   const width=.28+.26*rand(id*1.31);
+   const gap=.020+.032*rand(id+19);
+   const cx=x+width/2;
+   const height=.285+.085*rand(row*23+col*2);
+   // Leave the same exact nine clear circle footprints and all symmetries.
+   if(cx<W/2-.09&&!isInCircle(cx,z,.36))
+    stones.push({x:cx,z,wx:width,wz:height,
+     angle:(rand(id+7)-.5)*.085,seed:id,circle:false});
+   x+=width+gap;col++;
   }
  }
  // Nine identical concentric cobbled courts, not flat decals.
@@ -67,8 +75,8 @@ function stonePalette(seed,circle,ring){
   [.52,.50,.45],[.75,.69,.57],[.60,.56,.46],[.70,.64,.51]
  ];
  const color=shades[Math.floor(rand(seed*2.9)*shades.length)];
- const age=.81+.24*rand(seed+51);
- const ringTone=circle?(ring%4===0?.92:1):1;
+ const age=.73+.31*rand(seed+51);
+ const ringTone=circle?(ring%4===0?.94:1):1;
  return color.map(x=>x*age*ringTone);
 }
 // Repeating rock microstructure: fine mineral inclusions, erosion, dirt
