@@ -512,3 +512,26 @@ html,body,#root{width:100%;max-width:100%;overflow-x:hidden}
 .juego-app.modo-moba .controles-arcade button{border-radius:8px;background:linear-gradient(#355448,#1c3833);border-color:#6b9a83;color:#f2f0d8}
 .juego-app.modo-moba .controles-arcade button.principal{background:linear-gradient(#b58c49,#725a34);border-color:#efcb83;color:#fff7df}
 .juego-app.modo-moba .evo-scroll{background:radial-gradient(ellipse at center,#244440,#12262c 78%)}
+
+/* Dedicated environmental art-review mode: the arena is the product. */
+.juego-app.vista-escenario{background:#101917;padding:6px;gap:0}
+.juego-app.vista-escenario>.cabecera{display:none}
+.juego-app.vista-escenario>.tablero{flex:1;min-height:0;display:flex}
+.juego-app.vista-escenario .campo{background:#111d17;border:0;border-radius:0;box-shadow:none}
+.juego-app.vista-escenario .arena{width:100%;height:100%;max-width:none;flex:1;background:#152820}
+.juego-app.vista-escenario .arena canvas{width:100%;height:100%;max-height:none;
+ object-fit:contain;image-rendering:auto;touch-action:none;cursor:grab}
+.juego-app.vista-escenario .arena canvas:active{cursor:grabbing}
+.juego-app.vista-escenario .nombre-arena{top:18px;left:20px;bottom:auto;max-width:75%;
+ background:#112019c9;border:1px solid #a3b28c66;border-radius:4px;color:#eceddb;
+ font:600 clamp(13px,1.1vw,17px)/1.5 system-ui,sans-serif;letter-spacing:.12em;padding:9px 14px}
+.juego-app.vista-escenario .indicacion-escenario{position:absolute;right:18px;bottom:18px;
+ z-index:6;padding:10px 14px;background:#112019dd;color:#e2e9d8;
+ border:1px solid #c5d6b45e;border-radius:5px;
+ font:500 clamp(11px,1vw,14px)/1.5 system-ui,sans-serif;pointer-events:auto}
+.juego-app.vista-escenario .indicacion-escenario a{color:#bfe6a0;text-decoration:underline}
+@media(max-width:650px){
+ .juego-app.vista-escenario .nombre-arena{top:8px;left:8px;padding:5px 8px}
+ .juego-app.vista-escenario .indicacion-escenario{right:6px;bottom:8px;left:6px;
+ font-size:11px;padding:6px 8px;text-align:center}
+}
