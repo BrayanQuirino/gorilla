@@ -19,7 +19,7 @@ async function loadGLB(id){
   if(!obj.isMesh)return;
   const geometry=obj.geometry;
   triangles+=geometry.index?geometry.index.count/3:geometry.attributes.position.count/3;
-  obj.castShadow=false;
+  obj.castShadow=true;
   obj.receiveShadow=true;
  });
  if(!triangles)throw new Error('GLB has no visible triangle mesh: '+id);
