@@ -8,6 +8,9 @@ import { crear_dibujante_moba } from './arena-moba.js';
 import { crear_dibujante_three } from './arena-three.js';
 // Three.js is now the production renderer; no preview query parameter is required.
 const VISTA_THREE_PREVIEW = false;
+// Art review is intentionally the default: no actors or gameplay HUD.
+// ?combate=1 restores the regular simulation without altering its rules.
+const VISTA_ESCENARIO = new URLSearchParams(window.location.search).get('combate') !== '1';
 import { ARENAS, TACTICAS, SUMINISTROS } from './rules.js';
 import { encuadre } from './terreno.js';
 import PanalEvolucion from './EvolutionTree.jsx';
@@ -353,7 +356,7 @@ function App() {
     };
     try {
       const render = modo_visual === '3d'
-        ? crear_dibujante_three(canvas.current, () => ultimo_cuadro.current?.(), fallo)
+        ? crear_dibujante_three(canvas.current, () => ultimo_cuadro.current?.(), fallo, {soloEscenario:VISTA_ESCENARIO})
         : crear_dibujante(canvas.current);
       dibujar.current = render;
       return () => {
@@ -467,7 +470,7 @@ function App() {
     }
   }
 
-  return <main className={"juego-app"+(modo_visual==="3d"?" modo-moba":"")}>
+  return <main className={"juego-app"+(modo_visual==="3d"?" modo-moba":"")+(VISTA_ESCENARIO?" vista-escenario":"")}>
     <header className="cabecera movil-cabecera">
       <div className="marca"><img className="gorila-logo" src={retrato_furia} alt="Gorila furioso"/><h1>Gorilla<span>.</span></h1><p>100 vs 1 · ARCADE</p></div>
       <div className="cabecera-acciones">
@@ -478,7 +481,7 @@ function App() {
     </header>
     <div className="tablero">
       <section className="campo" aria-label="Campo de combate">
-        <div className="marcador">
+        {!VISTA_ESCENARIO&&<div className="marcador">
           <div className="datos-marcador"><span>⏱ <strong>{reloj}</strong></span>
             <span>🍌 <strong>{batalla.bananas}</strong></span>
             <span>👥 <strong>{activos}</strong></span></div>
@@ -486,11 +489,12 @@ function App() {
           <Barra nombre={'🦍 Nivel '+gorila.nivel+(en_furia(gorila)?' · Furia':'')}
             valor={gorila.vida} maximo={gorila.vida_maxima}
             detalle={Math.max(0,gorila.vida).toFixed(2)+' / '+gorila.vida_maxima+' PV · −'+(batalla.danio_total_humanos||0).toFixed(2)+' PV ('+(batalla.impactos_humanos||0)+' impactos)'}/>
-        </div>
+        </div>}
         <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} aria-label={ARENAS[batalla.arena].nombre}/>
-          <div className="nombre-arena">{ARENAS[batalla.arena].nombre}</div>
-          {(batalla.resultado||!iniciada||pausa_activa||cargando_arena)&&
+          <div className="nombre-arena">{VISTA_ESCENARIO?"SELVA · ESCENARIO 3D":ARENAS[batalla.arena].nombre}</div>
+          {VISTA_ESCENARIO&&<div className="indicacion-escenario">Arrastra para inspeccionar · Rueda para acercar · <a href="?combate=1">Volver al combate</a></div>}
+          {(!VISTA_ESCENARIO&&(batalla.resultado||!iniciada||pausa_activa||cargando_arena))&&
             <div className="estado" role="status">{batalla.resultado||
               (cargando_arena?'Cargando arena':iniciada?'Pausa':'Listos')}</div>}
           {victoria&&<div className="celebracion-victoria" aria-label="Victoria: los hombres celebran">🏆 ¡VICTORIA! <span>Los supervivientes celebran</span></div>}
@@ -503,7 +507,7 @@ function App() {
             <strong>SEGUNDA VIDA</strong><span>+15% de vida · Furia permanente</span>
           </div>}
         </div>
-        <div className="controles-arcade botones-juego">
+        {!VISTA_ESCENARIO&&<div className="controles-arcade botones-juego">
           {!iniciada?
             <button className="principal" disabled={cargando_arena}
               onClick={()=>{audio.current?.configurarArena(batalla.arena);audio.current?.activar(sonido);if(sonido)audio.current?.efecto('inicio_batalla');cambiar_inicio(true);}}>▶ Iniciar batalla</button>:
@@ -514,7 +518,7 @@ function App() {
             onClick={()=>abrir_estrategia('Suministros')}>📦 Suministros</button>
           <button onClick={()=>abrir_estrategia('Equipo')}>📊 Equipo</button>
           <button aria-pressed={rayos_x} onClick={()=>cambiar_rayos_x(v=>!v)}>{rayos_x?'✕ Cerrar rayos X':'⌖ Rayos X'}</button>
-        </div>
+        </div>}
       </section>
 
     </div>
