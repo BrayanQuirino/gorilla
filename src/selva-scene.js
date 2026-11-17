@@ -1,7 +1,7 @@
 // Selva ancestral art module: all large collision solids derive from terreno.js.
 // Pure 3D geometry, no pasted images, no gameplay/audio/state mutations.
 import * as THREE from 'three';
-import {bosqueDetallado,detalleMamposteria} from './selva-detail.js';
+import {bosqueDetallado,detalleMamposteria,arbolEsculpido} from './selva-detail.js';
 import {ancho,alto,obstaculos_escena,obstaculo_humano} from './terreno.js';
 const U=74;
 const P=(x,y)=>[(x-ancho/2)/U,(y-alto/2)/U];
@@ -135,15 +135,8 @@ function cliffs(p){
   const group=new THREE.Group();group.position.set(x,0,z);
   group.userData.collisionId=o.id;p.add(group);
   if(o.tipo==='arbol'){
-   add(group,geo.stem,'bark',0,h*.8,0,.16,h*.83,.16);
-   const leaves=[];
-   for(let j=0;j<27;j++){
-    const a=j*2.399,r=.32+rnd(j+index)*.65;
-    leaves.push({x:Math.cos(a)*rx*r,y:h*1.65+(rnd(j*9+index)-.5)*.49,
-     z:Math.sin(a)*rz*r,sx:.30+rnd(j)*.34,sy:.30+rnd(j+5)*.25,sz:.35+rnd(j+1)*.30,
-     color:j%4?0x4e8952:0x83a468});
-   }
-   batch(group,geo.leaf,'leaves',leaves);
+   // Detailed multi-branch tree is anchored to this exact collider.
+   arbolEsculpido(group,index+137,h*2.3,Math.max(.7,rx),Math.max(.7,rz));
   }else if(o.tipo==='ruina'){
    const pillars=[];
    for(let j=0;j<9;j++){
