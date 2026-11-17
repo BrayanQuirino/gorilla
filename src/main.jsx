@@ -296,7 +296,45 @@ function MenuEstrategia({abierto,batalla,categoria,cambiar_categoria,comprar,com
   </section>
  </div>;
 }
+// Update detection: Vite bundles are already content-hashed, but browsers may
+// cache the GitHub Pages HTML shell. Compare against a fresh deployment stamp
+// whenever the user opens or returns to the page; bust the document URL once
+// per deployed SHA so Ctrl+Shift+R is no longer required.
+function useActualizacionAutomatica(){
+ useEffect(()=>{
+  const installed=import.meta.env.VITE_BUILD_SHA;
+  if(!installed)return;
+  let active=true,checking=false;
+  const check=async()=>{
+   if(!active||checking||document.visibilityState==='hidden')return;
+   checking=true;
+   try{
+    const base=import.meta.env.BASE_URL||'./';
+    const res=await fetch(base+'build-version.json?t='+Date.now(),{
+     cache:'no-store',headers:{'Cache-Control':'no-cache'}
+    });
+    if(!res.ok)return;
+    const {sha}=await res.json();
+    if(!active||!sha||sha===installed)return;
+    const marker='gorilla-reload-'+sha;
+    if(sessionStorage.getItem(marker))return; // avoid reload loops during propagation
+    sessionStorage.setItem(marker,'1');
+    const url=new URL(location.href);
+    url.searchParams.set('version',sha.slice(0,12));
+    location.replace(url.toString());
+   }catch(error){console.info('Comprobación de versión no disponible',error);}
+   finally{checking=false;}
+  };
+  check();
+  const onVisibility=()=>{if(document.visibilityState==='visible')check();};
+  document.addEventListener('visibilitychange',onVisibility);
+  window.addEventListener('focus',check);
+  return ()=>{active=false;document.removeEventListener('visibilitychange',onVisibility);
+   window.removeEventListener('focus',check);};
+ },[]);
+}
 function App() {
+ useActualizacionAutomatica();
   const [dificultad, cambiar_dificultad] = useState(0);
   const [arena_elegida,cambiar_arena] = useState('selva');
   const [batalla, cambiar_batalla] = useState(() => partida(0,'selva'));
