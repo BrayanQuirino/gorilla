@@ -82,7 +82,7 @@ function stonePalette(seed,circle,ring){
 // Repeating rock microstructure: fine mineral inclusions, erosion, dirt
 // and granular abrasion. UVs are world-space so the tile size never stretches.
 function stoneGrain(B,scene){
- const n=256,tex=new B.DynamicTexture('Caliza erosionada · grano mineral',
+ const n=512,tex=new B.DynamicTexture('Caliza erosionada · grano mineral',
   {width:n,height:n},scene,false);
  const ctx=tex.getContext(),pixels=ctx.createImageData(n,n);
  const smooth=t=>t*t*(3-2*t);
@@ -94,9 +94,9 @@ function stoneGrain(B,scene){
   return x0*(1-v)+x1*v;
  };
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-  const coarse=noise(x/38,y/38),grain=noise(x/8,y/8);
+  const coarse=noise(x/62,y/62),grain=noise(x/10,y/10),micro=noise(x/2.5,y/2.5);
   const fine=rand(x*199+y*409),vein=Math.sin(x*.11+y*.17+coarse*7);
-  const shade=clamp(.77+.22*coarse+.13*grain+.075*fine-.045*Math.max(0,vein),.57,1.11);
+  const shade=clamp(.55+.36*coarse+.15*grain+.09*micro+.10*fine-.13*Math.max(0,vein),.36,1.10);
   const i=(y*n+x)*4;
   pixels.data[i]=clamp(255*shade,0,255);
   pixels.data[i+1]=clamp(249*shade,0,255);
@@ -116,58 +116,64 @@ function buildPavement(B,scene){
   const index=positions.length/3;
   positions.push(x,y,z);
   colors.push(...tint.map(c=>clamp(c*light,0,1)),1);
-  uvs.push(x/2.3,z/2.3);
+  uvs.push(x/.65,z/.65);
   return index;
  };
  for(const s of layout.stones){
-  const rim=[],bevels=[],bottom=[];
   const hw=s.wx*.5,hz=s.wz*.5;
-  const corner=Math.min(hw,hz)*(.34+.13*rand(s.seed+2));
-  const round=[
-   [-hw+corner,-hz], [0,-hz], [hw-corner,-hz],
-   [hw,-hz+corner], [hw,0], [hw,hz-corner],
-   [hw-corner,hz], [0,hz], [-hw+corner,hz],
-   [-hw,hz-corner],[-hw,0],[-hw,-hz+corner]
+  const seed=s.seed,ca=Math.cos(s.angle),sa=Math.sin(s.angle);
+  const base=(rand(seed+6)-.5)*.015,thick=.043+.024*rand(seed+71);
+  const tint=stonePalette(seed,s.circle,s.ring||0);
+  const count=12,corner=.25+.15*rand(seed+2);
+  const outer=[],shoulder=[],crown=[],inner=[],foot=[];
+  const tform=(px,pz)=>[s.x+px*ca-pz*sa,s.z+px*sa+pz*ca];
+  const vertex=(px,pz,y,light,shade=1)=>{
+   const [x,z]=tform(px,pz);
+   return push(x,y,z,tint,light*shade);
+  };
+  // Genuine hand-chipped perimeter. Every stone has unique corner lengths,
+  // damaged edges and locally variable elevation. Never a regular octagon.
+  const corners=[
+   [-hw*(1-corner),-hz], [0,-hz], [hw*(1-corner),-hz],
+   [hw,-hz*(1-corner)], [hw,0],[hw,hz*(1-corner)],
+   [hw*(1-corner),hz],[0,hz],[-hw*(1-corner),hz],
+   [-hw,hz*(1-corner)],[-hw,0],[-hw,-hz*(1-corner)]
   ];
-  const ca=Math.cos(s.angle),sa=Math.sin(s.angle);
-  const baseY=(rand(s.seed+6)-.5)*.012;
-  const thickness=.035+.023*rand(s.seed+71);
-  const tint=stonePalette(s.seed,s.circle,s.ring||0);
-  const wear=.015+.015*rand(s.seed+4);
-  const interior=[];
-  const transform=(px,pz)=>[
-   s.x+px*ca-pz*sa,
-   s.z+px*sa+pz*ca
-  ];
-  for(let j=0;j<round.length;j++){
-   const p=round[j];
-   const jitter=(rand(s.seed*7+j*29)-.5)*.018;
-   const px=p[0]+jitter*(j%3?1:-1);
-   const pz=p[1]+(rand(s.seed+j*53)-.5)*.014;
-   const edgeLevel=baseY+.005+(rand(s.seed+j*41)-.5)*.010;
-   const topLevel=baseY+thickness+(rand(s.seed+j*67)-.5)*.012;
-   const [rx,rz]=transform(px,pz);
-   const [ix,iz]=transform(px*(1-wear/Math.max(hw,.1)),pz*(1-wear/Math.max(hz,.1)));
-   rim.push(push(rx,edgeLevel,rz,tint,.65+.12*rand(s.seed+j)));
-   bevels.push(push(ix,topLevel,iz,tint,.91+.13*rand(s.seed+j*31)));
-   bottom.push(push(rx,baseY-.026,rz,tint,.52));
+  const abrasion=.012+.025*rand(seed*2+7);
+  for(let j=0;j<count;j++){
+   const [xx,zz]=corners[j];
+   const x=xx+(rand(seed*13+j*79)-.5)*.038;
+   const z=zz+(rand(seed*29+j*41)-.5)*.033;
+   const weather=rand(seed*3+j*17);
+   const edgeY=base+.004+(weather-.5)*.013;
+   const capY=base+thick+(rand(seed+j*37)-.5)*.015;
+   foot.push(vertex(x,z,base-.037,.39));
+   outer.push(vertex(x,z,edgeY,.48+.24*weather));
+   shoulder.push(vertex(x*(1-abrasion/Math.max(hw,.1)),
+    z*(1-abrasion/Math.max(hz,.1)),capY,
+    .72+.16*rand(seed+j*19)));
+   crown.push(vertex(x*.72,z*.72,capY+
+    (rand(seed+j*47)-.5)*.021,.78+.20*rand(seed+j*59)));
+   inner.push(vertex(x*.37,z*.37,capY+
+    (rand(seed+j*61)-.5)*.028,.71+.26*rand(seed+j*67)));
   }
-  // Uneven worn top with a subtle geological ridge rather than a flat polygon.
-  const centerTint=.92+.12*rand(s.seed+103);
-  const mid=push(s.x,baseY+thickness+(rand(s.seed+131)-.5)*.018,
-   s.z,tint,centerTint);
-  for(let j=0;j<round.length;j++){
-   const next=(j+1)%round.length;
-   indices.push(mid,bevels[j],bevels[next]);
-   indices.push(bevels[j],rim[j],bevels[next],
-    bevels[next],rim[j],rim[next]);
-   indices.push(rim[j],bottom[j],rim[next],
-    rim[next],bottom[j],bottom[next]);
+  // Rough, uneven top: concentric triangulation creates natural faceting
+  // instead of one clean triangle-fan / smooth machined surface.
+  const center=vertex(0,0,base+thick+
+   (rand(seed+129)-.5)*.024,.84+.13*rand(seed+11));
+  const rings=[foot,outer,shoulder,crown,inner];
+  for(let k=0;k<rings.length-1;k++){
+   const a=rings[k],b=rings[k+1];
+   for(let j=0;j<count;j++){
+    const next=(j+1)%count;
+    indices.push(a[j],b[j],a[next],a[next],b[j],b[next]);
+   }
   }
+  for(let j=0;j<count;j++)indices.push(center,inner[j],inner[(j+1)%count]);
  }
  const normals=[];
  B.VertexData.ComputeNormals(positions,indices,normals);
- const cobbles=new B.Mesh('Adoquines redondeados de piedra real',scene);
+ const cobbles=new B.Mesh('Mampostería de piedra caliza erosionada',scene);
  const vd=new B.VertexData();
  vd.positions=positions;vd.indices=indices;vd.normals=normals;
  vd.colors=colors;vd.uvs=uvs;vd.applyToMesh(cobbles);
