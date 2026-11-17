@@ -56,3 +56,17 @@ test('anchos de piedras diferentes como en mampostería antigua',()=>{
  assert.ok(Math.max(...exterior.slice(0,100).map(s=>s.wx))>
   1.4*Math.min(...exterior.slice(0,100).map(s=>s.wx)));
 });
+
+test('opción A: las nueve plazas tienen rellenos trapezoidales en juntas estrechas',()=>{
+ const layout=crearPlanoAdoquines();
+ for(let plaza=0;plaza<9;plaza++){
+  const fillers=layout.stones.filter(stone=>stone.plaza===plaza&&stone.polygon);
+  assert.ok(fillers.length>180,'hay piedras pequeñas a ambos lados de la transición');
+  assert.ok(fillers.every(stone=>stone.wx<.28&&stone.wz<.22),
+   'los rellenos son piezas pequeñas y no adoquines gigantes');
+  assert.ok(fillers.every(stone=>stone.polygon.length===4),
+   'cada pieza tiene vértices trapezoidales');
+ }
+ const exterior=layout.stones.filter(stone=>!stone.circle&&!stone.trimmed);
+ assert.ok(exterior.every(stone=>stone.wz>=.34),'juntas horizontales casi invisibles');
+});
