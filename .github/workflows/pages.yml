@@ -34,7 +34,12 @@ jobs:
           cat public/audio/status.json
       - name: Fetch licensed 3D jungle models (CC0)
         run: node scripts/fetch-art-assets.mjs
+      - name: Stamp deployed version for automatic cache invalidation
+        run: |
+          printf '{"sha":"%s"}\n' "$GITHUB_SHA" > public/build-version.json
       - name: Build for Pages
+        env:
+          VITE_BUILD_SHA: ${{ github.sha }}
         run: npm run build
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
