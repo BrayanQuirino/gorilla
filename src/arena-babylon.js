@@ -304,7 +304,15 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   new B.Vector3(-.5,-1,.6),scene);
  sunlight.position=new B.Vector3(6,13,-8);sunlight.intensity=1.25;
  const art=buildPavement(B,scene);
- const pyramids=construirPiramides(B,scene,sunlight);
+ let pyramids={sites:[],complete:0,collapsed:0};
+ try{
+  pyramids=construirPiramides(B,scene,sunlight);
+ }catch(error){
+  // The cobbled floor is the approved baseline: an optional scenery error
+  // must NEVER cause a fallback to the unrelated 2D combat game.
+  console.error('No se pudieron construir las pirámides; se conserva el suelo 3D',error);
+  onFailure?.(new Error('Fallo de pirámides; se mantiene el suelo de piedra: '+error.message));
+ }
  let disposed=false,lastW=0,lastH=0,zoom=1;
  const originalTarget=new B.Vector3(0,0,0);
  // A Babylon orthographic camera must use the physical drawing-buffer aspect,
