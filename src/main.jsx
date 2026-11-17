@@ -390,6 +390,7 @@ function App() {
     audio.current?.volumenEfectos(volumen_efectos / 100);
   },[volumen_musica,volumen_efectos]);
   useEffect(() => {
+    if(VISTA_ESCENARIO) cambiar_error_escenario('');
     const fallo = error => {
       console.error('Vista WebGL:', error);
       if (VISTA_ESCENARIO){
@@ -405,7 +406,7 @@ function App() {
           : crear_dibujante_three(canvas.current, () => ultimo_cuadro.current?.(), fallo, {soloEscenario:false}))
         : crear_dibujante(canvas.current);
       dibujar.current = render;
-      if(VISTA_ESCENARIO && render) cambiar_error_escenario('');
+
       return () => {
         render.liberar?.();
         dibujar.current = null;
