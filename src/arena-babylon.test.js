@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {crearPlanoAdoquines,calcularEncuadreArena} from './arena-babylon.js';
+import {crearPlanoAdoquines,calcularEncuadreArena,DISTANCIA_CAMARA_SEGURA} from './arena-babylon.js';
 
 test('el piso duplica el área con nueve círculos perfectamente simétricos',()=>{
  const layout=crearPlanoAdoquines();
@@ -69,4 +69,11 @@ test('opción A: las nueve plazas tienen rellenos trapezoidales en juntas estrec
  }
  const exterior=layout.stones.filter(stone=>!stone.circle&&!stone.trimmed);
  assert.ok(exterior.every(stone=>stone.wz>=.34),'juntas horizontales casi invisibles');
+});
+
+test('cámara ortográfica queda fuera del volumen completo del suelo',()=>{
+ const arena=crearPlanoAdoquines();
+ const diagonal=Math.hypot(arena.outerWidth/2,arena.outerDepth/2);
+ assert.ok(DISTANCIA_CAMARA_SEGURA>diagonal*2,
+  'la cámara permanece suficientemente lejos del piso independientemente del zoom');
 });
