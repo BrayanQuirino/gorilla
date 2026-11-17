@@ -9,7 +9,55 @@ const colors={rock:0x898a72,light:0xb0aa8d,dark:0x676e5c,moss:0x3f7548,
  dirt:0x806b50,grass:0x405f3d,forest:0x2e573a,leaves:0x4e8952,
  bark:0x594a36,wood:0x927452,water:0x2e8794};
 const materials=Object.fromEntries(Object.entries(colors).map(([k,c])=>[k,new THREE.MeshStandardMaterial({color:c,roughness:k==='water'?.35:.92})]));
-const geo={rock:new THREE.DodecahedronGeometry(1,1),boulder:new THREE.IcosahedronGeometry(1,1),
+// Smoothed, irregular stone forms replace the previous sharp crystal-like rocks.
+function sculptRock(){
+ const geometry=new THREE.IcosahedronGeometry(1,3),p=geometry.attributes.position;
+ for(let i=0;i<p.count;i++){
+  const x=p.getX(i),y=p.getY(i),z=p.getZ(i);
+  const relief=.95+.07*Math.sin(x*11+z*6)*Math.cos(y*8-z*4)
+   +.045*Math.sin(z*19+x*8+y*13);
+  p.setXYZ(i,x*relief,y*(relief*.95),z*relief);
+ }
+ geometry.computeVertexNormals();return geometry;
+}
+function stoneTexture(){
+ if(typeof document==='undefined')return null;
+ // Textures are GENERATED from noise at runtime, not copied photographs.
+ const size=256,canvas=document.createElement('canvas');
+ canvas.width=size;canvas.height=size;
+ const ctx=canvas.getContext('2d');
+ if(!ctx)return null;
+ const img=ctx.createImageData(size,size);
+ const smooth=t=>t*t*(3-2*t);
+ function cell(x,y){return rnd(((x%256+256)%256)*713+((y%256+256)%256)*991);}
+ function noise(x,y,period){
+  x=x/period;y=y/period;
+  const ax=Math.floor(x),ay=Math.floor(y),fx=smooth(x-ax),fy=smooth(y-ay);
+  return ((1-fx)*(1-fy)*cell(ax,ay)+fx*(1-fy)*cell(ax+1,ay)
+   +(1-fx)*fy*cell(ax,ay+1)+fx*fy*cell(ax+1,ay+1));
+ }
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+  const n=noise(x,y,43)*.52+noise(x,y,17)*.27+noise(x,y,6)*.21;
+  const crack=Math.pow(Math.max(0,1-Math.abs(noise(x,y,37)-.48)*18),3);
+  const tone=Math.max(90,Math.min(255,175+(n-.5)*104-crack*43));
+  const i=(y*size+x)*4;
+  img.data[i]=tone;img.data[i+1]=tone*.99;img.data[i+2]=tone*.94;img.data[i+3]=255;
+ }
+ ctx.putImageData(img,0,0);
+ const texture=new THREE.CanvasTexture(canvas);
+ texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+ texture.colorSpace=THREE.SRGBColorSpace;
+ texture.anisotropy=4;
+ return texture;
+}
+const rockTexture=stoneTexture();
+if(rockTexture){
+ for(const id of ['rock','light','dark']){
+  materials[id].map=rockTexture;
+  materials[id].needsUpdate=true;
+ }
+}
+const geo={rock:sculptRock(),boulder:new THREE.IcosahedronGeometry(1,2),
  leaf:new THREE.IcosahedronGeometry(1,2),box:new THREE.BoxGeometry(1,1,1),
  stem:new THREE.CylinderGeometry(1,1,1,8),cone:new THREE.ConeGeometry(1,1,6)};
 function add(parent,g,m,x,y,z,sx=1,sy=1,sz=1){
