@@ -274,6 +274,9 @@ function buildPavement(B,scene){
  // End-caps hide cracks outside of the playable square.
  return {stones:layout.stones.length,rings:layout.rings,mesh:cobbles};
 }
+// Distance is independent of orthographic zoom. It must exceed the full floor
+// diagonal, otherwise Babylon clips the near half of the map as if cut off.
+export const DISTANCIA_CAMARA_SEGURA=150;
 export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  const B=window.BABYLON;
  if(!B?.Engine)throw new Error('Babylon.js no disponible');
@@ -283,10 +286,13 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  const scene=new B.Scene(engine);
  scene.clearColor=new B.Color4(.31,.29,.24,1);
  const camera=new B.ArcRotateCamera('Isométrica de adoquines',
-  -Math.PI*.33,Math.PI*.29,24,new B.Vector3(0,0,0),scene);
+  -Math.PI*.33,Math.PI*.29,DISTANCIA_CAMARA_SEGURA,new B.Vector3(0,0,0),scene);
  camera.mode=B.Camera.ORTHOGRAPHIC_CAMERA;
  camera.lowerBetaLimit=.22;camera.upperBetaLimit=1.10;
- camera.lowerRadiusLimit=5;camera.upperRadiusLimit=64;
+ camera.lowerRadiusLimit=DISTANCIA_CAMARA_SEGURA;
+ camera.upperRadiusLimit=DISTANCIA_CAMARA_SEGURA;
+ camera.minZ=.1;
+ camera.maxZ=500;
  // Right-mouse drag pans the now larger plaza; left drag rotates it.
  camera.panningSensibility=110;camera.attachControl(canvas,true);
  camera.inputs.removeByType('ArcRotateCameraMouseWheelInput');
@@ -297,7 +303,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   new B.Vector3(-.5,-1,.6),scene);
  sunlight.position=new B.Vector3(6,13,-8);sunlight.intensity=1.25;
  const art=buildPavement(B,scene);
- let disposed=false,lastW=0,lastH=0;
+ let disposed=false,lastW=0,lastH=0,zoom=1;
  const originalTarget=new B.Vector3(0,0,0);
  // A Babylon orthographic camera must use the physical drawing-buffer aspect,
  // not an assumed CSS aspect (the legacy game used a fixed 1000×640 canvas).
@@ -311,7 +317,9 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
    lastW=width;lastH=height;engine.resize();
   }
   const aspect=engine.getRenderWidth()/Math.max(1,engine.getRenderHeight());
-  if(camera.radius>=24){
+  // Never allow the camera to approach the huge ground mesh as zoom changes.
+  camera.radius=DISTANCIA_CAMARA_SEGURA;
+  if(zoom>=1){
    camera.target.copyFrom(originalTarget);
   }else{
    camera.target.x=clamp(camera.target.x,-W*.39,W*.39);
@@ -328,7 +336,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
    }
   }
   // Extra 17% prevents the bevelled stone boundary from touching the edge.
-  const v=Math.max(maxY,maxX/aspect)*1.17*(camera.radius/24);
+  const v=Math.max(maxY,maxX/aspect)*1.17*zoom;
   camera.orthoTop=v;camera.orthoBottom=-v;
   camera.orthoLeft=-v*aspect;camera.orthoRight=v*aspect;
  }
@@ -338,14 +346,15 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  observer?.observe(canvas);
  const onWheel=e=>{
   e.preventDefault();
-  camera.radius=clamp(camera.radius*Math.exp(e.deltaY*.0012),5,64);
+  zoom=clamp(zoom*Math.exp(e.deltaY*.0012),.22,2.6);
   resize();requestDraw?.();
  };
  canvas.addEventListener('wheel',onWheel,{passive:false});
  const onResize=()=>resize();
  const resetView=()=>{
   camera.target.copyFrom(originalTarget);
-  camera.radius=24;
+  zoom=1;
+  camera.radius=DISTANCIA_CAMARA_SEGURA;
   camera.alpha=-Math.PI*.33;camera.beta=Math.PI*.29;
   resize();requestDraw?.();
  };
@@ -364,6 +373,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,ancho:W,profundidad:D,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
  return render;
 }
