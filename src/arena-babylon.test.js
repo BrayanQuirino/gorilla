@@ -4,7 +4,12 @@ import {crearPlanoAdoquines} from './arena-babylon.js';
 
 test('solo piedras enlazadas y círculo central sin decoración',()=>{
  const layout=crearPlanoAdoquines();
- assert.ok(layout.stones.length>1500,'la plaza está cubierta por piedras');
+ assert.equal(layout.outerWidth,51,'ancho duplicado, no escala de adoquines');
+ assert.equal(layout.outerDepth,34,'profundidad duplicada');
+ assert.equal(layout.outerWidth*layout.outerDepth,1734,'4 veces el área original de 25.5 × 17');
+ assert.ok(layout.stones.length>8500,'4 veces el área requiere miles de adoquines adicionales');
+ assert.ok(layout.stones.some(s=>!s.circle && s.wx<.44 && s.wz<.38),
+   'los adoquines mantienen dimensiones originales');
  assert.ok(layout.stones.some(s=>s.circle),'el círculo usa adoquines reales');
  assert.ok(layout.stones.some(s=>!s.circle),'existe un suelo exterior');
  assert.ok(layout.rings>=10,'círculo con anillos concéntricos');
