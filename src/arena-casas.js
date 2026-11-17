@@ -1,8 +1,10 @@
 // Six distinct archaeological house ruins. These are true 3D masonry layouts,
 // not six copies of an L-shaped corner. All geometry uses Babylon primitives.
-// Pyramids reach ~4.76 units = 40 metres; surviving walls are ~3–5 metres.
+// Pyramids reach ~4.76 units = 40 metres. The six house ruins are
+// uniformly scaled x2 (including masonry, openings, roof debris and height).
 const rnd=n=>{const x=Math.sin(n*127.17+46.23)*43758.5453;return x-Math.floor(x)};
 export const METROS_POR_UNIDAD=40/4.76;
+export const ESCALA_CASAS=2;
 const CASAS=[
  {x:-9.6,z:-7.4,angle:.26,variant:'fachada_colapsada',lengthX:2.55,lengthZ:2.05,height:.56,damage:.38},
  {x:11.0,z:-6.8,angle:-.38,variant:'patio_u',lengthX:2.75,lengthZ:2.30,height:.49,damage:.61},
@@ -12,10 +14,10 @@ const CASAS=[
  {x:10.2,z:-19.6,angle:-.53,variant:'compacta_anexo',lengthX:2.50,lengthZ:2.02,height:.52,damage:.58}
 ];
 export function planoCasasAntiguas(){
- return CASAS.map((s,i)=>({...s,id:i,
-  // Circular bound of an oriented rectangle plus a sparse debris apron.
-  footprintRadius:Math.hypot(s.lengthX,s.lengthZ)/2+.52,
-  heightMetros:+(s.height*METROS_POR_UNIDAD).toFixed(1)}));
+ return CASAS.map((s,i)=>({...s,id:i,scale:ESCALA_CASAS,
+  // Radius includes the whole uniformly-scaled building and rubble apron.
+  footprintRadius:(Math.hypot(s.lengthX,s.lengthZ)/2+.52)*ESCALA_CASAS,
+  heightMetros:+(s.height*ESCALA_CASAS*METROS_POR_UNIDAD).toFixed(1)}));
 }
 function materials(B,scene){
  const colors=['#d6c7ab','#e0d3b9','#c4b79f','#d9cfb9','#cdbfa7','#bcae94',
@@ -212,6 +214,7 @@ export function construirCasasAntiguas(B,scene){
  for(const site of sites){
   const node=new B.TransformNode('Casa '+site.variant+' '+site.id,scene);
   node.parent=root;node.position.set(site.x,0,site.z);node.rotation.y=site.angle;
+  node.scaling.set(site.scale,site.scale,site.scale);
   const g=createBuilder(B,scene,node,site,mats);
   builders[site.variant](g,site);
   stoneBlocks+=g.count();
