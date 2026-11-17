@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {planoCasasAntiguas,construirCasasAntiguas,METROS_POR_UNIDAD} from './arena-casas.js';
+import {planoCasasAntiguas,construirCasasAntiguas,METROS_POR_UNIDAD,ESCALA_CASAS} from './arena-casas.js';
 import {planoPiramides} from './arena-piramides.js';
 import {crearPlanoAdoquines} from './arena-babylon.js';
 
@@ -12,7 +12,11 @@ test('seis ruinas de casas con siluetas diferentes, a escala y sin invadir la ar
   'fachada_colapsada','patio_u','dos_camaras',
   'rectangular_fachada','taller_ruinoso','compacta_anexo']));
  assert.ok(Math.abs(METROS_POR_UNIDAD-40/4.76)<1e-9);
- assert.ok(houses.every(h=>h.heightMetros>=3&&h.heightMetros<=5.5));
+ assert.equal(ESCALA_CASAS,2);
+ assert.ok(houses.every(h=>h.scale===2));
+ assert.ok(houses.every(h=>h.heightMetros>=6&&h.heightMetros<=11));
+ assert.ok(houses.every(h=>Math.abs(h.heightMetros-h.height*2*METROS_POR_UNIDAD)<.06));
+ assert.ok(houses.every(h=>Math.abs(h.footprintRadius-(Math.hypot(h.lengthX,h.lengthZ)/2+.52)*2)<1e-9));
  assert.equal(new Set(houses.map(h=>h.x)).size,6);
  assert.equal(new Set(houses.map(h=>h.z)).size,6);
  for(const h of houses){
@@ -39,7 +43,7 @@ test('seis viviendas diferentes incluyen muros, accesos, pisos y escombros',()=>
  const vec=()=>({set(){}});
  class StandardMaterial{}
  class Color3{static FromHexString(){return new Color3();}}
- class TransformNode{constructor(){this.position=vec();this.rotation={y:0};}}
+ class TransformNode{constructor(){this.position=vec();this.scaling=vec();this.rotation={y:0};}}
  const B={StandardMaterial,Color3,TransformNode,
   MeshBuilder:{CreateBox(name){names.push(name);
    return {position:vec(),rotation:{x:0,y:0,z:0}};}}};
