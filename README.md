@@ -4,11 +4,27 @@ Simulador táctico de combate con 100 humanos, un gorila y evolución de habilid
 
 ## Renderizado principal
 
-**Modo MOBA 3D con Three.js (predeterminado):** `src/arena-three.js` crea escenarios, personajes tridimensionales instanciados en GPU, cámara ortográfica isométrica, iluminación direccional y sombras suaves. Los materiales de terreno usan texturas procedurales repetibles. La selva utiliza el constructor 3D específico de `src/selva-scene.js` y puede añadir modelos GLB cuando están disponibles. `src/arena-moba.js` permanece como renderizador WebGL heredado, pero ya no se selecciona por defecto.
+**Selva — Babylon.js (modo predeterminado):** al abrir GitHub Pages se ve únicamente
+la primera arena en una escena isométrica hecha con Babylon.js, sin personajes,
+HUD ni lógica de combate ejecutándose. El terreno es una malla con relieve,
+material PBR y textura, y la vegetación usa modelos glTF/GLB CC0 descargados
+en la publicación (Quaternius / Poly Haven).
 
-No se estiran ilustraciones 2D para simular el terreno; el modo pixel-art antiguo permanece únicamente como respaldo técnico cuando WebGL falla.
+- `src/arena-babylon.js`: motor y composición de la primera arena.
+- `scripts/fetch-art-assets.mjs`: descarga/verifica los tres modelos GLB CC0.
+- `index.html`: carga Babylon.js y el cargador glTF desde el CDN oficial.
+- `?combate=1`: mantiene accesible el juego anterior con Three.js.
+- `src/arena-three.js`: se conserva sin eliminar la lógica de combate.
 
-El acabado gráfico sigue siendo una **base 3D procedural estilizada**. Las sombras, texturas y luces no sustituyen modelos GLB detallados, animaciones esqueléticas ni materiales PBR artísticos. Las reglas de colisión y navegación permanecen en el motor de simulación y no son físicas rígidas de un motor como Rapier.
+La nueva dirección **no es todavía arte final de calidad LoL**. El repertorio
+disponible tiene solo dos tipos de árboles y un modelo de rocas. Para conseguir
+el acabado aprobado hará falta ampliar el catálogo de modelos y componer una
+arena en Blender con recursos y materiales más variados, exportarla a GLB y
+sustituir la distribución inicial. Cambiar de motor por sí solo no suministra
+arte premium.
+
+**Limitación de red:** el navegador necesita acceso al CDN oficial de
+Babylon.js; los modelos GLB sí se hospedan en el propio GitHub Pages.
 
 ## Ejecutar
 
