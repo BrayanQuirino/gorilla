@@ -32,6 +32,8 @@ jobs:
         run: |
           python3 scripts/fetch-audio.py
           cat public/audio/status.json
+      - name: Fetch licensed 3D jungle models (CC0)
+        run: node scripts/fetch-art-assets.mjs
       - name: Build for Pages
         run: npm run build
       - name: Configure GitHub Pages
