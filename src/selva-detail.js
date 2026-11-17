@@ -67,6 +67,16 @@ function segment(a,b,r=0.1,root,material=mats.bark){
 export function bosqueDetallado(root){
  const trees=new THREE.Group();trees.name='Bóveda forestal · árboles 3D';root.add(trees);
  const leaves=[],lightLeaves=[],darkLeaves=[],palms=[],moss=[],flowers=[],ferns=[],branches=[];
+ const trunkRecords=[];
+ const branch=(a,b,r)=>{
+  const pa=new THREE.Vector3(...a),pb=new THREE.Vector3(...b);
+  const diff=pb.clone().sub(pa),length=diff.length();
+  const middle=pa.add(pb).multiplyScalar(.5);
+  const rot=new THREE.Euler().setFromQuaternion(
+   new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),diff.normalize()));
+  trunkRecords.push(mk(middle.x,middle.y,middle.z,r/.15,length,r/.15,
+   rot.x,rot.y,rot.z));
+ };
  let treeCount=0;
  const outOfBounds=(x,z)=>Math.abs(x)>7.65||Math.abs(z)>5.62;
  for(let i=0;i<106;i++){
@@ -79,8 +89,8 @@ export function bosqueDetallado(root){
   treeCount++;
   if(type==='palm'){
    const bend=(rand(seed+9)-.5)*.65;
-   segment([0,0,0],[bend,height*.62,0],.19,group);
-   segment([bend,height*.62,0],[bend*1.42,height,0],.125,group);
+   branch([x,0,z],[x+bend,height*.62,z],.19);
+   branch([x+bend,height*.62,z],[x+bend*1.42,height,z],.125);
    const cx=bend*1.42;
    for(let j=0;j<12;j++){
     const a=j*Math.PI/6;
@@ -89,14 +99,14 @@ export function bosqueDetallado(root){
    }
   }else{
    const bend=(rand(seed+10)-.5)*.55;
-   segment([0,0,0],[bend*.55,height*.46,0],.22,group);
-   segment([bend*.55,height*.46,0],[bend,height*.85,.07],.16,group);
+   branch([x,0,z],[x+bend*.55,height*.46,z],.22);
+   branch([x+bend*.55,height*.46,z],[x+bend,height*.85,z+.07],.16);
    for(let j=0;j<6;j++){
     const a=j*2.399+rand(seed+4)*6.28,
       length=.62+rand(seed+j+17)*1.05,
       yy=height*(.55+j*.045);
     const endpoint=[bend+Math.cos(a)*length,yy+.30+rand(seed+j+7)*.36,Math.sin(a)*length];
-    segment([bend*.74,yy,0],endpoint,.072,group,mats.barkLight);
+    branch([x+bend*.74,yy,z],[x+endpoint[0],endpoint[1],z+endpoint[2]],.072);
     for(let k=0;k<10;k++){
      const aa=a+(k-5)*.28,rr=length*(.32+rand(seed+j*31+k)*.8);
      const px=x+bend+Math.cos(aa)*rr,py=endpoint[1]+(rand(seed+k*3)-.5)*.55,
@@ -110,6 +120,7 @@ export function bosqueDetallado(root){
    }
   }
  }
+ instance(trees,twigGeo,mats.bark,trunkRecords);
  instance(trees,leafGeo,mats.broadleaf,leaves);
  instance(trees,leafGeo,mats.broadleafLight,lightLeaves);
  instance(trees,leafGeo,mats.broadleafDark,darkLeaves);
