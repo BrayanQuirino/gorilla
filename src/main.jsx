@@ -341,6 +341,7 @@ function App() {
   const [iniciada, cambiar_inicio] = useState(false);
   const [en_pausa, cambiar_pausa] = useState(false);
   const [modo_visual, cambiar_modo_visual] = useState('3d');
+  const [error_escenario,cambiar_error_escenario]=useState('');
   const [categoria, cambiar_categoria] = useState('Evolucion');
   const [panel_movil, cambiar_panel_movil] = useState(null);
   const [arquetipo_abierto, cambiar_arquetipo_abierto]=useState(null);
@@ -390,7 +391,11 @@ function App() {
   },[volumen_musica,volumen_efectos]);
   useEffect(() => {
     const fallo = error => {
-      console.warn('Vista WebGL:', error);
+      console.error('Vista WebGL:', error);
+      if (VISTA_ESCENARIO){
+        cambiar_error_escenario(error?.message||'Error desconocido de renderizado 3D');
+        return; // never silently switch the art-review scene to 2D combat
+      }
       cambiar_modo_visual('2d');
     };
     try {
@@ -400,6 +405,7 @@ function App() {
           : crear_dibujante_three(canvas.current, () => ultimo_cuadro.current?.(), fallo, {soloEscenario:false}))
         : crear_dibujante(canvas.current);
       dibujar.current = render;
+      if(VISTA_ESCENARIO && render) cambiar_error_escenario('');
       return () => {
         render.liberar?.();
         dibujar.current = null;
@@ -534,6 +540,7 @@ function App() {
         <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} aria-label={ARENAS[batalla.arena].nombre}/>
           <div className="nombre-arena">{VISTA_ESCENARIO?"ARENA ANCESTRAL · PIRÁMIDES Y RUINAS":ARENAS[batalla.arena].nombre}</div>
+          {VISTA_ESCENARIO&&error_escenario&&<div role="alert" style={{position:'absolute',top:72,left:20,zIndex:20,maxWidth:'min(600px,85vw)',background:'#402a20',color:'#fff1d7',border:'1px solid #d5a474',padding:'12px 16px',borderRadius:6,font:'14px system-ui'}}>{error_escenario}</div>}
           {VISTA_ESCENARIO&&<div className="indicacion-escenario">Arrastra para girar · Rueda para acercar · <a href="?combate=1">Volver al combate</a></div>}
           {(!VISTA_ESCENARIO&&(batalla.resultado||!iniciada||pausa_activa||cargando_arena))&&
             <div className="estado" role="status">{batalla.resultado||
