@@ -14,3 +14,23 @@ test('Three.js preview builds navigable 3D scenery and all 100 actors without pa
   assert.equal(d.modelosGeneradosConGeometria,true);
  }
 });
+
+import {obstaculos_escena} from './terreno.js';
+import {construirSelvaAncestral} from './selva-scene.js';
+import * as THREE from 'three';
+
+test('Selva ancestral uses the exact same colliders as pathfinding and combat',()=>{
+ const scene=new THREE.Scene();
+ const selva=construirSelvaAncestral(scene);
+ const original=obstaculos_escena('selva').map(o=>o.id);
+ assert.deepEqual(selva.metadata.collisions,original);
+ assert.equal(selva.metadata.bridgeCount,2);
+ assert.equal(selva.metadata.plaza,true);
+ assert.equal(selva.metadata.musicOverride,false);
+ assert.equal(selva.metadata.artwork,'procedural-3d');
+ const geometry=[];
+ selva.root.traverse(o=>{if(o.isMesh)geometry.push(o);});
+ assert.ok(geometry.length>70,'authored scene has real volumetric objects');
+ assert.ok(geometry.some(o=>o.isInstancedMesh),'decorative geometry uses GPU instancing');
+ selva.update(10);
+});
