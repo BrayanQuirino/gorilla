@@ -6,6 +6,7 @@ import { alto, ancho, avanzar_batalla, crear_batalla, activo, aplicar_plan, comp
 import { crear_dibujante } from './arena.js';
 import { crear_dibujante_moba } from './arena-moba.js';
 import { crear_dibujante_three } from './arena-three.js';
+import { crear_dibujante_babylon } from './arena-babylon.js';
 // Three.js is now the production renderer; no preview query parameter is required.
 const VISTA_THREE_PREVIEW = false;
 // Art review is intentionally the default: no actors or gameplay HUD.
@@ -356,7 +357,9 @@ function App() {
     };
     try {
       const render = modo_visual === '3d'
-        ? crear_dibujante_three(canvas.current, () => ultimo_cuadro.current?.(), fallo, {soloEscenario:VISTA_ESCENARIO})
+        ? (VISTA_ESCENARIO
+          ? crear_dibujante_babylon(canvas.current, () => ultimo_cuadro.current?.(), fallo)
+          : crear_dibujante_three(canvas.current, () => ultimo_cuadro.current?.(), fallo, {soloEscenario:false}))
         : crear_dibujante(canvas.current);
       dibujar.current = render;
       return () => {
@@ -492,8 +495,8 @@ function App() {
         </div>}
         <div className="arena" aria-busy={cargando_arena}>
           <canvas key={modo_visual} ref={canvas} width={ancho} height={alto} aria-label={ARENAS[batalla.arena].nombre}/>
-          <div className="nombre-arena">{VISTA_ESCENARIO?"SELVA · ESCENARIO 3D":ARENAS[batalla.arena].nombre}</div>
-          {VISTA_ESCENARIO&&<div className="indicacion-escenario">Arrastra para inspeccionar · Rueda para acercar · <a href="?combate=1">Volver al combate</a></div>}
+          <div className="nombre-arena">{VISTA_ESCENARIO?"SELVA · BABYLON.JS · MOBA 3D":ARENAS[batalla.arena].nombre}</div>
+          {VISTA_ESCENARIO&&<div className="indicacion-escenario">Arrastra para girar · Rueda para acercar · <a href="?combate=1">Volver al combate</a></div>}
           {(!VISTA_ESCENARIO&&(batalla.resultado||!iniciada||pausa_activa||cargando_arena))&&
             <div className="estado" role="status">{batalla.resultado||
               (cargando_arena?'Cargando arena':iniciada?'Pausa':'Listos')}</div>}
