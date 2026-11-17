@@ -4,7 +4,11 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const rand=n=>{const x=Math.sin(n*127.17+46.23)*43758.5453;return x-Math.floor(x)};
 // Double width and depth => FOUR TIMES the paved area, without scaling stones.
-const W=51,D=34,R=4.30;
+// sqrt(2) per axis doubles the total surface without enlarging any stone.
+const W=51*Math.SQRT2,D=34*Math.SQRT2,R=4.30;
+// 3x3 grid: nine identical circular plazas symmetric around both axes.
+const CIRCLES=[-1,0,1].flatMap(row=>[-1,0,1].map(col=>({x:col*W*.30,z:row*D*.30,r:R})));
+const isInCircle=(x,z,padding=0)=>CIRCLES.some(c=>Math.hypot(x-c.x,z-c.z)<c.r+padding);
 const TAU=Math.PI*2;
 
 // Pure, testable authoring layout independent of GPU/browser.
@@ -17,47 +21,84 @@ export function crearPlanoAdoquines(){
    const x=-W/2+(col+.5+(row%2)*.5)*stepX;
    if(Math.abs(x)>W/2-.16)continue;
    // Circular plaza is reserved for actual concentric masonry.
-   if(Math.hypot(x,z)<R+.21)continue;
+   if(isInCircle(x,z,.24))continue;
    const id=row*503+col+500;
    stones.push({x,z,wx:.38*(.91+.13*rand(id)),wz:.325*(.90+.17*rand(id+12)),
     angle:(rand(id+7)-.5)*.045,seed:id,circle:false});
   }
  }
- // Central circle is composed of tangentially laid stones; not a painted decal.
- stones.push({x:0,z:0,wx:.34,wz:.34,angle:0,seed:900001,circle:true});
+ // Nine identical concentric cobbled courts, not flat decals.
  let rings=0;
- for(let radius=.37;radius<R-.15;radius+=.355){
-  const count=Math.max(9,Math.floor(TAU*radius/.395));
-  const arc=TAU*radius/count;
-  for(let i=0;i<count;i++){
-   const theta=(i+(rings%2)*.5)*TAU/count;
-   const seed=100000+rings*1000+i;
-   stones.push({x:Math.cos(theta)*radius,z:Math.sin(theta)*radius,
-    wx:Math.max(.18,arc-.047),wz:.318,
-    angle:theta+Math.PI/2,seed,circle:true,ring:rings});
+ for(let plaza=0;plaza<CIRCLES.length;plaza++){
+  const center=CIRCLES[plaza];
+  stones.push({x:center.x,z:center.z,wx:.34,wz:.34,angle:0,
+   seed:900001+plaza*1000000,circle:true,plaza});
+  let localRings=0;
+  for(let radius=.37;radius<R-.15;radius+=.355){
+   const count=Math.max(9,Math.floor(TAU*radius/.395));
+   const arc=TAU*radius/count;
+   for(let i=0;i<count;i++){
+    const theta=(i+(localRings%2)*.5)*TAU/count;
+    const seed=100000+plaza*1000000+localRings*1000+i;
+    stones.push({x:center.x+Math.cos(theta)*radius,
+     z:center.z+Math.sin(theta)*radius,
+     wx:Math.max(.18,arc-.047),wz:.318,
+     angle:theta+Math.PI/2,seed,circle:true,ring:localRings,plaza});
+   }
+   localRings++;
   }
-  rings++;
+  const radius=R-.10,n=Math.floor(TAU*radius/.34);
+  for(let i=0;i<n;i++){
+   const theta=i*TAU/n;
+   stones.push({x:center.x+Math.cos(theta)*radius,
+    z:center.z+Math.sin(theta)*radius,
+    wx:TAU*radius/n-.028,wz:.19,angle:theta+Math.PI/2,
+    seed:200000+plaza*1000000+i,circle:true,ring:localRings,plaza});
+  }
+  rings=Math.max(rings,localRings);
  }
- // A continuous circular course makes its silhouette apparent from above.
- const radius=R-.10,n=Math.floor(TAU*radius/.34);
- for(let i=0;i<n;i++){
-  const theta=i*TAU/n;
-  stones.push({x:Math.cos(theta)*radius,z:Math.sin(theta)*radius,
-   wx:TAU*radius/n-.028,wz:.19,angle:theta+Math.PI/2,
-   seed:200000+i,circle:true,ring:rings});
- }
- return {stones,outerWidth:W,outerDepth:D,circleRadius:R,rings};
+ return {stones,outerWidth:W,outerDepth:D,circleRadius:R,rings,
+  circles:CIRCLES.map(c=>({...c}))};
 }
 function stonePalette(seed,circle,ring){
- // Warm sandstones, darkened by decades of soot, rain and earth.
+ // Weathered limestone: sandstone beige, grey mineral veins and old soot.
  const shades=[
-  [.68,.60,.45],[.60,.53,.40],[.75,.67,.53],[.65,.56,.43],
-  [.54,.49,.39],[.79,.70,.54],[.62,.57,.45],[.70,.62,.47]
+  [.67,.61,.49],[.57,.53,.44],[.74,.68,.55],[.65,.59,.48],
+  [.52,.50,.45],[.75,.69,.57],[.60,.56,.46],[.70,.64,.51]
  ];
  const color=shades[Math.floor(rand(seed*2.9)*shades.length)];
- const age=.87+.15*rand(seed+51);
- const center=circle?(ring%4===0?.95:1):1;
- return color.map(x=>x*age*center);
+ const age=.81+.24*rand(seed+51);
+ const ringTone=circle?(ring%4===0?.92:1):1;
+ return color.map(x=>x*age*ringTone);
+}
+// Repeating rock microstructure: fine mineral inclusions, erosion, dirt
+// and granular abrasion. UVs are world-space so the tile size never stretches.
+function stoneGrain(B,scene){
+ const n=256,tex=new B.DynamicTexture('Caliza erosionada · grano mineral',
+  {width:n,height:n},scene,false);
+ const ctx=tex.getContext(),pixels=ctx.createImageData(n,n);
+ const smooth=t=>t*t*(3-2*t);
+ const noise=(x,y)=>{
+  const xx=Math.floor(x),yy=Math.floor(y),u=smooth(x-xx),v=smooth(y-yy);
+  const c=(i,j)=>rand(i*173.31+j*83.37);
+  const x0=c(xx,yy)*(1-u)+c(xx+1,yy)*u;
+  const x1=c(xx,yy+1)*(1-u)+c(xx+1,yy+1)*u;
+  return x0*(1-v)+x1*v;
+ };
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+  const coarse=noise(x/38,y/38),grain=noise(x/8,y/8);
+  const fine=rand(x*199+y*409),vein=Math.sin(x*.11+y*.17+coarse*7);
+  const shade=clamp(.77+.22*coarse+.13*grain+.075*fine-.045*Math.max(0,vein),.57,1.11);
+  const i=(y*n+x)*4;
+  pixels.data[i]=clamp(255*shade,0,255);
+  pixels.data[i+1]=clamp(249*shade,0,255);
+  pixels.data[i+2]=clamp(235*shade,0,255);
+  pixels.data[i+3]=255;
+ }
+ ctx.putImageData(pixels,0,0);tex.update();
+ tex.wrapU=tex.wrapV=B.Texture.WRAP_ADDRESSMODE;
+ tex.hasAlpha=false;
+ return tex;
 }
 function buildPavement(B,scene){
  const layout=crearPlanoAdoquines();
@@ -67,42 +108,53 @@ function buildPavement(B,scene){
   const index=positions.length/3;
   positions.push(x,y,z);
   colors.push(...tint.map(c=>clamp(c*light,0,1)),1);
-  uvs.push(x/4,z/4);
+  uvs.push(x/2.3,z/2.3);
   return index;
  };
  for(const s of layout.stones){
-  const corners=[],inset=[],bottom=[];
-  const hw=s.wx/2,hz=s.wz/2;
-  const cornerRadius=Math.min(hw,hz)*(.38+.13*rand(s.seed+2));
-  const bevel=.022+.014*rand(s.seed+41);
-  // Octagonal footprint makes small rectangular cobbles visibly rounded.
-  const outline=[
-   [-hw+cornerRadius,-hz],[hw-cornerRadius,-hz],
-   [hw,-hz+cornerRadius],[hw,hz-cornerRadius],
-   [hw-cornerRadius,hz],[-hw+cornerRadius,hz],
-   [-hw,hz-cornerRadius],[-hw,-hz+cornerRadius]
+  const rim=[],bevels=[],bottom=[];
+  const hw=s.wx*.5,hz=s.wz*.5;
+  const corner=Math.min(hw,hz)*(.34+.13*rand(s.seed+2));
+  const round=[
+   [-hw+corner,-hz], [0,-hz], [hw-corner,-hz],
+   [hw,-hz+corner], [hw,0], [hw,hz-corner],
+   [hw-corner,hz], [0,hz], [-hw+corner,hz],
+   [-hw,hz-corner],[-hw,0],[-hw,-hz+corner]
   ];
   const ca=Math.cos(s.angle),sa=Math.sin(s.angle);
-  const baseY=.002+(rand(s.seed+6)-.5)*.007;
-  const thickness=.046+.018*rand(s.seed+71);
+  const baseY=(rand(s.seed+6)-.5)*.012;
+  const thickness=.035+.023*rand(s.seed+71);
   const tint=stonePalette(s.seed,s.circle,s.ring||0);
-  function vertex(px,pz,y,scale,light){
-   const xx=px*scale,zz=pz*scale;
-   return push(s.x+xx*ca-zz*sa,y,s.z+xx*sa+zz*ca,tint,light);
+  const wear=.015+.015*rand(s.seed+4);
+  const interior=[];
+  const transform=(px,pz)=>[
+   s.x+px*ca-pz*sa,
+   s.z+px*sa+pz*ca
+  ];
+  for(let j=0;j<round.length;j++){
+   const p=round[j];
+   const jitter=(rand(s.seed*7+j*29)-.5)*.018;
+   const px=p[0]+jitter*(j%3?1:-1);
+   const pz=p[1]+(rand(s.seed+j*53)-.5)*.014;
+   const edgeLevel=baseY+.005+(rand(s.seed+j*41)-.5)*.010;
+   const topLevel=baseY+thickness+(rand(s.seed+j*67)-.5)*.012;
+   const [rx,rz]=transform(px,pz);
+   const [ix,iz]=transform(px*(1-wear/Math.max(hw,.1)),pz*(1-wear/Math.max(hz,.1)));
+   rim.push(push(rx,edgeLevel,rz,tint,.65+.12*rand(s.seed+j)));
+   bevels.push(push(ix,topLevel,iz,tint,.91+.13*rand(s.seed+j*31)));
+   bottom.push(push(rx,baseY-.026,rz,tint,.52));
   }
-  for(const [x,z] of outline){
-   corners.push(vertex(x,z,baseY+.007,1,.67));
-   inset.push(vertex(x,z,baseY+thickness,1-bevel/Math.max(hw,hz),.96+
-    .055*rand(s.seed+x*173+z*11)));
-   bottom.push(vertex(x,z,baseY-.028,1,.49));
-  }
-  const mid=push(s.x,baseY+thickness+.001,s.z,tint,1.04);
-  for(let j=0;j<sides;j++){
-   const k=(j+1)%sides;
-   // Upper top face, chiselled shoulder and darker joint walls.
-   indices.push(mid,inset[j],inset[k]);
-   indices.push(inset[j],corners[j],inset[k],inset[k],corners[j],corners[k]);
-   indices.push(corners[j],bottom[j],corners[k],corners[k],bottom[j],bottom[k]);
+  // Uneven worn top with a subtle geological ridge rather than a flat polygon.
+  const centerTint=.92+.12*rand(s.seed+103);
+  const mid=push(s.x,baseY+thickness+(rand(s.seed+131)-.5)*.018,
+   s.z,tint,centerTint);
+  for(let j=0;j<round.length;j++){
+   const next=(j+1)%round.length;
+   indices.push(mid,bevels[j],bevels[next]);
+   indices.push(bevels[j],rim[j],bevels[next],
+    bevels[next],rim[j],rim[next]);
+   indices.push(rim[j],bottom[j],rim[next],
+    rim[next],bottom[j],bottom[next]);
   }
  }
  const normals=[];
@@ -113,6 +165,8 @@ function buildPavement(B,scene){
  vd.colors=colors;vd.uvs=uvs;vd.applyToMesh(cobbles);
  const stone=new B.StandardMaterial('Piedra beige, envejecida y mate',scene);
  stone.diffuseColor=B.Color3.White();
+ stone.diffuseTexture=stoneGrain(B,scene);
+ stone.useVertexColors=true;
  stone.specularColor=new B.Color3(.035,.030,.023);
  stone.backFaceCulling=false;stone.alpha=1;
  stone.transparencyMode=B.Material.MATERIAL_OPAQUE;
@@ -157,7 +211,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   if(lastW!==w||lastH!==h){lastW=w;lastH=h;engine.resize();}
   const aspect=engine.getRenderWidth()/Math.max(1,engine.getRenderHeight());
   // Frame the expanded arena at startup; zoom changes projection extents.
-  const v=21.25*(camera.radius/24);
+  const v=30.6*(camera.radius/24);
   camera.orthoTop=v;camera.orthoBottom=-v;
   camera.orthoLeft=-v*aspect;camera.orthoRight=v*aspect;
  }
@@ -178,6 +232,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,ancho:W,profundidad:D,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,ancho:W,profundidad:D,actores:0,decoracion:0});
  return render;
 }
