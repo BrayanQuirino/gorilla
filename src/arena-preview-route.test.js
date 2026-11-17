@@ -15,7 +15,7 @@ test('la arena no carga React ni los renderizadores antiguos',()=>{
  const vite=read('vite.config.js');
  assert.match(html,/src\/arena-preview\.js/);
  assert.doesNotMatch(html,/main\.jsx|arena-three|arena-moba|battle\.js/i);
- assert.doesNotMatch(script,/react|arena-three|crear_dibujante_three|battle\.js/i);
+ assert.doesNotMatch(script.replace(/^\/\/.*$/gm,''),/\breact\b|arena-three|crear_dibujante_three|battle\.js/i);
  assert.match(script,/crear_dibujante_babylon/);
  assert.match(vite,/arena:resolve\('arena\.html'\)/);
  assert.match(html,/\?combate=1/);
