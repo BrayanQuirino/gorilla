@@ -4,11 +4,11 @@ Simulador táctico de combate con 100 humanos, un gorila y evolución de habilid
 
 ## Renderizado principal
 
-**Modo MOBA 3D real:** src/arena-moba.js construye mallas WebGL, iluminación direccional, cámara ortográfica, escenarios con relieve y personajes tridimensionales articulados. Los veinte arquetipos tienen variantes de equipo y vestuario. Cuando ANGLE_instanced_arrays está disponible, los modelos se reutilizan en GPU, en lugar de reconstruirse 100 veces por fotograma.
+**Modo MOBA 3D con Three.js (predeterminado):** `src/arena-three.js` crea escenarios, personajes tridimensionales instanciados en GPU, cámara ortográfica isométrica, iluminación direccional y sombras suaves. Los materiales de terreno usan texturas procedurales repetibles. La selva utiliza el constructor 3D específico de `src/selva-scene.js` y puede añadir modelos GLB cuando están disponibles. `src/arena-moba.js` permanece como renderizador WebGL heredado, pero ya no se selecciona por defecto.
 
 No se estiran ilustraciones 2D para simular el terreno; el modo pixel-art antiguo permanece únicamente como respaldo técnico cuando WebGL falla.
 
-El acabado gráfico actual es una **base 3D procedural estilizada**, no el conjunto final de modelos y texturas premium comparable a un juego AAA comercial.
+El acabado gráfico sigue siendo una **base 3D procedural estilizada**. Las sombras, texturas y luces no sustituyen modelos GLB detallados, animaciones esqueléticas ni materiales PBR artísticos. Las reglas de colisión y navegación permanecen en el motor de simulación y no son físicas rígidas de un motor como Rapier.
 
 ## Ejecutar
 
@@ -23,7 +23,8 @@ GitHub Actions comprueba pruebas y build en .github/workflows/ci.yml y despliega
 
 ## Arquitectura
 
-- **src/arena-moba.js:** geometría, materiales por arena, cámara elevada, GPU instancing, animaciones básicas y zoom.
+- **src/arena-three.js:** renderizador Three.js principal con materiales, cámara elevada, sombras, instancing y zoom.
+- **src/arena-moba.js:** renderizador WebGL anterior, retenido como código heredado.
 - **src/terreno.js:** huellas de colisión, alturas, puentes, cobertura y superficies escalables.
 - **src/navegacion.js:** A* cacheado con zonas transitables y enlaces especiales para el gorila.
 - **src/battle.js:** IA, combate, vida, daño, enfriamientos, equipamiento y simulación independiente del render.
