@@ -1,4 +1,5 @@
 import { construirPiramides } from './arena-piramides.js';
+import { construirCasasAntiguas } from './arena-casas.js';
 // First arena: beige weathered cobblestone pavement ONLY.
 // Deliberately no GLB, trees, rocks, water, gameplay actors or UI geometry.
 // Babylon.js is provided by index.html. Every stone has genuine bevelled 3D volume.
@@ -313,6 +314,14 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   console.error('No se pudieron construir las pirámides; se conserva el suelo 3D',error);
   onFailure?.(new Error('Fallo de pirámides; se mantiene el suelo de piedra: '+error.message));
  }
+ // Independent small-scale ruins: four ancient house corners.
+ let houses={sites:[],stoneBlocks:0};
+ try{
+  houses=construirCasasAntiguas(B,scene);
+ }catch(error){
+  console.error('No se pudieron construir los restos de viviendas',error);
+  onFailure?.(new Error('Fallo de restos de viviendas: '+error.message));
+ }
  let disposed=false,lastW=0,lastH=0,zoom=1;
  const originalTarget=new B.Vector3(0,0,0);
  // A Babylon orthographic camera must use the physical drawing-buffer aspect,
@@ -355,6 +364,15 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
      project(temple.x+dx,h,temple.z+dz);
     }
   }
+  // Small human-scale ruins also stay visible at extreme isometric angles.
+  for(const house of houses.sites){
+   const radius=Math.hypot(house.lengthX,house.lengthZ)+.6;
+   for(const dx of [-radius,radius])
+    for(const dz of [-radius,radius]){
+     project(house.x+dx,0,house.z+dz);
+     project(house.x+dx,house.height+.2,house.z+dz);
+    }
+  }
   // Extra 17% prevents the bevelled stone boundary from touching the edge.
   const v=Math.max(maxY,maxX/aspect)*1.17*zoom;
   camera.orthoTop=v;camera.orthoBottom=-v;
@@ -393,6 +411,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
  return render;
 }
