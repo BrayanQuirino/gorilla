@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import {ancho,alto,obstaculos_escena} from './terreno.js';
 import {construirSelvaAncestral} from './selva-scene.js';
+import {cargarArteSelvaGLB} from './selva-hd-assets.js';
 
 const UNIT=74;
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -358,6 +359,13 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   // Selva is authored independently; all other arenas stay untouched.
   selvaArt=arena==='selva'?construirSelvaAncestral(world):null;
   if(!selvaArt)environment(world,arena);
+  if(selvaArt){
+   // The scene is already usable while its real GLB models load; never block
+   // combat or the animation loop on a network/resource error.
+   const targetStage=stage;
+   cargarArteSelvaGLB(selvaArt.root,{isAlive:()=>!disposed&&stage===targetStage})
+    .catch(error=>console.warn('Selva GLB assets unavailable; preserving playable fallback:',error));
+  }
   humans=makeHumans(stage);
   gorilla=makeGorilla(stage);
   sundries=makeSundries(stage);
