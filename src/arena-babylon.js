@@ -28,22 +28,16 @@ function makeMaterial(B,scene,name,hex,rough=1){
  return m;
 }
 function ground(scene,B){
+ // Solid terrain: world-space splat-map baked directly into an opaque
+ // diffuse texture. It cannot disappear behind vertex-color multiplication.
  const segmentsX=150,segmentsZ=116,width=27,depth=21;
- const positions=[],indices=[],normals=[],colors=[],uvs=[];
- const grass=[.26,.39,.27],earth=[.43,.34,.23],moss=[.20,.31,.22];
+ const positions=[],indices=[],normals=[],uvs=[];
  for(let j=0;j<=segmentsZ;j++){
   const z=(j/segmentsZ-.5)*depth;
   for(let i=0;i<=segmentsX;i++){
    const x=(i/segmentsX-.5)*width;
-   const wide=noise(x*.33+10,z*.33),detail=noise(x*2.3,z*2.3);
-   const central=clamp((Math.hypot(x/3.25,z/2.45)-.75)*2,0,1);
-   const path=Math.exp(-Math.pow((z-.43*Math.sin(x*.55))/.62,2))*.58;
-   const dirt=clamp((1-central)*.76+path+.13*detail,0,.94);
-   const color=blend(blend(grass,moss,wide*.57),earth,dirt);
-   const daylight=.85+.18*detail+.08*noise(x*1.6+40,z*1.6);
    positions.push(x,terrainHeight(x,z),z);
-   colors.push(...color.map(c=>clamp(c*daylight,0,1)),1);
-   uvs.push(i/segmentsX*9,j/segmentsZ*7);
+   uvs.push(i/segmentsX,j/segmentsZ);
    if(i<segmentsX&&j<segmentsZ){
     const a=j*(segmentsX+1)+i,b=a+1,c=a+(segmentsX+1),d=c+1;
     indices.push(a,c,b,b,c,d);
@@ -51,26 +45,36 @@ function ground(scene,B){
   }
  }
  B.VertexData.ComputeNormals(positions,indices,normals);
- const mesh=new B.Mesh('Terreno de selva · malla de relieve',scene);
+ const mesh=new B.Mesh('Suelo sólido selvático · malla 3D',scene);
  const data=new B.VertexData();
- Object.assign(data,{positions,indices,normals,colors,uvs});
+ Object.assign(data,{positions,indices,normals,uvs});
  data.applyToMesh(mesh);
- const mat=makeMaterial(B,scene,'Suelos mezclados - tierra y musgo','#ffffff');
- mat.useVertexColors=true;mat.backFaceCulling=false;
- // Microtexture breaks up the smooth gradient at camera distance.
- const texture=new B.DynamicTexture('Textura de tierra y vegetación',{width:512,height:512},scene,true);
- const ctx=texture.getContext(),image=ctx.createImageData(512,512);
- for(let y=0;y<512;y++)for(let x=0;x<512;x++){
-  const a=noise(x/27,y/27),b=noise(x/5,y/5),v=clamp(.59+.38*a+.11*b,0,1);
-  const k=(y*512+x)*4;
-  image.data[k]=Math.floor(v*255);
-  image.data[k+1]=Math.floor(v*253);
-  image.data[k+2]=Math.floor(v*244);
-  image.data[k+3]=255;
+ const texture=new B.DynamicTexture('Tierra, césped y musgo 1024px',
+  {width:1024,height:768},scene,false);
+ const ctx=texture.getContext(),pixels=ctx.createImageData(1024,768);
+ for(let y=0;y<768;y++)for(let x=0;x<1024;x++){
+  const wx=(x/1023-.5)*width,wz=(y/767-.5)*depth;
+  const macro=noise(wx*.30+15,wz*.30+18),mid=noise(wx*1.15,wz*1.15);
+  const fine=noise(wx*7.1+4,wz*7.1+1);
+  const path=Math.exp(-Math.pow((wz-.43*Math.sin(wx*.55))/.81,2));
+  const clearing=1-clamp((Math.hypot(wx/3.6,wz/3.0)-.7)*2,0,1);
+  const soil=clamp(path*.7+clearing*.7+(.5-mid)*.22,0,1);
+  const grass=[49+macro*25,77+mid*34,42+macro*23];
+  const earth=[103+macro*19,81+mid*16,56+fine*12];
+  const rgb=blend(grass,earth,soil);
+  const grain=.81+.22*fine+.09*hash(x*11+y*29);
+  const k=(y*1024+x)*4;
+  for(let c=0;c<3;c++)pixels.data[k+c]=Math.round(clamp(rgb[c]*grain,0,255));
+  pixels.data[k+3]=255;
  }
- ctx.putImageData(image,0,0);texture.update();
- texture.uScale=9;texture.vScale=7;
- mat.albedoTexture=texture;mat.albedoColor=new B.Color3(1,1,1);
+ ctx.putImageData(pixels,0,0);texture.update();
+ texture.hasAlpha=false;
+ texture.wrapU=texture.wrapV=B.Texture.CLAMP_ADDRESSMODE;
+ const mat=new B.StandardMaterial('Suelo opaco / vegetación y tierra',scene);
+ mat.diffuseTexture=texture;mat.diffuseColor=new B.Color3(1,1,1);
+ mat.specularColor=new B.Color3(.035,.045,.03);
+ mat.alpha=1;mat.transparencyMode=B.Material.MATERIAL_OPAQUE;
+ mat.backFaceCulling=false;
  mesh.material=mat;mesh.receiveShadows=true;
  return mesh;
 }
@@ -100,6 +104,7 @@ async function importModel(scene,B,id){
  const size=bounds.max.subtract(bounds.min);
  const center=bounds.max.add(bounds.min).scale(.5);
  // Source pivots can be arbitrarily offset: correct for them in an outer parent.
+ jungleTreeMaterials(scene,B,{base},id);
  base.setEnabled(false);
  return {base,size,center,min:bounds.min};
 }
@@ -114,6 +119,80 @@ function placeModel(scene,B,src,name,x,z,height,rotation=0){
  pivot.rotation.y=rotation;
  instance.getChildMeshes(false).forEach(m=>{m.receiveShadows=true;});
  return {pivot,meshes:instance.getChildMeshes(false)};
+}
+// Replace inappropriate red fantasy-tree foliage with a deliberately green
+// rainforest palette. The supplied GLB is reused for its actual 3D silhouette.
+function jungleTreeMaterials(scene,B,model,id){
+ if(id==='rock_moss')return;
+ const green=[
+  new B.Color3(.14,.38,.19),
+  new B.Color3(.22,.46,.20),
+  new B.Color3(.31,.53,.23),
+  new B.Color3(.16,.32,.17)
+ ];
+ const bark=new B.Color3(.34,.27,.16);
+ const cache=new Map();
+ for(const mesh of model.base.getChildMeshes(false)){
+  const old=mesh.material;
+  if(!old)continue;
+  const key=old.uniqueId||old.name;
+  if(!cache.has(key)){
+   const c=old.albedoColor||old.diffuseColor||new B.Color3(1,1,1);
+   const red=c.r>c.g*1.16&&c.r>c.b*1.08;
+   const pale=c.r>.61&&c.g>.61&&c.b<.71;
+   const lower=(old.name||'').toLowerCase();
+   const trunk=/trunk|bark|wood|stem|branch/.test(lower)||pale&&!red;
+   const next=new B.PBRMaterial('Selva tropical · '+old.name,scene);
+   next.albedoColor=trunk?bark:green[Math.floor(hash(key?.length||3)*4)];
+   // Never retain the source's red albedo texture. Original tree sources
+   // are red-fantasy assets, not jungle leaves.
+   next.metallic=0;next.roughness=.94;
+   next.backFaceCulling=false;
+   cache.set(key,next);
+  }
+  mesh.material=cache.get(key);
+ }
+}
+// Extra recognizable tropical palms: actual volumetric fronds and bent
+// trunks, batched inside only the environment layer (no hidden colliders).
+function addTropicalPalm(scene,B,x,z,size,seed,shadow){
+ const trunkMat=scene.getMaterialByName('Palmera · corteza')||
+  makeMaterial(B,scene,'Palmera · corteza','#69533a');
+ const leafMat=scene.getMaterialByName('Palmera · hojas')||
+  makeMaterial(B,scene,'Palmera · hojas','#2e7747');
+ const stem=new B.TransformNode('Palmera tropical',scene);
+ stem.position.set(x,terrainHeight(x,z),z);
+ const height=size*(1.05+hash(seed)*.3);
+ const trunk=B.MeshBuilder.CreateCylinder('Tronco curvo',{height,
+  diameterTop:.14*size,diameterBottom:.23*size,tessellation:8},scene);
+ trunk.position.y=height*.50;trunk.rotation.z=(hash(seed+7)-.5)*.2;
+ trunk.material=trunkMat;trunk.parent=stem;
+ const crownY=height*1.02;
+ const frondCount=9;
+ for(let i=0;i<frondCount;i++){
+  const a=i*Math.PI*2/frondCount+hash(seed)*2.1;
+  const radius=.75*size*(.8+hash(i+seed)*.45);
+  const verts=[],inds=[];
+  const segments=9;
+  for(let j=0;j<=segments;j++){
+   const t=j/segments,r=radius*t;
+   const y=crownY+size*.21*Math.sin(t*Math.PI)-size*.38*t*t;
+   const w=.23*size*Math.sin(Math.PI*t);
+   const cx=Math.cos(a)*r,cz=Math.sin(a)*r;
+   verts.push(cx-Math.sin(a)*w,y,cz+Math.cos(a)*w,
+    cx+Math.sin(a)*w,y,cz-Math.cos(a)*w);
+   if(j<segments){
+    const k=j*2;inds.push(k,k+1,k+2,k+1,k+3,k+2);
+   }
+  }
+  const normals=[];B.VertexData.ComputeNormals(verts,inds,normals);
+  const frond=new B.Mesh('Hoja tropical curvada',scene);
+  const vd=new B.VertexData();
+  vd.positions=verts;vd.indices=inds;vd.normals=normals;
+  vd.applyToMesh(frond);frond.material=leafMat;frond.parent=stem;
+  frond.receiveShadows=true;
+ }
+ return stem;
 }
 function scatterModels(scene,B,models,shadow){
  let trees=0,rocks=0;
@@ -141,22 +220,27 @@ function scatterModels(scene,B,models,shadow){
  });
  // Deterministically art-direct dense forest toward the rim of the arena.
  // The open central floor intentionally remains readable for 100 fighters later.
- for(let i=0;i<115;i++){
+ for(let i=0;i<78;i++){
   const a=i*2.39996+hash(i*9)*.24,ring=8.0+hash(i*37)*5;
   const x=Math.cos(a)*ring*1.15,z=Math.sin(a)*ring*.92;
   const id=i%5===0?'big_tree':'tree';
   add(id,x,z,id==='big_tree'?3.6+hash(i)*1.8:2.2+hash(i)*1.35,
    hash(i*33)*6.28);
-  if(i%2===0)add('rock_moss',x+(hash(i*19)-.5)*2,
+  if(i%3===0)add('rock_moss',x+(hash(i*19)-.5)*2,
    z+(hash(i*27)-.5)*2,.28+hash(i*47)*.66,i*.93);
  }
  // Irregular rock berms follow the water, avoiding the rigid straight rock row.
- for(let i=0;i<46;i++){
+ for(let i=0;i<27;i++){
   const z=-8.4+i*.37,x=-6.75+.5*Math.sin(z*.5)+.22*Math.sin(z*1.27);
   const side=i%2===0?-1:1;
   add('rock_moss',x+side*(.62+hash(i*9)*.4),z,.24+hash(i*31)*.42,i*1.37);
  }
- return {trees,rocks,blockers:obstacles.length};
+ for(let i=0;i<34;i++){
+  const a=i*2.39996,ring=7.5+hash(i*53)*3.7;
+  addTropicalPalm(scene,B,Math.cos(a)*ring*1.27,Math.sin(a)*ring,
+   1.3+hash(i*19)*.6,i,shadow);
+ }
+ return {trees,rocks,palms:34,blockers:obstacles.length};
 }
 export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  const B=window.BABYLON;
@@ -198,10 +282,20 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
    lastWidth=w;lastHeight=h;engine.resize();
   }
   const ratio=engine.getRenderWidth()/Math.max(1,engine.getRenderHeight());
-  const v=7.45;
+  // ArcRotateCamera.radius does not zoom an orthographic projection.
+  // Tie the actual orthographic extents to radius so wheel zoom really works.
+  const v=7.45*(camera.radius/23);
   camera.orthoTop=v;camera.orthoBottom=-v;
   camera.orthoLeft=-v*ratio;camera.orthoRight=v*ratio;
  };
+ const onWheel=e=>{
+  e.preventDefault();
+  camera.radius=clamp(camera.radius*Math.exp(e.deltaY*.0011),10,33);
+  requestDraw?.();
+ };
+ // Use one explicit orthographic zoom controller, not Babylon's perspective wheel.
+ camera.inputs.removeByType('ArcRotateCameraMouseWheelInput');
+ canvas.addEventListener('wheel',onWheel,{passive:false});
  const update=()=>{if(disposed)return;resize();scene.render();};
  const pending=Promise.allSettled(
   ['big_tree','tree','rock_moss'].map(async id=>{
@@ -229,6 +323,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  };
  render.liberar=()=>{
   disposed=true;window.removeEventListener('resize',onResize);
+  canvas.removeEventListener('wheel',onWheel);
   camera.detachControl(canvas);engine.stopRenderLoop();scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',arena:'selva',
