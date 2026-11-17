@@ -34,6 +34,35 @@ const shared={
  cone:new THREE.ConeGeometry(1,1,7),
  torus:new THREE.TorusGeometry(1,.1,6,16)
 };
+// Tiled terrain albedo and matching bump detail, generated deterministically on the CPU.
+// DataTexture works on GitHub Pages without network downloads, canvas 2D or private assets.
+const terrainTextureCache=new Map();
+function terrainTexture(base,seed=1){
+ const key=base+':'+seed;
+ if(terrainTextureCache.has(key))return terrainTextureCache.get(key);
+ const size=128, pixels=new Uint8Array(size*size*4);
+ const baseColor=new THREE.Color(base);
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+  const fine=hash(x*11.13+y*27.47+seed*97);
+  const granular=hash(Math.floor(x/5)*73+Math.floor(y/5)*179+seed*17);
+  const vein=Math.sin(x*.29+Math.sin(y*.19)*2.2)*.5+.5;
+  const shade=.68+fine*.22+granular*.15+vein*.08;
+  const i=(y*size+x)*4;
+  pixels[i]=Math.round(clamp(baseColor.r*255*shade,0,255));
+  pixels[i+1]=Math.round(clamp(baseColor.g*255*shade,0,255));
+  pixels[i+2]=Math.round(clamp(baseColor.b*255*shade,0,255));
+  pixels[i+3]=255;
+ }
+ const tex=new THREE.DataTexture(pixels,size,size,THREE.RGBAFormat);
+ tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+ tex.repeat.set(9,7);
+ tex.colorSpace=THREE.SRGBColorSpace;
+ tex.magFilter=THREE.LinearFilter;
+ tex.minFilter=THREE.LinearMipmapLinearFilter;
+ tex.generateMipmaps=true;tex.anisotropy=8;tex.needsUpdate=true;
+ terrainTextureCache.set(key,tex);
+ return tex;
+}
 const material=(color,roughness=.91,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness,flatShading:false});
 const materialCache=new Map();
 function mat(c,r=.91,m=0){const key=c+'/'+r+'/'+m;if(!materialCache.has(key))materialCache.set(key,material(c,r,m));return materialCache.get(key);}
@@ -64,7 +93,7 @@ function rockShape(parent,c,x,y,z,rx,ry,rz,seed=0){
 }
 function environment(scene,arena){
  const palette=terrainColors[arena]||terrainColors.selva;
- const ground=material(palette.ground,.98);
+ const ground=new THREE.MeshStandardMaterial({map:terrainTexture(palette.ground,arena.length),roughness:1,metalness:0});
  const field=mesh(new THREE.PlaneGeometry(18,13,44,32),ground,scene,0,-.065,0);
  field.rotation.x=-Math.PI/2;field.castShadow=false;field.receiveShadow=true;
  const stage=new THREE.Group();scene.add(stage);
@@ -313,17 +342,24 @@ function makeSundries(scene){
 }
 
 export function crear_dibujante_three(canvas,requestDraw,onFailure){
- const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance'});
+ const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
  renderer.setSize(canvas.width,canvas.height,false);
- renderer.setPixelRatio(1);
+ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  renderer.toneMappingExposure=1.35;
  renderer.outputColorSpace=THREE.SRGBColorSpace;
- renderer.shadowMap.enabled=false; // One mesh per person; GPU instancing over costly shadows.
+ renderer.shadowMap.enabled=true;
+ renderer.shadowMap.type=THREE.PCFSoftShadowMap;
  const scene=new THREE.Scene();
- const ambient=new THREE.HemisphereLight(0xeaf2dc,0x384638,2.0);scene.add(ambient);
- const sunlight=new THREE.DirectionalLight(0xffe3ac,2.25);sunlight.position.set(-5,11,8);scene.add(sunlight);
- const fill=new THREE.DirectionalLight(0xb3d9d0,.7);fill.position.set(5,6,-7);scene.add(fill);
+ const ambient=new THREE.HemisphereLight(0xd9e8ff,0x364b37,1.08);scene.add(ambient);
+ const sunlight=new THREE.DirectionalLight(0xffdeb0,3.0);sunlight.position.set(-7,14,9);
+ sunlight.castShadow=true;sunlight.shadow.mapSize.set(2048,2048);
+ sunlight.shadow.camera.left=-11;sunlight.shadow.camera.right=11;
+ sunlight.shadow.camera.top=9;sunlight.shadow.camera.bottom=-9;
+ sunlight.shadow.camera.near=.5;sunlight.shadow.camera.far=42;
+ sunlight.shadow.bias=-.0003;sunlight.shadow.normalBias=.025;
+ scene.add(sunlight);
+ const fill=new THREE.DirectionalLight(0x8ecfe3,.65);fill.position.set(5,6,-7);scene.add(fill);
  const camera=new THREE.OrthographicCamera(-9,9,5,-5,.1,90);
  camera.position.set(10.4,14.5,17.6);camera.lookAt(0,.4,0);
  let zoom=1,activeArena=null,stage=null,humans=null,gorilla=null,sundries=null,selvaArt=null;
@@ -374,10 +410,10 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   scene.background=new THREE.Color(arena==='selva'?0x4c6757:c.fog);
   scene.fog=new THREE.FogExp2(arena==='selva'?0x607c65:c.fog,arena==='selva'?.013:.018);
   // Restore material contrast: previous overbright lighting flattened details.
-  ambient.intensity=arena==='selva'?1.25:2.0;
-  sunlight.intensity=arena==='selva'?2.35:2.25;
-  fill.intensity=arena==='selva'?.45:.7;
-  renderer.toneMappingExposure=arena==='selva'?1.05:1.35;
+  ambient.intensity=arena==='selva'?1.05:1.20;
+  sunlight.intensity=arena==='selva'?3.0:2.65;
+  fill.intensity=arena==='selva'?.45:.55;
+  renderer.toneMappingExposure=arena==='selva'?1.13:1.18;
  }
  const onLost=e=>{e.preventDefault();onFailure?.(new Error('Se perdió el contexto WebGL 3D'))};
  canvas.addEventListener('webglcontextlost',onLost);events.push(['webglcontextlost',onLost]);
@@ -389,7 +425,7 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   const now=performance.now();
   // Cap 3D drawing at 30 FPS. Simulation and AI are still updated every frame
   // in battle.js, so this does not change any combat timers or rules.
-  if(now-lastRender<32 && lastRender>0)return true;
+  if(now-lastRender<16 && lastRender>0)return true;
   lastRender=now;
   selvaArt?.update(b.transcurrido||0);
   humans.apply(b.hombres,b.transcurrido||0);
