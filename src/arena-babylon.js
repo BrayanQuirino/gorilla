@@ -108,6 +108,16 @@ function stoneGrain(B,scene){
  tex.hasAlpha=false;
  return tex;
 }
+// Ortho view fits ALL four floor corners at any camera yaw and viewport ratio.
+// Previously a hard-coded half-height clipped the plaza at certain angles.
+export function calcularEncuadreArena(aspect,alpha,beta,width=W,depth=D){
+ const ratio=Math.max(.4,aspect||1);
+ const horizontal=.5*(width*Math.abs(Math.sin(alpha))+
+  depth*Math.abs(Math.cos(alpha)));
+ const vertical=.5*Math.abs(Math.cos(beta))*
+  (width*Math.abs(Math.cos(alpha))+depth*Math.abs(Math.sin(alpha)));
+ return (Math.max(vertical,horizontal/ratio)+.7)*1.12;
+}
 function buildPavement(B,scene){
  const layout=crearPlanoAdoquines();
  const positions=[],indices=[],colors=[],uvs=[];
@@ -220,12 +230,21 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  sunlight.position=new B.Vector3(6,13,-8);sunlight.intensity=1.25;
  const art=buildPavement(B,scene);
  let disposed=false,lastW=0,lastH=0;
+ const originalTarget=new B.Vector3(0,0,0);
  function resize(){
   const w=canvas.clientWidth||canvas.width,h=canvas.clientHeight||canvas.height;
   if(lastW!==w||lastH!==h){lastW=w;lastH=h;engine.resize();}
   const aspect=engine.getRenderWidth()/Math.max(1,engine.getRenderHeight());
-  // Frame the expanded arena at startup; zoom changes projection extents.
-  const v=30.6*(camera.radius/24);
+  // Rotating a non-square floor changes its screen-space bounding rectangle.
+  // Re-fit every frame, instead of assuming a constant vertical extent.
+  const fit=calcularEncuadreArena(aspect,camera.alpha,camera.beta);
+  if(camera.radius>=24)camera.target.copyFrom(originalTarget);
+  else{
+   camera.target.x=clamp(camera.target.x,-W*.39,W*.39);
+   camera.target.z=clamp(camera.target.z,-D*.39,D*.39);
+   camera.target.y=0;
+  }
+  const v=fit*(camera.radius/24);
   camera.orthoTop=v;camera.orthoBottom=-v;
   camera.orthoLeft=-v*aspect;camera.orthoRight=v*aspect;
  }
@@ -236,12 +255,22 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  };
  canvas.addEventListener('wheel',onWheel,{passive:false});
  const onResize=()=>resize();
+ const resetView=()=>{
+  camera.target.copyFrom(originalTarget);
+  camera.radius=24;
+  camera.alpha=-Math.PI*.33;camera.beta=Math.PI*.29;
+  resize();requestDraw?.();
+ };
+ // Double click restores the complete symmetrical arena if the user zooms/pans.
+ canvas.addEventListener('dblclick',resetView);
+ canvas.addEventListener('contextmenu',e=>e.preventDefault());
  window.addEventListener('resize',onResize);
  engine.runRenderLoop(()=>{if(disposed)return;resize();scene.render();});
  const render=()=>!disposed;
  render.liberar=()=>{
   disposed=true;window.removeEventListener('resize',onResize);
   canvas.removeEventListener('wheel',onWheel);
+  canvas.removeEventListener('dblclick',resetView);
   camera.detachControl(canvas);engine.stopRenderLoop();
   scene.dispose();engine.dispose();
  };
