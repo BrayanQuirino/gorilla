@@ -314,7 +314,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   console.error('No se pudieron construir las pirámides; se conserva el suelo 3D',error);
   onFailure?.(new Error('Fallo de pirámides; se mantiene el suelo de piedra: '+error.message));
  }
- // Independent small-scale ruins: four ancient house corners.
+ // Independent small-scale ruins: six distinct ancient house floorplans.
  let houses={sites:[],stoneBlocks:0};
  try{
   houses=construirCasasAntiguas(B,scene);
@@ -366,7 +366,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   }
   // Small human-scale ruins also stay visible at extreme isometric angles.
   for(const house of houses.sites){
-   const radius=Math.hypot(house.lengthX,house.lengthZ)+.6;
+   const radius=house.footprintRadius+.3;
    for(const dx of [-radius,radius])
     for(const dz of [-radius,radius]){
      project(house.x+dx,0,house.z+dz);
