@@ -3,6 +3,7 @@
 // Procedural, real 3D geometry: no cut-out image or flat background textures.
 import * as THREE from 'three';
 import {ancho,alto,obstaculos_escena} from './terreno.js';
+import {construirSelvaAncestral} from './selva-scene.js';
 
 const UNIT=74;
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -324,7 +325,7 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
  const fill=new THREE.DirectionalLight(0xb3d9d0,.7);fill.position.set(5,6,-7);scene.add(fill);
  const camera=new THREE.OrthographicCamera(-9,9,5,-5,.1,90);
  camera.position.set(10.4,14.5,17.6);camera.lookAt(0,.4,0);
- let zoom=1,activeArena=null,stage=null,humans=null,gorilla=null,sundries=null;
+ let zoom=1,activeArena=null,stage=null,humans=null,gorilla=null,sundries=null,selvaArt=null;
  let lastRender=0,lastSupplies=0,disposed=false;
  let lastSize={w:0,h:0};
  const events=[];
@@ -347,14 +348,16 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   if(humans)scene.remove(humans.root);
   if(gorilla)scene.remove(gorilla.root);
   if(sundries)scene.remove(sundries.root);
-  stage=null;humans=null;gorilla=null;sundries=null;
+  stage=null;humans=null;gorilla=null;sundries=null;selvaArt=null;
  }
  function prepare(arena){
   clearArena();
   stage=new THREE.Group();scene.add(stage);
   // Build backdrop per arena; it is all real geometry rather than a flat plate.
   const world=new THREE.Group();stage.add(world);
-  environment(world,arena);
+  // Selva is authored independently; all other arenas stay untouched.
+  selvaArt=arena==='selva'?construirSelvaAncestral(world):null;
+  if(!selvaArt)environment(world,arena);
   humans=makeHumans(stage);
   gorilla=makeGorilla(stage);
   sundries=makeSundries(stage);
@@ -375,6 +378,7 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
   // in battle.js, so this does not change any combat timers or rules.
   if(now-lastRender<32 && lastRender>0)return true;
   lastRender=now;
+  selvaArt?.update(b.transcurrido||0);
   humans.apply(b.hombres,b.transcurrido||0);
   gorilla.apply(b.gorila,b.transcurrido||0);
   if(now-lastSupplies>350){sundries.update(b);lastSupplies=now;}
@@ -393,7 +397,7 @@ export function crear_dibujante_three(canvas,requestDraw,onFailure){
 // models without creating a browser, WebGL context or private image assets.
 export function diagnostico_three(arena='selva'){
  const scene=new THREE.Scene();
- const env=environment(scene,arena);
+ const env=arena==='selva'?construirSelvaAncestral(scene):environment(scene,arena);
  const people=makeHumans(scene);
  const gorilla=makeGorilla(scene);
  const actors=Array.from({length:100},(_,i)=>({
@@ -410,6 +414,7 @@ export function diagnostico_three(arena='selva'){
   mallas:realMeshes,gruposInstanciados:instancedMeshes,
   humanos:actors.length,modelosGeneradosConGeometria:true,
   estilos:Object.keys(outfits).length,
-  escenaActiva:Boolean(env.root&&people.root&&gorilla.root)
+  escenaActiva:Boolean(env.root&&people.root&&gorilla.root),
+  selvaConfig:arena==='selva'?env.metadata:null
  };
 }
