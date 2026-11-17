@@ -154,3 +154,39 @@ export function detalleMamposteria(root,obstacles){
  instance(root,leafGeo,mats.moss,moss);
  return {stoneFragments:pebbles.length,groundMoss:moss.length};
 }
+
+/**
+ * A collision-linked jungle tree: its root remains exactly at the engine's
+ * authored obstacle coordinates. Branches and crown are visual only, never
+ * introduce hidden barriers. All leaf clusters render in 2 instanced draws.
+ */
+export function arbolEsculpido(parent,seed=1,height=2.3,spreadX=1,spreadZ=1){
+ const tree=new THREE.Group();tree.name='Árbol de selva · colisión compartida';
+ parent.add(tree);
+ const baseBend=(rand(seed*11)-.5)*.21;
+ segment([0,0,0],[baseBend,height*.49,-.06],.19,tree,mats.bark);
+ segment([baseBend,height*.49,-.06],[baseBend*1.4,height*.89,-.13],.12,tree,mats.barkLight);
+ const foliage=[],pale=[];
+ for(let j=0;j<7;j++){
+  const a=j*2.399+.4,
+   endpoint=[Math.cos(a)*(.55+rand(seed+j)*.4)*spreadX,
+     height*(.65+rand(seed+j*7)*.33),
+     Math.sin(a)*(.55+rand(seed+j+19)*.4)*spreadZ];
+  segment([baseBend,height*.63,-.07],endpoint,.065,tree,mats.bark);
+  for(let k=0;k<19;k++){
+   const az=a+(rand(seed+j*21+k)*2-1)*.8;
+   const r=.35+rand(seed+j*7+k*5)*.75;
+   const x=endpoint[0]+Math.cos(az)*r*.40*spreadX,
+    y=endpoint[1]+(rand(seed+j*19+k*7)-.5)*.40,
+    z=endpoint[2]+Math.sin(az)*r*.42*spreadZ;
+   const item=mk(x,y,z,.48+rand(k+seed)*.31,
+    .53+rand(k*11+seed)*.35,.47+rand(k*13+seed)*.34,
+    (rand(k*5+j)-.5)*.8,a,
+    (rand(k*7+seed)-.5)*.7);
+   (k%4===0?pale:foliage).push(item);
+  }
+ }
+ instance(tree,leafGeo,mats.broadleaf,foliage);
+ instance(tree,leafGeo,mats.broadleafLight,pale);
+ return tree;
+}
