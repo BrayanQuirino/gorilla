@@ -50,7 +50,8 @@ function box(B,scene,parent,name,x,y,z,w,h,d,mat,shadow,angle=0){
  const mesh=B.MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);
  mesh.parent=parent;mesh.position.set(x,y,z);mesh.rotation.y=angle;
  mesh.material=mat;mesh.receiveShadows=true;
- if(shadow)shadow.addShadowCaster(mesh);
+ if(shadow && typeof shadow.addShadowCaster==='function')
+  shadow.addShadowCaster(mesh);
  return mesh;
 }
 function debris(B,scene,parent,materials,site,i,shadow){
@@ -63,7 +64,7 @@ function debris(B,scene,parent,materials,site,i,shadow){
  // Fragmented lintels and fallen stones, just off the intact masonry.
  const mesh=box(B,scene,parent,'Piedra desprendida '+i,x,h*.5+.07,z,
   w,h,d,materials[Math.floor(rnd(i*19+site.id)*materials.length)],
-  shadow&&i%6===0,rnd(i*83)*3);
+  shadow&&i%6===0?shadow:null,rnd(i*83)*3);
  mesh.rotation.z=(rnd(i*23)-.5)*.32;
  mesh.rotation.x=(rnd(i*53)-.5)*.3;
 }
