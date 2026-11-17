@@ -28,7 +28,7 @@ function batch(p,g,material,entries){
   dummy.scale.set(e.sx||1,e.sy||1,e.sz||1);dummy.updateMatrix();o.setMatrixAt(i,dummy.matrix);
   if(e.color){color.setHex(e.color);o.setColorAt(i,color);}
  });
- o.instanceMatrix.needsUpdate=true;o.frustumCulled=false;parent.add(o);return o;
+ o.instanceMatrix.needsUpdate=true;o.frustumCulled=false;p.add(o);return o;
 }
 function floor(p){
  const g=new THREE.PlaneGeometry(15.4,11.3,95,75),v=g.attributes.position,c=[];
