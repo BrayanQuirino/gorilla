@@ -5,10 +5,12 @@ import {crearPlanoAdoquines} from './arena-babylon.js';
 
 test('pirámides antiguas: completas y derrumbadas con espacio de combate libre',()=>{
  const p=planoPiramides(),arena=crearPlanoAdoquines();
- assert.equal(p.length,6,'seis templos en la arena');
- assert.equal(p.filter(t=>t.ruined).length,3,'tres estructuras colapsadas');
- assert.equal(p.filter(t=>!t.ruined).length,3,'tres pirámides conservadas');
+ assert.equal(p.length,3,'exactamente tres pirámides');
+ assert.deepEqual(p.map(t=>t.state),['intacta','media','destruida']);
  assert.ok(p.every(t=>t.levels>=6&&t.height>3));
+ assert.notEqual(p[0].x,-p[1].x,'no son un par espejado');
+ assert.ok(new Set(p.map(t=>t.z)).size===3,'los tres ejes norte-sur son diferentes');
+ assert.ok(p.some(t=>t.x<0)&&p.some(t=>t.x>0));
  for(const t of p){
   const half=t.size/2;
   assert.ok(Math.abs(t.x)+half<arena.outerWidth/2,
