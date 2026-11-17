@@ -3,6 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Landing URL is the standalone Babylon art review. The playable legacy
+       simulator remains available explicitly through ?combate=1. -->
+  <script>
+    if (new URLSearchParams(location.search).get('combate') !== '1') {
+      const url = new URL('./arena.html', location.href);
+      url.search = location.search;
+      location.replace(url.href);
+    }
+  </script>
   <meta name="description" content="Gorilla es un juego de estrategia 2D. Dirige a 100 hombres con habilidades y objetos aleatorios contra un gorila.">
   <title>Gorilla | Arena de adoquines · Babylon.js</title>
   <!-- WebGL engine and glTF/GLB loader; used ONLY by the new jungle arena. -->
