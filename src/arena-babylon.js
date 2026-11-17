@@ -132,7 +132,8 @@ function jungleTreeMaterials(scene,B,model,id){
  ];
  const bark=new B.Color3(.34,.27,.16);
  const cache=new Map();
- for(const mesh of model.base.getChildMeshes(false)){
+ for(const mesh of [model.base,...model.base.getChildMeshes(false)]){
+  if(!mesh.material)continue;
   const old=mesh.material;
   if(!old)continue;
   const key=old.uniqueId||old.name;
@@ -160,6 +161,7 @@ function addTropicalPalm(scene,B,x,z,size,seed,shadow){
   makeMaterial(B,scene,'Palmera · corteza','#69533a');
  const leafMat=scene.getMaterialByName('Palmera · hojas')||
   makeMaterial(B,scene,'Palmera · hojas','#2e7747');
+ leafMat.backFaceCulling=false;
  const stem=new B.TransformNode('Palmera tropical',scene);
  stem.position.set(x,terrainHeight(x,z),z);
  const height=size*(1.05+hash(seed)*.3);
