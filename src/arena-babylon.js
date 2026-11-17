@@ -31,7 +31,8 @@ export function crearPlanoAdoquines(){
    let intervals=[[a,b]];
    for(const c of CIRCLES){
     if(Math.abs(z-c.z)>R+.275+stepZ/2)continue;
-    const dz=Math.max(0,Math.abs(z-c.z)-stepZ/2);
+    // Cut at the course centre; edges are hand-fitted against the annular row.
+    const dz=Math.abs(z-c.z);
     const half=Math.sqrt(Math.max(0,(R+.275)**2-dz*dz));
     const cutA=c.x-half,cutB=c.x+half;
     intervals=intervals.flatMap(([l,r])=>{
