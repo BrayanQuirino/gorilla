@@ -1,6 +1,7 @@
 // Selva ancestral art module: all large collision solids derive from terreno.js.
 // Pure 3D geometry, no pasted images, no gameplay/audio/state mutations.
 import * as THREE from 'three';
+import {bosqueDetallado,detalleMamposteria} from './selva-detail.js';
 import {ancho,alto,obstaculos_escena,obstaculo_humano} from './terreno.js';
 const U=74;
 const P=(x,y)=>[(x-ancho/2)/U,(y-alto/2)/U];
@@ -252,10 +253,13 @@ export function construirSelvaAncestral(scene){
  const obstacles=cliffs(root);
  const surface=water(root);
  bridge(root,-6.65,-2.50);bridge(root,-6.65,2.6);
- dress(root);forestBackdrop(root);
+ dress(root);
+ const forest=bosqueDetallado(root);
+ const masonry=detalleMamposteria(root,obstacles);
  return {
   root,update:(seconds)=>{surface.uniforms.uTime.value=seconds;},
   metadata:{arena:'selva',collisions:obstacles.map(o=>o.id),
-   bridgeCount:2,plaza:true,artwork:'procedural-3d',musicOverride:false}
+   bridgeCount:2,plaza:true,artwork:'procedural-3d',musicOverride:false,
+   vegetation:forest,ruinDetails:masonry}
  };
 }
