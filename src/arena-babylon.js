@@ -370,7 +370,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
    for(const dx of [-radius,radius])
     for(const dz of [-radius,radius]){
      project(house.x+dx,0,house.z+dz);
-     project(house.x+dx,house.height+.2,house.z+dz);
+     project(house.x+dx,house.height*house.scale+.2,house.z+dz);
     }
   }
   // Extra 17% prevents the bevelled stone boundary from touching the edge.
