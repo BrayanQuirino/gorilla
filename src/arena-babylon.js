@@ -1,5 +1,6 @@
 import { construirPiramides } from './arena-piramides.js';
 import { construirCasasAntiguas } from './arena-casas.js';
+import { construirCespedSelvatico } from './arena-cesped.js';
 // First arena: beige weathered cobblestone pavement ONLY.
 // Deliberately no GLB, trees, rocks, water, gameplay actors or UI geometry.
 // Babylon.js is provided by index.html. Every stone has genuine bevelled 3D volume.
@@ -322,6 +323,19 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   console.error('No se pudieron construir los restos de viviendas',error);
   onFailure?.(new Error('Fallo de restos de viviendas: '+error.message));
  }
+ // 40% of the TOTAL surface area, not 40% per stone, nor a sum of
+ // overlapping grass patches. The original paving geometry is untouched.
+ let grass={globalCoverage:0,tufts:0};
+ try{
+  const vegetation=construirCespedSelvatico(B,scene,crearPlanoAdoquines(),{
+   pyramids:pyramids.sites,houses:houses.sites
+  });
+  grass={globalCoverage:vegetation.globalCoverage,
+   tufts:vegetation.grass.tufts};
+ }catch(error){
+  console.error('No se pudo construir el césped selvático',error);
+  onFailure?.(new Error('Fallo de vegetación: '+error.message));
+ }
  let disposed=false,lastW=0,lastH=0,zoom=1;
  const originalTarget=new B.Vector3(0,0,0);
  // A Babylon orthographic camera must use the physical drawing-buffer aspect,
@@ -411,6 +425,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,coberturaCespedGlobal:grass.globalCoverage,mechonesCesped:grass.tufts,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
  return render;
 }
