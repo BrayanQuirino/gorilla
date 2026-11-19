@@ -72,6 +72,10 @@ export function construirPiramides(B,scene,sun){
  const shadow=new B.ShadowGenerator(1024,sun);
  shadow.usePercentageCloserFiltering=true;
  shadow.filteringQuality=B.ShadowGenerator.QUALITY_LOW;
+ // Prevent heavy black contact outlines on weathered limestone blocks.
+ shadow.darkness=.28;
+ shadow.bias=.001;
+ shadow.normalBias=.008;
  const all=planoPiramides();
  const parent=new B.TransformNode('Ruinas y pirámides · tres estructuras',scene);
  let intact=0,mid=0,ruined=0;
