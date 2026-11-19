@@ -1,6 +1,7 @@
 import { construirPiramides } from './arena-piramides.js';
 import { construirCasasAntiguas } from './arena-casas.js';
 import { construirCespedSelvatico } from './arena-cesped.js';
+import { aplicarAcabadoArena } from './arena-acabado.js';
 // First arena: beige weathered cobblestone pavement ONLY.
 // Deliberately no GLB, trees, rocks, water, gameplay actors or UI geometry.
 // Babylon.js is provided by index.html. Every stone has genuine bevelled 3D volume.
@@ -299,6 +300,8 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  // Right-mouse drag pans the now larger plaza; left drag rotates it.
  camera.panningSensibility=110;camera.attachControl(canvas,true);
  camera.inputs.removeByType('ArcRotateCameraMouseWheelInput');
+ // Anti-aliased final image; keep all geometry and vegetation untouched.
+ const acabado=aplicarAcabadoArena(B,scene,camera);
  const hemispheric=new B.HemisphericLight('Luz difusa cálida',
   new B.Vector3(.1,1,-.2),scene);
  hemispheric.intensity=1.18;hemispheric.groundColor=new B.Color3(.26,.23,.18);
@@ -422,9 +425,10 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   canvas.removeEventListener('wheel',onWheel);
   canvas.removeEventListener('dblclick',resetView);
   camera.detachControl(canvas);engine.stopRenderLoop();
+  acabado.pipeline?.dispose();
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,coberturaCespedGlobal:grass.globalCoverage,mechonesCesped:grass.tufts,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,acabado:acabado.mode,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,coberturaCespedGlobal:grass.globalCoverage,mechonesCesped:grass.tufts,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
  return render;
 }
