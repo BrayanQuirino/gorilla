@@ -3,7 +3,7 @@ import { construirCasasAntiguas } from './arena-casas.js';
 import { construirCespedSelvatico } from './arena-cesped.js';
 import { construirVegetacionEstructuras } from './arena-vegetacion-estructuras.js';
 import { aplicarAcabadoArena } from './arena-acabado.js';
-import { instalarZoomTactil } from './arena-zoom.js';
+import { instalarZoomTactil, ZOOM_MINIMO, ZOOM_MAXIMO, zoomInicialPantalla } from './arena-zoom.js';
 // First arena: beige weathered cobblestone pavement ONLY.
 // Deliberately no GLB, trees, rocks, water, gameplay actors or UI geometry.
 // Babylon.js is provided by index.html. Every stone has genuine bevelled 3D volume.
@@ -352,7 +352,11 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   console.error('No se pudo construir el musgo de casas y pirámides',error);
   onFailure?.(new Error('Fallo de vegetación en estructuras: '+error.message));
  }
- let disposed=false,lastW=0,lastH=0,zoom=1;
+ const tactil=typeof window.matchMedia==='function' &&
+  window.matchMedia('(pointer: coarse)').matches;
+ let disposed=false,lastW=0,lastH=0;
+ let zoom=zoomInicialPantalla(canvas.clientWidth||window.innerWidth,
+  canvas.clientHeight||window.innerHeight,tactil);
  const originalTarget=new B.Vector3(0,0,0);
  // A Babylon orthographic camera must use the physical drawing-buffer aspect,
  // not an assumed CSS aspect (the legacy game used a fixed 1000×640 canvas).
@@ -414,7 +418,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  observer?.observe(canvas);
  const onWheel=e=>{
   e.preventDefault();
-  zoom=clamp(zoom*Math.exp(e.deltaY*.0012),.22,2.6);
+  zoom=clamp(zoom*Math.exp(e.deltaY*.0012),ZOOM_MINIMO,ZOOM_MAXIMO);
   resize();requestDraw?.();
  };
  canvas.addEventListener('wheel',onWheel,{passive:false});
@@ -429,7 +433,8 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  const onResize=()=>resize();
  const resetView=()=>{
   camera.target.copyFrom(originalTarget);
-  zoom=1;
+  zoom=zoomInicialPantalla(canvas.clientWidth||window.innerWidth,
+   canvas.clientHeight||window.innerHeight,tactil);
   camera.radius=DISTANCIA_CAMARA_SEGURA;
   camera.alpha=-Math.PI*.33;camera.beta=Math.PI*.29;
   resize();requestDraw?.();
