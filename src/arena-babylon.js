@@ -1,3 +1,4 @@
+import { construirPisoLejano, elegirDetallePiso } from './arena-piso-lod.js';
 import { construirPiramides } from './arena-piramides.js';
 import { construirCasasAntiguas } from './arena-casas.js';
 import { construirCespedSelvatico } from './arena-cesped.js';
@@ -129,7 +130,7 @@ function stonePalette(seed,circle,ring){
 // and granular abrasion. UVs are world-space so the tile size never stretches.
 function stoneGrain(B,scene){
  const n=512,tex=new B.DynamicTexture('Caliza erosionada · grano mineral',
-  {width:n,height:n},scene,false);
+  {width:n,height:n},scene,true);
  const ctx=tex.getContext(),pixels=ctx.createImageData(n,n);
  const smooth=t=>t*t*(3-2*t);
  const noise=(x,y)=>{
@@ -330,16 +331,29 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
  }
  // 40% of the TOTAL surface area, not 40% per stone, nor a sum of
  // overlapping grass patches. The original paving geometry is untouched.
- let grass={globalCoverage:0,tufts:0};
+ let grass={globalCoverage:0,tufts:0,moss:null,blades:null};
+ let vegetationPlanForLOD=null;
  try{
   const vegetation=construirCespedSelvatico(B,scene,crearPlanoAdoquines(),{
    pyramids:pyramids.sites,houses:houses.sites
   });
+  vegetationPlanForLOD=vegetation;
   grass={globalCoverage:vegetation.globalCoverage,
-   tufts:vegetation.grass.tufts};
+   tufts:vegetation.grass.tufts,moss:vegetation.moss,
+   blades:vegetation.grass.mesh};
  }catch(error){
   console.error('No se pudo construir el césped selvático',error);
   onFailure?.(new Error('Fallo de vegetación: '+error.message));
+ }
+ // Consolidated stone + jungle floor at long distances: texture mipmaps
+ // prevent fine individual stone edges from crawling across mobile pixels.
+ // Near-camera 3D cobbles and true grass blades are preserved unchanged.
+ let pavementLOD=null,detailFloor=true;
+ try{
+  pavementLOD=construirPisoLejano(B,scene,crearPlanoAdoquines(),
+   vegetationPlanForLOD);
+ }catch(error){
+  console.warn('No se pudo crear el suelo optimizado; quedan los adoquines 3D',error);
  }
  // Architectural overgrowth: 40% of the COMBINED measured stone faces of
  // all three pyramids and six houses, not 40% separately on each block.
@@ -409,6 +423,19 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   }
   // Extra 17% prevents the bevelled stone boundary from touching the edge.
   const v=Math.max(maxY,maxX/aspect)*1.17*zoom;
+  if(pavementLOD){
+   // A stone is ~0.35 world units wide; use projected pixel size to
+   // switch meshes with hysteresis, avoiding flicker at the LOD boundary.
+   const pixelsPerStone=.35*engine.getRenderHeight()/(2*v);
+   const detailed=elegirDetallePiso(pixelsPerStone,detailFloor);
+   if(detailFloor!==detailed){
+    detailFloor=detailed;
+    art.mesh.setEnabled(detailed);
+    pavementLOD.mesh.setEnabled(!detailed);
+    if(grass.moss)grass.moss.setEnabled(detailed);
+    if(grass.blades)grass.blades.setEnabled(detailed);
+   }
+  }
   camera.orthoTop=v;camera.orthoBottom=-v;
   camera.orthoLeft=-v*aspect;camera.orthoRight=v*aspect;
  }
@@ -456,6 +483,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,acabado:acabado.mode,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,coberturaCespedGlobal:grass.globalCoverage,mechonesCesped:grass.tufts,coberturaVegetacionEstructuras:structuralVegetation.coverage,carasPiedraEstructuras:structuralVegetation.faces,mechonesEstructuras:structuralVegetation.tufts,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
+  piedras:art.stones,modoSuelo:detailFloor?'adoquines 3D':'piso agrupado con mipmaps',anillos:art.rings,circulos:CIRCLES.length,acabado:acabado.mode,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,coberturaCespedGlobal:grass.globalCoverage,mechonesCesped:grass.tufts,coberturaVegetacionEstructuras:structuralVegetation.coverage,carasPiedraEstructuras:structuralVegetation.faces,mechonesEstructuras:structuralVegetation.tufts,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
  return render;
 }
