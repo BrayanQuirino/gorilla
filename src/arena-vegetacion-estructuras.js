@@ -171,8 +171,8 @@ function createFerns(B,scene,selected){
  let tufts=0;
  for(let k=0;k<selected.length;k++){
   const c=selected[k],f=c.face;
-  if(!f.top||f.n[1]<.75||c.fraction<.5||tufts>=1450||
-     rand(k,17,43)>.12)continue;
+  if(!f.top||f.n[1]<.75||c.fraction<.5||tufts>=2200||
+     rand(k,17,43)>.32)continue;
   const mid=add(c.center,f.n,.013);
   const height=.09+.15*rand(k,31,47),count=4;
   for(let leaf=0;leaf<count;leaf++){
