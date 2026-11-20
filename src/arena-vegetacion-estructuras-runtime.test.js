@@ -35,5 +35,10 @@ test('Babylon runtime: actual stone faces become a lit moss mesh at 40%',()=>{
  assert.ok(result.moss.data.positions.length>0);
  assert.equal(result.moss.data.normals.length,result.moss.data.positions.length);
  assert.equal(result.moss.data.colors.length/4,result.moss.data.positions.length/3);
+ assert.ok(result.moss.name.includes('Musgo orgánico'));
+ // 12-point scalloped moss islands: no rectangular face masks.
+ assert.equal(result.moss.data.positions.length/3%13,0);
+ assert.equal(result.moss.data.indices.length%36,0);
+ assert.ok(result.coveredArea>0);
  assert.equal(vectors.length,result.ferns.mesh?2:1);
 });
