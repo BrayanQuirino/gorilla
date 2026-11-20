@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {registrarPiedraArquitectonica,construirVegetacionEstructuras}
- from './arena-vegetacion-estructuras.js';
+import {registrarPiedraArquitectonica,construirVegetacionEstructuras,
+ intensidadSelvatica} from './arena-vegetacion-estructuras.js';
 
-test('Babylon runtime: actual stone faces become a lit moss mesh at 40%',()=>{
+test('alfombra única world-space sin cuadrados verdes por bloque, cobertura 40%',()=>{
  const scene={};
- const vectors=[];
+ const assets=[];
  class Vector3{
   constructor(x,y,z){this.x=x;this.y=y;this.z=z;}
   static TransformCoordinates(v){return new Vector3(v.x,v.y,v.z);}
@@ -19,26 +19,34 @@ test('Babylon runtime: actual stone faces become a lit moss mesh at 40%',()=>{
  class StandardMaterial{constructor(){this.backFaceCulling=true;}}
  class Mesh{constructor(name){this.name=name;}}
  class VertexData{
-  applyToMesh(mesh){mesh.data=this;vectors.push(mesh);}
+  applyToMesh(mesh){mesh.data=this;assets.push(mesh);}
   static ComputeNormals(positions,indices,out){
    for(let i=0;i<positions.length;i++)out.push(0);
   }
  }
- const B={Vector3,Color3,StandardMaterial,Mesh,VertexData};
+ class DynamicTexture{
+  constructor(name,{width,height}){this.width=width;this.height=height;
+   this.ctx={createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+    putImageData(){}};}
+  getContext(){return this.ctx;}
+  update(){}
+ }
+ const B={Vector3,Color3,StandardMaterial,Mesh,VertexData,DynamicTexture,
+  Texture:{CLAMP_ADDRESSMODE:1},Material:{MATERIAL_ALPHATEST:1}};
  const mesh={computeWorldMatrix(){},getWorldMatrix(){return {};}};
  registrarPiedraArquitectonica(scene,mesh,4,2,3,'Pared de caliza');
  const result=construirVegetacionEstructuras(B,scene);
  assert.equal(result.stones,1);
- assert.ok(result.faces>100);
+ assert.ok(result.faces>0);
  assert.ok(Math.abs(result.coverage-.4)<1e-10);
- assert.ok(result.ferns.tufts>=0);
- assert.ok(result.moss.data.positions.length>0);
- assert.equal(result.moss.data.normals.length,result.moss.data.positions.length);
- assert.equal(result.moss.data.colors.length/4,result.moss.data.positions.length/3);
- assert.ok(result.moss.name.includes('Musgo orgánico'));
- // 12-point scalloped moss islands: no rectangular face masks.
- assert.equal(result.moss.data.positions.length/3%13,0);
- assert.equal(result.moss.data.indices.length%36,0);
- assert.ok(result.coveredArea>0);
- assert.equal(vectors.length,result.ferns.mesh?2:1);
+ assert.ok(result.materialContinuo);
+ assert.ok(result.moss.name.includes('Alfombra vegetal continua'));
+ assert.equal(result.moss.data.positions.length/3,4,
+  'toda la cara tiene UN solo cuadrilátero transparente, no musgo por bloques');
+ assert.equal(result.moss.data.uvs.length,8);
+ assert.ok(result.moss.material.useAlphaFromDiffuseTexture);
+ assert.ok(result.moss.material.diffuseTexture.hasAlpha);
+ assert.ok(result.ferns.tufts>0);
+ assert.equal(assets.length,2);
+ assert.ok(Math.abs(intensidadSelvatica(5,8)-intensidadSelvatica(5,8))<1e-10);
 });
