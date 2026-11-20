@@ -40,7 +40,7 @@ test('alfombra única world-space sin cuadrados verdes por bloque, cobertura 40%
  assert.ok(result.faces>0);
  assert.ok(Math.abs(result.coverage-.4)<1e-10);
  assert.ok(result.materialContinuo);
- assert.ok(result.moss.name.includes('Alfombra vegetal continua'));
+ assert.ok(result.moss.name.includes('Alfombra selvática continua'));
  assert.equal(result.overlays.length,3,'tres proyecciones globales para techo y paredes');
  assert.equal(result.moss.data.positions.length/3,4,
   'toda cara superior tiene una sola proyección con transparencia');
