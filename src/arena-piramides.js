@@ -1,3 +1,4 @@
+import { registrarPiedraArquitectonica } from './arena-vegetacion-estructuras.js';
 // Stone architecture layer for Babylon.js arena.
 // Geometry stays independent of the cobbled floor and the combat simulation.
 // Three asymmetrically placed temples: almost intact, moderately damaged, and heavily collapsed.
@@ -49,6 +50,7 @@ function box(B,scene,parent,name,x,y,z,w,h,d,mat,shadow,angle=0){
  const mesh=B.MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);
  mesh.parent=parent;mesh.position.set(x,y,z);mesh.rotation.y=angle;
  mesh.material=mat;mesh.receiveShadows=true;
+ registrarPiedraArquitectonica(scene,mesh,w,h,d,name);
  if(shadow && typeof shadow.addShadowCaster==='function')
   shadow.addShadowCaster(mesh);
  return mesh;
