@@ -3,6 +3,7 @@ import { construirCasasAntiguas } from './arena-casas.js';
 import { construirCespedSelvatico } from './arena-cesped.js';
 import { construirVegetacionEstructuras } from './arena-vegetacion-estructuras.js';
 import { aplicarAcabadoArena } from './arena-acabado.js';
+import { instalarZoomTactil } from './arena-zoom.js';
 // First arena: beige weathered cobblestone pavement ONLY.
 // Deliberately no GLB, trees, rocks, water, gameplay actors or UI geometry.
 // Babylon.js is provided by index.html. Every stone has genuine bevelled 3D volume.
@@ -417,6 +418,14 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   resize();requestDraw?.();
  };
  canvas.addEventListener('wheel',onWheel,{passive:false});
+ // iOS/Android: Babylon's built-in pinch changes camera.radius, but radius
+ // is intentionally locked at 150 for safe orthographic clipping. Change the
+ // actual orthographic zoom instead; single-finger orbit stays enabled.
+ const liberarZoomTactil=instalarZoomTactil(canvas,()=>zoom,next=>{
+  zoom=next;
+  resize();
+  requestDraw?.();
+ });
  const onResize=()=>resize();
  const resetView=()=>{
   camera.target.copyFrom(originalTarget);
@@ -435,6 +444,7 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   disposed=true;window.removeEventListener('resize',onResize);
   observer?.disconnect();
   canvas.removeEventListener('wheel',onWheel);
+  liberarZoomTactil();
   canvas.removeEventListener('dblclick',resetView);
   camera.detachControl(canvas);engine.stopRenderLoop();
   acabado.pipeline?.dispose();
