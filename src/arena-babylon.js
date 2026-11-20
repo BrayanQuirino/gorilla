@@ -1,6 +1,7 @@
 import { construirPiramides } from './arena-piramides.js';
 import { construirCasasAntiguas } from './arena-casas.js';
 import { construirCespedSelvatico } from './arena-cesped.js';
+import { construirVegetacionEstructuras } from './arena-vegetacion-estructuras.js';
 import { aplicarAcabadoArena } from './arena-acabado.js';
 // First arena: beige weathered cobblestone pavement ONLY.
 // Deliberately no GLB, trees, rocks, water, gameplay actors or UI geometry.
@@ -339,6 +340,17 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   console.error('No se pudo construir el césped selvático',error);
   onFailure?.(new Error('Fallo de vegetación: '+error.message));
  }
+ // Architectural overgrowth: 40% of the COMBINED measured stone faces of
+ // all three pyramids and six houses, not 40% separately on each block.
+ let structuralVegetation={coverage:0,faces:0,stones:0,tufts:0};
+ try{
+  const growth=construirVegetacionEstructuras(B,scene);
+  structuralVegetation={coverage:growth.coverage,faces:growth.faces,
+   stones:growth.stones,tufts:growth.ferns.tufts};
+ }catch(error){
+  console.error('No se pudo construir el musgo de casas y pirámides',error);
+  onFailure?.(new Error('Fallo de vegetación en estructuras: '+error.message));
+ }
  let disposed=false,lastW=0,lastH=0,zoom=1;
  const originalTarget=new B.Vector3(0,0,0);
  // A Babylon orthographic camera must use the physical drawing-buffer aspect,
@@ -429,6 +441,6 @@ export function crear_dibujante_babylon(canvas,requestDraw,onFailure){
   scene.dispose();engine.dispose();
  };
  render.diagnostico=()=>({motor:'Babylon.js',escena:'adoquines beige',
-  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,acabado:acabado.mode,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,coberturaCespedGlobal:grass.globalCoverage,mechonesCesped:grass.tufts,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
+  piedras:art.stones,anillos:art.rings,circulos:CIRCLES.length,acabado:acabado.mode,piramides:pyramids.sites.length,conservadas:pyramids.complete,derrumbadas:pyramids.collapsed,casas:houses.sites.length,coberturaCespedGlobal:grass.globalCoverage,mechonesCesped:grass.tufts,coberturaVegetacionEstructuras:structuralVegetation.coverage,carasPiedraEstructuras:structuralVegetation.faces,mechonesEstructuras:structuralVegetation.tufts,ancho:W,profundidad:D,distanciaCamara:camera.radius,zoom,actores:0,decoracion:0});
  return render;
 }
