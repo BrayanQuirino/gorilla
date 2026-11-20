@@ -1,8 +1,8 @@
-// Jungle moss and young ferns on the ACTUAL masonry faces of all buildings.
-// Stone meshes register here during construction; a single batched material
-// overlays their visible top/side faces. No floating horizontal green carpets.
-// 40% is measured ONCE over the combined surface area of ALL registered
-// pyramids and houses, not 40% per stone, building, or a sum of overlaps.
+// Organic jungle overgrowth on the actual upward-facing masonry surfaces.
+// No square green face masks or wall-wide painted rectangles. Growth is
+// expressed with irregular scalloped moss polygons and individual grass blades.
+// The 40% budget is measured as a geometric UNION over all eligible upper
+// surfaces of the six houses and three pyramids, never per individual stone.
 export const COBERTURA_ESTRUCTURAS=.40;
 const STORAGE=Symbol.for('gorilla.arena.superficiesDePiedra');
 const rand=(x,y,z=0)=>{
@@ -63,9 +63,10 @@ function buildFace(B,mesh,face,maxStep){
  const sign=normal[0]*outward.x+normal[1]*outward.y+normal[2]*outward.z>=0?1:-1;
  return {o,du,dv,n:normal.map(x=>x/nl*sign),area:nl,nx,ny,top:face.top};
 }
-export function seleccionarCoberturaGlobal(cells,coverage=COBERTURA_ESTRUCTURAS){
+export function seleccionarCoberturaGlobal(cells,coverage=COBERTURA_ESTRUCTURAS,
+ surfaceArea=null){
  if(coverage<0||coverage>1)throw new Error('Cobertura inválida');
- const totalArea=cells.reduce((s,c)=>s+c.area,0),goal=totalArea*coverage;
+ const totalArea=surfaceArea??cells.reduce((s,c)=>s+c.area,0),goal=totalArea*coverage;
  const ordered=cells.map((c,index)=>({...c,index}))
   .sort((a,b)=>b.score-a.score||a.index-b.index);
  const selected=[];let area=0;
@@ -78,60 +79,89 @@ export function seleccionarCoberturaGlobal(cells,coverage=COBERTURA_ESTRUCTURAS)
  return {selected,totalArea,coveredArea:area,
   coverage:totalArea?area/totalArea:0};
 }
+// The irregular moss island is fully contained within a cell. Adjacent
+// islands are not rectangles; their edges are a deliberately varied silhouette.
+// Exact island area is derived from the shoelace formula, not bounding boxes.
+export function poligonoMusgo(seed){
+ const n=12,points=[];
+ for(let k=0;k<n;k++){
+  const a=(k+.10*(rand(seed,k,67)-.5))*Math.PI*2/n;
+  const edge=.5/Math.max(Math.abs(Math.cos(a)),Math.abs(Math.sin(a)));
+  const radius=edge*(.73+.22*rand(seed,k,73));
+  points.push([Math.cos(a)*radius,Math.sin(a)*radius]);
+ }
+ return points;
+}
+export function areaPoligono(points){
+ let sum=0;
+ for(let i=0;i<points.length;i++){
+  const a=points[i],b=points[(i+1)%points.length];
+  sum+=a[0]*b[1]-b[0]*a[1];
+ }
+ return Math.abs(sum)*.5;
+}
 function createCells(B,scene){
- const cells=[],maxStep=.36;
+ const cells=[],maxStep=.30;
+ let surfaceArea=0;
  for(const item of scene[STORAGE]||[]){
   item.mesh.computeWorldMatrix(true);
-  for(const raw of facesOf(item.w,item.h,item.d)){
-   const face=buildFace(B,item.mesh,raw,maxStep);
-   if(!face)continue;
-   for(let j=0;j<face.ny;j++)for(let i=0;i<face.nx;i++){
-    const center=add(add(face.o,face.du,i+.5),face.dv,j+.5);
-    // Broad continuous, irregular patches, slightly favoured by rain
-    // on ledges and wall cracks, without per-building quota.
-    const canopy=noise(center[0]*.61,center[2]*.61,center[1]*.43,7);
-    const small=noise(center[0]*1.9,center[2]*1.9,center[1]*1.2,17);
-    const fine=rand(Math.round(center[0]*39),Math.round(center[2]*37),
-     Math.round(center[1]*31));
-    const score=.70*canopy+.23*small+.04*fine+
-     (face.top?.075:.015)+.025*Math.max(0,1-center[1]/7);
-    cells.push({face,i,j,area:face.area,score,center});
-   }
+  // Only actual terraces, roof remnants, fallen stones, lintels, wall caps:
+  // vertical limestone remains natural beige (no voxel-like green walls).
+  const face=buildFace(B,item.mesh,facesOf(item.w,item.h,item.d)[0],maxStep);
+  if(!face||face.n[1]<.62)continue;
+  for(let j=0;j<face.ny;j++)for(let i=0;i<face.nx;i++){
+   const center=add(add(face.o,face.du,i+.5),face.dv,j+.5);
+   const seed=(Math.round(center[0]*127)+Math.round(center[2]*89)+
+    Math.round(center[1]*239))|0;
+   const polygon=poligonoMusgo(seed),polygonArea=areaPoligono(polygon);
+   const canopy=noise(center[0]*.55,center[2]*.55,center[1]*.35,7);
+   const detail=noise(center[0]*1.8,center[2]*1.8,center[1]*1.1,17);
+   const fine=rand(Math.round(center[0]*39),Math.round(center[2]*37),
+    Math.round(center[1]*31));
+   const score=.73*canopy+.24*detail+.03*fine+
+    .05*Math.max(0,1-center[1]/7);
+   cells.push({face,i,j,area:face.area*polygonArea,score,center,
+    polygon,seed});
+   surfaceArea+=face.area;
   }
  }
- return cells;
+ return {cells,surfaceArea};
 }
 function createMossMesh(B,scene,selected){
  const positions=[],indices=[],colors=[],normals=[];
- const shades=[[.19,.39,.12],[.25,.47,.14],[.34,.50,.20],
-  [.16,.31,.11],[.29,.44,.15]];
+ const shades=[[.25,.38,.14],[.29,.42,.17],[.31,.43,.19],
+  [.21,.35,.12],[.35,.45,.20]];
  for(const cell of selected){
-  const {face,i,j,fraction}=cell;
-  const f=face,offset=.008;
-  const p=(u,v)=>add(add(add(f.o,f.du,u),f.dv,v),f.n,offset);
-  // Partial last cell is shortened, so coverage is an area-weighted
-  // fraction rather than exceeding 40% after rounding to whole cells.
-  const corners=[p(i,j),p(i+fraction,j),p(i+fraction,j+1),p(i,j+1)];
+  const {face,fraction,polygon,seed}=cell;
+  const scale=Math.sqrt(fraction),offset=.009;
+  const center=add(cell.center,face.n,offset);
   const base=positions.length/3;
-  const seed=rand(i,j,Math.floor(cell.score*1000));
-  const color=shades[Math.min(shades.length-1,Math.floor(seed*shades.length))];
-  for(const [x,y,z] of corners){
-   positions.push(x,y,z);
-   colors.push(...color,1);
-   // Explicit face normals: the 3D patch receives the same soft light as
-   // its stone face even when a parent's transform flips winding.
-   normals.push(...f.n);
+  const shade=shades[Math.min(shades.length-1,
+   Math.floor(rand(seed,19,29)*shades.length))];
+  const centerTint=shade.map(x=>x*.93);
+  positions.push(...center);colors.push(...centerTint,1);normals.push(...face.n);
+  for(let k=0;k<polygon.length;k++){
+   const [u,v]=polygon[k];
+   const p=add(add(center,face.du,u*scale),face.dv,v*scale);
+   positions.push(...p);
+   // Variation makes the edges read as scattered moss, not acrylic paint.
+   const variation=.90+.12*rand(seed,k,107);
+   colors.push(...shade.map(x=>x*variation),1);
+   normals.push(...face.n);
   }
-  indices.push(base,base+1,base+2,base,base+2,base+3);
+  // Organic fan with no straight rectangular perimeter.
+  for(let k=0;k<polygon.length;k++){
+   indices.push(base,base+k+1,base+((k+1)%polygon.length)+1);
+  }
  }
- const mesh=new B.Mesh('Musgo 40% global sobre caras de piedra',scene);
+ const mesh=new B.Mesh('Musgo orgánico irregular sobre piedra',scene);
  const vd=new B.VertexData();
  vd.positions=positions;vd.indices=indices;vd.colors=colors;vd.normals=normals;
  vd.applyToMesh(mesh);
- const mat=new B.StandardMaterial('Musgo húmedo sobre arquitectura',scene);
+ const mat=new B.StandardMaterial('Musgo fino natural en ruinas',scene);
  mat.diffuseColor=B.Color3.White();
- mat.specularColor=new B.Color3(.008,.011,.004);
- mat.emissiveColor=new B.Color3(.055,.075,.022);
+ mat.specularColor=new B.Color3(.006,.008,.003);
+ mat.emissiveColor=new B.Color3(.045,.058,.019);
  mat.useVertexColors=true;mat.backFaceCulling=false;
  mesh.material=mat;mesh.receiveShadows=false;
  return mesh;
@@ -176,10 +206,11 @@ function createFerns(B,scene,selected){
  return {mesh,tufts};
 }
 export function construirVegetacionEstructuras(B,scene){
- const cells=createCells(B,scene);
- if(!cells.length)throw new Error('No hay caras de piedra registradas');
- const plan=seleccionarCoberturaGlobal(cells);
+ const {cells,surfaceArea}=createCells(B,scene);
+ if(!cells.length)throw new Error('No hay caras superiores de piedra registradas');
+ const plan=seleccionarCoberturaGlobal(cells,COBERTURA_ESTRUCTURAS,surfaceArea);
  const moss=createMossMesh(B,scene,plan.selected);
  const ferns=createFerns(B,scene,plan.selected);
- return {...plan,moss,ferns,faces:cells.length,stones:contarPiedrasArquitectonicas(scene)};
+ return {...plan,moss,ferns,faces:cells.length,stones:contarPiedrasArquitectonicas(scene),
+  modo:'musgo irregular + césped 3D en superficies superiores'};
 }
