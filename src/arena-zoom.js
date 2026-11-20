@@ -1,7 +1,13 @@
 // Orthographic zoom is independent from Babylon ArcRotateCamera.radius.
 // The radius must remain safely outside the arena even when pinching.
-export const ZOOM_MINIMO=.22;
+// 0.035 allows ~28.6× the fitted view, enough to inspect individual stones.
+export const ZOOM_MINIMO=.035;
 export const ZOOM_MAXIMO=2.6;
+// Mobile starts closer than the whole-map overview; desktop keeps its framing.
+export function zoomInicialPantalla(width,height,tactil=false){
+ if(!tactil)return 1;
+ return height>width?.64:.78;
+}
 export function distanciaPellizco(a,b){
  return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
 }
