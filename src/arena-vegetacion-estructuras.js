@@ -102,7 +102,7 @@ function createCells(B,scene){
  return cells;
 }
 function createMossMesh(B,scene,selected){
- const positions=[],indices=[],colors=[];
+ const positions=[],indices=[],colors=[],normals=[];
  const shades=[[.19,.39,.12],[.25,.47,.14],[.34,.50,.20],
   [.16,.31,.11],[.29,.44,.15]];
  for(const cell of selected){
@@ -118,12 +118,15 @@ function createMossMesh(B,scene,selected){
   for(const [x,y,z] of corners){
    positions.push(x,y,z);
    colors.push(...color,1);
+   // Explicit face normals: the 3D patch receives the same soft light as
+   // its stone face even when a parent's transform flips winding.
+   normals.push(...f.n);
   }
   indices.push(base,base+1,base+2,base,base+2,base+3);
  }
  const mesh=new B.Mesh('Musgo 40% global sobre caras de piedra',scene);
  const vd=new B.VertexData();
- vd.positions=positions;vd.indices=indices;vd.colors=colors;
+ vd.positions=positions;vd.indices=indices;vd.colors=colors;vd.normals=normals;
  vd.applyToMesh(mesh);
  const mat=new B.StandardMaterial('Musgo húmedo sobre arquitectura',scene);
  mat.diffuseColor=B.Color3.White();
@@ -160,8 +163,9 @@ function createFerns(B,scene,selected){
  }
  if(!positions.length)return {mesh:null,tufts:0};
  const mesh=new B.Mesh('Hierbas tropicales en cornisas y terrazas',scene);
- const vd=new B.VertexData();
- vd.positions=positions;vd.indices=indices;vd.colors=colors;
+ const vd=new B.VertexData(),normals=[];
+ B.VertexData.ComputeNormals(positions,indices,normals);
+ vd.positions=positions;vd.indices=indices;vd.colors=colors;vd.normals=normals;
  vd.applyToMesh(mesh);
  const mat=new B.StandardMaterial('Brotes de selva antigua',scene);
  mat.diffuseColor=B.Color3.White();
