@@ -1,216 +1,208 @@
-// Organic jungle overgrowth on the actual upward-facing masonry surfaces.
-// No square green face masks or wall-wide painted rectangles. Growth is
-// expressed with irregular scalloped moss polygons and individual grass blades.
-// The 40% budget is measured as a geometric UNION over all eligible upper
-// surfaces of the six houses and three pyramids, never per individual stone.
+// Continuous jungle turf for the nine stone ruins.
+// A single WORLD-SPACE grass pattern crosses masonry joints: no block-by-block
+// green squares. Alpha-cutout turf follows exposed horizontal masonry, with
+// thousands of real 3D blades. 40% applies to all eligible surfaces combined.
 export const COBERTURA_ESTRUCTURAS=.40;
 const STORAGE=Symbol.for('gorilla.arena.superficiesDePiedra');
-const rand=(x,y,z=0)=>{
+function hash(x,y,z=0){
  let n=(Math.imul(x,374761393)+Math.imul(y,668265263)+Math.imul(z,1442695041))|0;
  n=Math.imul(n^(n>>>13),1274126177);
  return ((n^(n>>>16))>>>0)/4294967295;
-};
-const smooth=x=>x*x*(3-2*x);
-function noise(x,z,y,seed){
- const i=Math.floor(x),j=Math.floor(z),k=Math.floor(y);
- const u=smooth(x-i),v=smooth(z-j),w=smooth(y-k);
- const xy=(z0)=>{
-  const a=rand(i,j,z0+seed)*(1-u)+rand(i+1,j,z0+seed)*u;
-  const b=rand(i,j+1,z0+seed)*(1-u)+rand(i+1,j+1,z0+seed)*u;
-  return a*(1-v)+b*v;
- };
- return xy(k)*(1-w)+xy(k+1)*w;
+}
+const smooth=t=>t*t*(3-2*t);
+function noise(x,z,seed){
+ const ix=Math.floor(x),iz=Math.floor(z),u=smooth(x-ix),v=smooth(z-iz);
+ const a=hash(ix,iz,seed)*(1-u)+hash(ix+1,iz,seed)*u;
+ const b=hash(ix,iz+1,seed)*(1-u)+hash(ix+1,iz+1,seed)*u;
+ return a*(1-v)+b*v;
+}
+// Stable broad jungle carpets, independently of any individual stone outline.
+export function intensidadSelvatica(x,z){
+ const broad=noise(x*.13,z*.13,8);
+ const intermediate=noise(x*.36+31,z*.36,19);
+ const detail=noise(x*1.25,z*1.25,29);
+ return broad*.60+intermediate*.31+detail*.09;
 }
 export function registrarPiedraArquitectonica(scene,mesh,w,h,d,kind){
  if(!scene||!mesh||!(w>0&&h>0&&d>0))return;
- // Timber is not limestone. Rubble, stone floors and columns do qualify.
  if(kind?.startsWith('Viga antigua'))return;
  (scene[STORAGE]??=[]).push({mesh,w,h,d,kind});
 }
-export function contarPiedrasArquitectonicas(scene){
- return scene?.[STORAGE]?.length||0;
-}
-// A face's oriented local rectangle; the underside is not exposed.
-function facesOf(w,h,d){
- return [
-  {o:[-w/2,h/2,-d/2],u:[w,0,0],v:[0,0,d],n:[0,1,0],top:true},
-  {o:[-w/2,-h/2,-d/2],u:[w,0,0],v:[0,h,0],n:[0,0,-1]},
-  {o:[w/2,-h/2,d/2],u:[-w,0,0],v:[0,h,0],n:[0,0,1]},
-  {o:[-w/2,-h/2,d/2],u:[0,0,-d],v:[0,h,0],n:[-1,0,0]},
-  {o:[w/2,-h/2,-d/2],u:[0,0,d],v:[0,h,0],n:[1,0,0]}
- ];
-}
-const magnitude=v=>Math.hypot(...v);
-const add=(a,b,f=1)=>[a[0]+b[0]*f,a[1]+b[1]*f,a[2]+b[2]*f];
-const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
-function buildFace(B,mesh,face,maxStep){
- const m=mesh.getWorldMatrix();
- const point=p=>{
-  const v=B.Vector3.TransformCoordinates(new B.Vector3(...p),m);
-  return [v.x,v.y,v.z];
- };
- const o=point(face.o);
- const u0=point(add(face.o,face.u));
- const v0=point(add(face.o,face.v));
- const U=u0.map((n,i)=>n-o[i]),V=v0.map((n,i)=>n-o[i]);
- const lu=magnitude(U),lv=magnitude(V);
- const nx=Math.max(1,Math.ceil(lu/maxStep)),ny=Math.max(1,Math.ceil(lv/maxStep));
- const du=U.map(x=>x/nx),dv=V.map(x=>x/ny);
- const normal=cross(du,dv),nl=magnitude(normal);
- if(nl<1e-8)return null;
- // Match actual local outward normal, even if parent has rotations.
- const outward=B.Vector3.TransformNormal(new B.Vector3(...face.n),m);
- const sign=normal[0]*outward.x+normal[1]*outward.y+normal[2]*outward.z>=0?1:-1;
- return {o,du,dv,n:normal.map(x=>x/nl*sign),area:nl,nx,ny,top:face.top};
-}
+export const contarPiedrasArquitectonicas=scene=>scene?.[STORAGE]?.length||0;
 export function seleccionarCoberturaGlobal(cells,coverage=COBERTURA_ESTRUCTURAS,
- surfaceArea=null){
+ areaTotal=null){
  if(coverage<0||coverage>1)throw new Error('Cobertura inválida');
- const totalArea=surfaceArea??cells.reduce((s,c)=>s+c.area,0),goal=totalArea*coverage;
- const ordered=cells.map((c,index)=>({...c,index}))
+ const totalArea=areaTotal??cells.reduce((s,c)=>s+c.area,0);
+ if(!totalArea)return {selected:[],totalArea:0,coveredArea:0,coverage:0,threshold:1};
+ const ordered=cells.map((c,i)=>({...c,index:i}))
   .sort((a,b)=>b.score-a.score||a.index-b.index);
- const selected=[];let area=0;
+ const goal=totalArea*coverage;
+ let area=0;const selected=[];let threshold=1;
  for(const c of ordered){
-  if(area>=goal-1e-9)break;
+  if(area>=goal-1e-10)break;
   const fraction=Math.min(1,(goal-area)/c.area);
   selected.push({...c,fraction});
-  area+=c.area*fraction;
+  area+=c.area*fraction;threshold=c.score;
  }
  return {selected,totalArea,coveredArea:area,
-  coverage:totalArea?area/totalArea:0};
+  coverage:area/totalArea,threshold};
 }
-// The irregular moss island is fully contained within a cell. Adjacent
-// islands are not rectangles; their edges are a deliberately varied silhouette.
-// Exact island area is derived from the shoelace formula, not bounding boxes.
-export function poligonoMusgo(seed){
- const n=12,points=[];
- for(let k=0;k<n;k++){
-  const a=(k+.10*(rand(seed,k,67)-.5))*Math.PI*2/n;
-  const edge=.5/Math.max(Math.abs(Math.cos(a)),Math.abs(Math.sin(a)));
-  const radius=edge*(.73+.22*rand(seed,k,73));
-  points.push([Math.cos(a)*radius,Math.sin(a)*radius]);
- }
- return points;
+const add=(a,b,k=1)=>[a[0]+b[0]*k,a[1]+b[1]*k,a[2]+b[2]*k];
+const mag=a=>Math.hypot(...a);
+function upperFace(B,item){
+ const m=item.mesh.getWorldMatrix(),{w,h,d}=item;
+ const get=(x,y,z)=>{
+  const p=B.Vector3.TransformCoordinates(new B.Vector3(x,y,z),m);
+  return [p.x,p.y,p.z];
+ };
+ const o=get(-w/2,h/2,-d/2),a=get(w/2,h/2,-d/2),b=get(-w/2,h/2,d/2);
+ const U=a.map((v,i)=>v-o[i]),V=b.map((v,i)=>v-o[i]);
+ const outward=B.Vector3.TransformNormal(new B.Vector3(0,1,0),m);
+ if(outward.y<.78||mag(U)<.03||mag(V)<.03)return null;
+ return {o,U,V,area:Math.hypot(U[0]*V[2]-U[2]*V[0],
+  U[0]*V[1]-U[1]*V[0],U[1]*V[2]-U[2]*V[1]),kind:item.kind};
 }
-export function areaPoligono(points){
- let sum=0;
- for(let i=0;i<points.length;i++){
-  const a=points[i],b=points[(i+1)%points.length];
-  sum+=a[0]*b[1]-b[0]*a[1];
- }
- return Math.abs(sum)*.5;
-}
-function createCells(B,scene){
- const cells=[],maxStep=.30;
- let surfaceArea=0;
+function makeSamples(B,scene){
+ const faces=[],samples=[],step=.23;
  for(const item of scene[STORAGE]||[]){
   item.mesh.computeWorldMatrix(true);
-  // Only actual terraces, roof remnants, fallen stones, lintels, wall caps:
-  // vertical limestone remains natural beige (no voxel-like green walls).
-  const face=buildFace(B,item.mesh,facesOf(item.w,item.h,item.d)[0],maxStep);
-  if(!face||face.n[1]<.62)continue;
-  for(let j=0;j<face.ny;j++)for(let i=0;i<face.nx;i++){
-   const center=add(add(face.o,face.du,i+.5),face.dv,j+.5);
-   const seed=(Math.round(center[0]*127)+Math.round(center[2]*89)+
-    Math.round(center[1]*239))|0;
-   const polygon=poligonoMusgo(seed),polygonArea=areaPoligono(polygon);
-   const canopy=noise(center[0]*.55,center[2]*.55,center[1]*.35,7);
-   const detail=noise(center[0]*1.8,center[2]*1.8,center[1]*1.1,17);
-   const fine=rand(Math.round(center[0]*39),Math.round(center[2]*37),
-    Math.round(center[1]*31));
-   const score=.73*canopy+.24*detail+.03*fine+
-    .05*Math.max(0,1-center[1]/7);
-   cells.push({face,i,j,area:face.area*polygonArea,score,center,
-    polygon,seed});
-   surfaceArea+=face.area;
+  const face=upperFace(B,item);
+  if(!face)continue;
+  const nx=Math.max(1,Math.ceil(mag(face.U)/step));
+  const nz=Math.max(1,Math.ceil(mag(face.V)/step));
+  face.nx=nx;face.nz=nz;face.stepArea=face.area/(nx*nz);
+  faces.push(face);
+  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){
+   const point=add(add(face.o,face.U,(i+.5)/nx),face.V,(j+.5)/nz);
+   // The score is WORLD-SPACE only, so it cannot reset at brick seams.
+   // True patches may span many individual bricks.
+   const score=intensidadSelvatica(point[0],point[2]);
+   samples.push({face,i,j,point,score,area:face.stepArea});
   }
  }
- return {cells,surfaceArea};
+ return {faces,samples};
 }
-function createMossMesh(B,scene,selected){
- const positions=[],indices=[],colors=[],normals=[];
- const shades=[[.25,.38,.14],[.29,.42,.17],[.31,.43,.19],
-  [.21,.35,.12],[.35,.45,.20]];
- for(const cell of selected){
-  const {face,fraction,polygon,seed}=cell;
-  const scale=Math.sqrt(fraction),offset=.009;
-  const center=add(cell.center,face.n,offset);
+// One coherent material over every stone cap. UV coordinates are computed in
+// global world meters, so the same grass carpet continues across stone seams.
+function makeCarpetMesh(B,scene,faces,world){
+ const positions=[],indices=[],uvs=[],normals=[];
+ for(const face of faces){
   const base=positions.length/3;
-  const shade=shades[Math.min(shades.length-1,
-   Math.floor(rand(seed,19,29)*shades.length))];
-  const centerTint=shade.map(x=>x*.93);
-  positions.push(...center);colors.push(...centerTint,1);normals.push(...face.n);
-  for(let k=0;k<polygon.length;k++){
-   const [u,v]=polygon[k];
-   const p=add(add(center,face.du,u*scale),face.dv,v*scale);
-   positions.push(...p);
-   // Variation makes the edges read as scattered moss, not acrylic paint.
-   const variation=.90+.12*rand(seed,k,107);
-   colors.push(...shade.map(x=>x*variation),1);
-   normals.push(...face.n);
+  const corners=[face.o,add(face.o,face.U),
+   add(add(face.o,face.U),face.V),add(face.o,face.V)];
+  for(const p of corners){
+   positions.push(p[0],p[1]+.013,p[2]);
+   uvs.push((p[0]-world.minX)/world.width,
+    1-(p[2]-world.minZ)/world.depth);
+   normals.push(0,1,0);
   }
-  // Organic fan with no straight rectangular perimeter.
-  for(let k=0;k<polygon.length;k++){
-   indices.push(base,base+k+1,base+((k+1)%polygon.length)+1);
-  }
+  indices.push(base,base+1,base+2,base,base+2,base+3);
  }
- const mesh=new B.Mesh('Musgo orgánico irregular sobre piedra',scene);
+ const mesh=new B.Mesh('Alfombra vegetal continua sobre ruinas',scene);
  const vd=new B.VertexData();
- vd.positions=positions;vd.indices=indices;vd.colors=colors;vd.normals=normals;
+ vd.positions=positions;vd.indices=indices;vd.uvs=uvs;vd.normals=normals;
  vd.applyToMesh(mesh);
- const mat=new B.StandardMaterial('Musgo fino natural en ruinas',scene);
- mat.diffuseColor=B.Color3.White();
- mat.specularColor=new B.Color3(.006,.008,.003);
- mat.emissiveColor=new B.Color3(.045,.058,.019);
- mat.useVertexColors=true;mat.backFaceCulling=false;
- mesh.material=mat;mesh.receiveShadows=false;
  return mesh;
 }
-function createFerns(B,scene,selected){
- const positions=[],indices=[],colors=[];
+function createTurfTexture(B,scene,threshold,world){
+ const width=1024,height=704;
+ const tex=new B.DynamicTexture('Césped continuo translúcido sobre ruinas',
+  {width,height},scene,false);
+ const ctx=tex.getContext(),pixels=ctx.createImageData(width,height);
+ for(let j=0;j<height;j++){
+  const z=world.minZ+(j+.5)/height*world.depth;
+  for(let i=0;i<width;i++){
+   const x=world.minX+(i+.5)/width*world.width;
+   const value=intensidadSelvatica(x,z);
+   const fine=noise(x*5.3,z*5.3,72),grain=hash(i,j,83);
+   // Fine ragged edges and muted greens, no brick-shaped silhouettes.
+   const growth=value-threshold+(.016*(fine-.5))+.009*(grain-.5);
+   const k=(j*width+i)*4;
+   const shade=.82+.23*fine+.13*grain;
+   pixels.data[k]=Math.round(77*shade);
+   pixels.data[k+1]=Math.round(138*shade);
+   pixels.data[k+2]=Math.round(42*shade);
+   pixels.data[k+3]=growth>=0?255:0;
+  }
+ }
+ ctx.putImageData(pixels,0,0);tex.update();
+ tex.hasAlpha=true;
+ if(B.Texture)tex.wrapU=tex.wrapV=B.Texture.CLAMP_ADDRESSMODE;
+ return tex;
+}
+function attachCarpetMaterial(B,scene,mesh,texture){
+ const mat=new B.StandardMaterial('Tapete de hierba selvática continua',scene);
+ mat.diffuseTexture=texture;mat.useAlphaFromDiffuseTexture=true;
+ mat.transparencyMode=B.Material?.MATERIAL_ALPHATEST??1;
+ mat.alphaCutOff=.5;mat.backFaceCulling=false;
+ mat.diffuseColor=B.Color3.White();
+ mat.specularColor=new B.Color3(.006,.009,.003);
+ mat.emissiveColor=new B.Color3(.052,.075,.018);
+ mesh.material=mat;mesh.receiveShadows=false;
+}
+// Actual narrow leaves growing OUT OF the selected carpet, batched into one
+// mesh. Unlike the old technique, no per-stone flat green geometry is drawn.
+function createGrass(B,scene,selected){
+ const positions=[],indices=[],colors=[],normals=[];
  let tufts=0;
+ const blades=7,maxTufts=6500;
  for(let k=0;k<selected.length;k++){
-  const c=selected[k],f=c.face;
-  if(!f.top||f.n[1]<.75||c.fraction<.5||tufts>=2200||
-     rand(k,17,43)>.32)continue;
-  const mid=add(c.center,f.n,.013);
-  const height=.09+.15*rand(k,31,47),count=4;
-  for(let leaf=0;leaf<count;leaf++){
-   const a=(leaf+rand(k,leaf,61)*.2)*Math.PI*2/count;
-   const dir=[Math.cos(a),0,Math.sin(a)],side=[-dir[2],0,dir[0]];
-   const width=.028+.022*rand(k,leaf,71),lean=height*.42;
-   const corners=[
-    add(mid,side,width/2),add(mid,side,-width/2),
-    add(add(mid,dir,lean),[0,height,0])];
+  const c=selected[k];
+  if(tufts>=maxTufts||c.fraction<.45||
+    hash(Math.round(c.point[0]*43),Math.round(c.point[2]*37),k)>.68)continue;
+  const [x,y,z]=c.point;
+  const height=.10+.19*hash(k,23,57),width=.023+.017*hash(k,27,61);
+  const baseY=y+.02;
+  for(let b=0;b<blades;b++){
+   const angle=(b+hash(k,b,79)*.18)*Math.PI*2/blades;
+   const dx=Math.cos(angle),dz=Math.sin(angle);
+   const lean=height*(.36+.21*hash(k,b,83));
+   const radius=.026+.062*hash(k,b,91);
+   const px=x+dx*radius,pz=z+dz*radius;
+   const sideX=-dz,sideZ=dx;
+   const localHeight=height*(.65+.45*hash(k,b,97));
    const base=positions.length/3;
-   for(let j=0;j<3;j++){
-    positions.push(...corners[j]);
-    colors.push(.22+j*.02,.39+j*.035,.095+j*.015,1);
+   const pts=[
+    [px+sideX*width*.5,baseY,pz+sideZ*width*.5],
+    [px-sideX*width*.5,baseY,pz-sideZ*width*.5],
+    [px+dx*lean,baseY+localHeight,pz+dz*lean]];
+   const shade=.83+.32*hash(k,b,103);
+   for(let t=0;t<3;t++){
+    positions.push(...pts[t]);
+    colors.push(.19*shade,.41*shade,.083*shade,1);
    }
    indices.push(base,base+2,base+1);
   }
   tufts++;
  }
- if(!positions.length)return {mesh:null,tufts:0};
- const mesh=new B.Mesh('Hierbas tropicales en cornisas y terrazas',scene);
- const vd=new B.VertexData(),normals=[];
+ const mesh=new B.Mesh('Césped fino 3D en ruinas',scene);
+ const vd=new B.VertexData();
  B.VertexData.ComputeNormals(positions,indices,normals);
  vd.positions=positions;vd.indices=indices;vd.colors=colors;vd.normals=normals;
  vd.applyToMesh(mesh);
- const mat=new B.StandardMaterial('Brotes de selva antigua',scene);
+ const mat=new B.StandardMaterial('Hojas naturales en alfombra selvática',scene);
  mat.diffuseColor=B.Color3.White();
- mat.specularColor=B.Color3.Black();
- mat.emissiveColor=new B.Color3(.085,.11,.025);
- mat.useVertexColors=true;mat.backFaceCulling=false;
+ mat.specularColor=new B.Color3(.01,.012,.005);
+ mat.emissiveColor=new B.Color3(.07,.10,.027);
+ mat.backFaceCulling=false;mat.useVertexColors=true;
  mesh.material=mat;
- return {mesh,tufts};
+ return {mesh,tufts,blades:indices.length/3};
 }
 export function construirVegetacionEstructuras(B,scene){
- const {cells,surfaceArea}=createCells(B,scene);
- if(!cells.length)throw new Error('No hay caras superiores de piedra registradas');
- const plan=seleccionarCoberturaGlobal(cells,COBERTURA_ESTRUCTURAS,surfaceArea);
- const moss=createMossMesh(B,scene,plan.selected);
- const ferns=createFerns(B,scene,plan.selected);
- return {...plan,moss,ferns,faces:cells.length,stones:contarPiedrasArquitectonicas(scene),
-  modo:'musgo irregular + césped 3D en superficies superiores'};
+ const {faces,samples}=makeSamples(B,scene);
+ if(!samples.length)throw new Error('No hay piedra horizontal en las ruinas');
+ const plan=seleccionarCoberturaGlobal(samples);
+ const xs=samples.map(s=>s.point[0]),zs=samples.map(s=>s.point[2]);
+ // Shared global coordinates, with extra padding so outer stone edges fit.
+ const minX=Math.min(...xs)-4,maxX=Math.max(...xs)+4;
+ const minZ=Math.min(...zs)-4,maxZ=Math.max(...zs)+4;
+ const world={minX,minZ,width:maxX-minX,depth:maxZ-minZ};
+ const moss=makeCarpetMesh(B,scene,faces,world);
+ const texture=createTurfTexture(B,scene,plan.threshold,world);
+ attachCarpetMaterial(B,scene,moss,texture);
+ const ferns=createGrass(B,scene,plan.selected);
+ return {...plan,moss,ferns,faces:faces.length,
+  stones:contarPiedrasArquitectonicas(scene),
+  mode:'alfombra continua en coordenadas globales + césped 3D',
+  materialContinuo:true};
 }
