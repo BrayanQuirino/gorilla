@@ -41,12 +41,16 @@ test('alfombra única world-space sin cuadrados verdes por bloque, cobertura 40%
  assert.ok(Math.abs(result.coverage-.4)<1e-10);
  assert.ok(result.materialContinuo);
  assert.ok(result.moss.name.includes('Alfombra vegetal continua'));
+ assert.equal(result.overlays.length,3,'tres proyecciones globales para techo y paredes');
  assert.equal(result.moss.data.positions.length/3,4,
-  'toda la cara tiene UN solo cuadrilátero transparente, no musgo por bloques');
+  'toda cara superior tiene una sola proyección con transparencia');
  assert.equal(result.moss.data.uvs.length,8);
+ assert.equal(result.verticalFaces,4);
+ assert.ok(result.wallTufts>0,'hojas 3D también sobresalen de las paredes');
+ assert.ok(result.overlays.every(mesh=>mesh.material.useAlphaFromDiffuseTexture));
  assert.ok(result.moss.material.useAlphaFromDiffuseTexture);
  assert.ok(result.moss.material.diffuseTexture.hasAlpha);
  assert.ok(result.ferns.tufts>0);
- assert.equal(assets.length,2);
+ assert.equal(assets.length,4,'tres coberturas continuas y un follaje 3D');
  assert.ok(Math.abs(intensidadSelvatica(5,8)-intensidadSelvatica(5,8))<1e-10);
 });
