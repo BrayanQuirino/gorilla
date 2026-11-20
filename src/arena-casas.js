@@ -1,3 +1,4 @@
+import { registrarPiedraArquitectonica } from './arena-vegetacion-estructuras.js';
 // Six distinct archaeological house ruins. These are true 3D masonry layouts,
 // not six copies of an L-shaped corner. All geometry uses Babylon primitives.
 // Pyramids reach ~4.76 units = 40 metres. The six house ruins are
@@ -35,6 +36,7 @@ function block(B,scene,node,name,x,y,z,w,h,d,mat,rotation=0){
   {width:Math.max(.012,w),height:Math.max(.012,h),depth:Math.max(.012,d)},scene);
  mesh.parent=node;mesh.position.set(x,y,z);mesh.rotation.y=rotation;
  mesh.material=mat;mesh.receiveShadows=true;
+ registrarPiedraArquitectonica(scene,mesh,w,h,d,name);
  return mesh;
 }
 function createBuilder(B,scene,node,site,mats){
